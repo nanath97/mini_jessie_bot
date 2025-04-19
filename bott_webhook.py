@@ -1,6 +1,5 @@
 import os
-from fastapi import FastAPI
-from fastapi import Request
+from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
 from dotenv import load_dotenv
@@ -13,7 +12,7 @@ TOKEN = os.getenv('BOT_TOKEN')
 
 # === Configuration du webhook ===
 WEBHOOK_PATH = f"/bot/{TOKEN}"
-RENDER_WEB_SERVICE_NAME = "mini-jessie-bot"  # Remplace par le nom exact de ton service Render
+RENDER_WEB_SERVICE_NAME = "mini-jessie-bot"
 WEBHOOK_URL = "https://" + RENDER_WEB_SERVICE_NAME + ".onrender.com" + WEBHOOK_PATH
 
 # === Configuration du bot et de FastAPI ===
@@ -38,9 +37,10 @@ async def start_handler(message: types.Message):
 @dp.message_handler()
 async def echo_handler(message: types.Message):
     await message.reply(f"Tu as dit : {message.text}")
-    
+
+# === Route webhook pour Telegram ===
 @app.post(WEBHOOK_PATH)
 async def process_webhook(update: dict, request: Request):
-telegram_update = Update(**update)
-await dp.process_update(telegram_update)
-return {"ok": True}
+    telegram_update = Update(**update)
+    await dp.process_update(telegram_update)
+    return {"ok": True}
