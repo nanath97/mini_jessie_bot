@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi import Request
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
 from dotenv import load_dotenv
@@ -37,3 +38,9 @@ async def start_handler(message: types.Message):
 @dp.message_handler()
 async def echo_handler(message: types.Message):
     await message.reply(f"Tu as dit : {message.text}")
+    
+@app.post(WEBHOOK_PATH)
+async def process_webhook(update: dict, request: Request):
+telegram_update = Update(**update)
+await dp.process_update(telegram_update)
+return {"ok": True}
