@@ -1,49 +1,39 @@
+import os
+from fastapi import FastAPI
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
-from aiogram.dispatcher.webhook import get_new_configured_app
-from aiogram.utils.executor import start_webhook
-import os
+from dotenv import load_dotenv
+import logging
+import time
 
-# === 1. Ton token Telegram ici ===
-API_TOKEN = '7623543469:AAFWp224VKWuyf32eY7SqsF6m4en3EF9nNU' # Remplace par ton vrai token Telegram
+# === Chargement des variables d'environnement ===
+load_dotenv()
+TOKEN = os.getenv('BOT_TOKEN')
 
-# === 2. Ton URL Render ici ===
-WEBHOOK_HOST = 'https://mini-jessie-bot-1.onrender.com' # Remplace par ton URL Render
-WEBHOOK_PATH = '/webhook'
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+# === Configuration du webhook ===
+WEBHOOK_PATH = f"/bot/{TOKEN}"
+RENDER_WEB_SERVICE_NAME = "mini-jessie-bot"  # Remplace par le nom exact de ton service Render
+WEBHOOK_URL = "https://" + RENDER_WEB_SERVICE_NAME + ".onrender.com" + WEBHOOK_PATH
 
-# Configuration de l'application web
-WEBAPP_HOST = '0.0.0.0' # Pour Render
-WEBAPP_PORT = int(os.environ.get('PORT', 3000)) # Port Render par défaut
-
-# Création du bot
-bot = Bot(token=API_TOKEN)
+# === Configuration du bot et de FastAPI ===
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
+app = FastAPI()
 
-# === Tes handlers ici ===
+# === Configuration du webhook au démarrage ===
+@app.on_event("startup")
+async def on_startup():
+    webhook_info = await bot.get_webhook_info()
+    if webhook_info.url != WEBHOOK_URL:
+        await bot.set_webhook(url=WEBHOOK_URL)
+
+# === Handler de test /start ===
 @dp.message_handler(commands=['start'])
-async def send_welcome(message: types.Message):
-await message.reply("Bienvenue, ton bot fonctionne en mode Webhook !")
+async def start_handler(message: types.Message):
+    await message.reply("Bienvenue, ton bot fonctionne en mode Webhook !")
 
+# === Réponse par défaut ===
 @dp.message_handler()
-async def echo(message: types.Message):
-await message.reply(f"Tu as dit : {message.text}")
-
-# === Fonctions de démarrage/arrêt ===
-async def on_startup(dispatcher):
-await bot.set_webhook(WEBHOOK_URL)
-
-async def on_shutdown(dispatcher):
-await bot.delete_webhook()
-
-# === Lancement du serveur Webhook ===
-if __name__ == '__main__':
-start_webhook(
-dispatcher=dp,
-webhook_path=WEBHOOK_PATH,
-on_startup=on_startup,
-on_shutdown=on_shutdown,
-skip_updates=True,
-host=WEBAPP_HOST,
-port=WEBAPP_PORT,
-)
+async def echo_handler(message: types.Message):
+    await message.reply(f"Tu as dit : {message.text}")
