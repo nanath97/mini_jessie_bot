@@ -22,13 +22,13 @@ async def show_preview(message: types.Message):
 # Option 2 : Voir le contenu du jour
 @dp.message_handler(lambda message: message.text == "Voir le contenu du jour")
 async def offer(message: types.Message):
-    await message.answer("Aujourd’hui, tu peux débloquer 1 vidéo de moi me doigtant comme une coquine dans ma salle de bain, plus 1 figurine digitale de ma miniature pour seulement 39€. Offre valable pendant 1 heure. Clique ici : https://t.me/+54dzzTNvQfYxMDQ0")
+    await message.answer("Aujourd’hui, tu peux débloquer 1 vidéo de moi me doigtant comme une coquine dans ma salle de bain, plus 1 figurine digitale de ma miniature pour seulement 39€. Offre valable pendant 1 heure. Clique ici :https://t.me/+8Chmd4e9zVRjZjVk")
 
 # Option 3 : Juste discuter
 @dp.message_handler(lambda message: message.text == "Juste discuter")
 async def chat(message: types.Message):
     await message.answer("Tu peux m’écrire ici directement. Mais sache que mes contenus exclusifs sont réservés aux abonnés ! Et ce n'est pas sûr que je te réponde de suite...")
 
-# Lancement du bot
+# Lancement du botN
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
