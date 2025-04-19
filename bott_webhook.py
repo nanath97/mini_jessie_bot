@@ -18,6 +18,7 @@ WEBHOOK_URL = "https://" + RENDER_WEB_SERVICE_NAME + ".onrender.com" + WEBHOOK_P
 # === Configuration du bot et de FastAPI ===
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
+Bot.set_current(bot)  # Important pour le contexte de aiogram
 dp = Dispatcher(bot)
 app = FastAPI()
 
