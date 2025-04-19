@@ -8,19 +8,19 @@ import os
 API_TOKEN = '7623543469:AAFWp224VKWuyf32eY7SqsF6m4en3EF9nNU' # Remplace par ton vrai token Telegram
 
 # === 2. Ton URL Render ici ===
-WEBHOOK_HOST = 'https://mini-jessie-bot.onrender.com' # Remplace par l'URL exacte de ton Render
+WEBHOOK_HOST = 'https://mini-jessie-bot-1.onrender.com' # Remplace par ton URL Render
 WEBHOOK_PATH = '/webhook'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # Configuration de l'application web
 WEBAPP_HOST = '0.0.0.0' # Pour Render
-WEBAPP_PORT = int(os.environ.get('PORT', 3000)) # Port attribué par Render
+WEBAPP_PORT = int(os.environ.get('PORT', 3000)) # Port Render par défaut
 
 # Création du bot
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# === Tes commandes ici ===
+# === Tes handlers ici ===
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
 await message.reply("Bienvenue, ton bot fonctionne en mode Webhook !")
