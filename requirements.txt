@@ -1,3 +1,4 @@
-aiogram==2.25.1
 fastapi
-python-dotenv
+aiogram==2.22.2
+gunicorn
+uvicorn
