@@ -1,6 +1,6 @@
 from bott_webhook import app
 from fastapi import FastAPI
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 import time
 import logging
 import os
