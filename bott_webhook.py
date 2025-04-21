@@ -48,14 +48,14 @@ async def handle_start(message: types.Message):
         await message.answer(f"Salut {user_name} ! Que veux-tu faire ?", reply_markup=keyboard)
 
 # === Réponses pour chaque bouton ===
-@dp.message_handler(lambda message: message.text == "🔥 Discuter en tant que VIP")
+@dp.message_handler(lambda message: message.text == "Discuter en tant que VIP")
 async def show_preview(message: types.Message):
     await message.answer("Nous allons faire connaissance, discuter de tout et de rien et je t’offrirai des moments privilégiés réservés aux VIP après achat.")
 
-@dp.message_handler(lambda message: message.text == "📸 Voir le contenu du jour")
+@dp.message_handler(lambda message: message.text == "Voir le contenu du jour")
 async def show_content(message: types.Message):
     await message.answer("Voici ma vidéo super sex disponible aujourd’hui. Clique ici pour en profiter !")
 
-@dp.message_handler(lambda message: message.text == "💬 Juste discuter")
+@dp.message_handler(lambda message: message.text == "Juste discuter")
 async def just_chat(message: types.Message):
     await message.answer("Désolée; mais si c'est juste pour discuter et rien de plus, je ne pourrais pas te répondre...J'en suis vraiment désolée !")
