@@ -5,13 +5,13 @@ from aiogram.utils import executor
 from fastapi import FastAPI
 import logging
 
-API_TOKEN = "YOUR_API_TOKEN"
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
-bot = Bot(token=API_TOKEN)
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
 # FastAPI app (for Render webhook)
