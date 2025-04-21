@@ -1,58 +1,39 @@
-
-import os
-from aiogram import Bot, Dispatcher, types
+from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.utils import executor
+from aiogram.dispatcher import Dispatcher
 from fastapi import FastAPI
-from dotenv import load_dotenv
 
-load_dotenv()
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
 app = FastAPI()
 
-# === Commande /start avec détection de lien TillyPay + boutons personnalisés ===
-@dp.message_handler(commands=['start'])
-async def handle_start(message: types.Message):
-    payload = message.get_args()
-    user_name = message.from_user.first_name or message.from_user.username or "mon cœur"
+# Clavier sans emojis
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add(
+    KeyboardButton("Voir le contenu du jour"),
+    KeyboardButton("Juste discuter"),
+    KeyboardButton("Discuter en tant que VIP")
+)
 
-    if payload == "paid123":
-        await bot.send_message(
-            chat_id=message.from_user.id,
-            text="Merci mon cœur pour ton achat ! Ta vidéo est en cours de chargement, elle arrive dans un instant, ne t'inquiète pas mon cœur"
-        )
-    elif payload == "vipaccess":
-        await bot.send_message(
-            chat_id=message.from_user.id,
-            text=f"Coucou {user_name} ! Ça me fait plaisir que tu veuilles apprendre à me connaître plus en profondeur"
-        )
-    else:
-        keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-        buttons = [
-            "Discuter en tant que VIP",
-            "Voir le contenu du jour",
-            "Juste discuter"
-        ]
-        keyboard.add(*buttons)
-        await message.answer(f"Salut {user_name} ! Que veux-tu faire ?", reply_markup=keyboard)
+# Handlers
+def register_handlers(dp: Dispatcher):
+    @dp.message_handler(commands=['start'])
+    async def send_welcome(message: types.Message):
+        param = message.get_args()
 
-# === Réponses automatiques à chaque bouton ===
-@dp.message_handler(lambda message: message.text == "Discuter en tant que VIP")
-async def show_preview(message: types.Message):
-    await message.answer("Nous allons faire connaissance, discuter de tout et de rien et je t’offrirai des moments privilégiés rien qu’à nous deux…")
+        if param == "paid123":
+            await message.answer("Merci pour ton paiement ! Je vais t’envoyer ton contenu très bientôt.")
+            return
 
-@dp.message_handler(lambda message: message.text == "Voir le contenu du jour")
-async def show_content(message: types.Message):
-    await message.answer("Voici ma vidéo super sex disponible aujourd’hui. Clique ici pour en profiter !")
+        user_name = message.from_user.first_name
+        await message.answer(f"Salut {user_name}, que veux-tu faire ?", reply_markup=keyboard)
 
-@dp.message_handler(lambda message: message.text == "Juste discuter")
-async def just_chat(message: types.Message):
-    await message.answer("Désolé, mais si c’est juste pour discuter et rien de plus, je ne pourrais pas te répondre... J’en suis désolée.")
+    @dp.message_handler(lambda message: message.text == "Voir le contenu du jour")
+    async def handle_contenu(message: types.Message):
+        await message.answer("Voici le contenu du jour spécialement pour toi.")
 
-# === Lancement du bot avec polling (utile pour test local ou développement) ===
-if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    @dp.message_handler(lambda message: message.text == "Juste discuter")
+    async def handle_discussion(message: types.Message):
+        await message.answer("Je suis là pour discuter avec toi, pose-moi toutes tes questions !")
 
+    @dp.message_handler(lambda message: message.text == "Discuter en tant que VIP")
+    async def handle_vip(message: types.Message):
+        await message.answer("Bienvenue dans l’espace VIP, tu peux me poser tes demandes les plus exclusives.")
