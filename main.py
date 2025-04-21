@@ -1,19 +1,26 @@
-from fastapi import FastAPI
-from aiogram import Bot, Dispatcher
+from fastapi import FastAPI, Request
+from aiogram import Bot, Dispatcher, types
 import os
 from dotenv import load_dotenv
 from bott_webhook import register_handlers
 
-# Charger les variables d'environnement
 load_dotenv()
 
-# Initialiser le bot et le dispatcher
+# Initialisation
 TOKEN = os.getenv('BOT_TOKEN')
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot)
 
-# Créer l'application FastAPI
+# Enregistrement des handlers personnalisés
+register_handlers(dp)
+
+# Application FastAPI
 app = FastAPI()
 
-# Enregistrer les handlers personnalisés
-register_handlers(dp)
+# Route de Webhook
+@app.post(f"/bot/{TOKEN}")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = types.Update(**data)
+    await dp.process_update(update)
+    return {"ok": True}
