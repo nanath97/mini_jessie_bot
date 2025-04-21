@@ -1,11 +1,13 @@
-
+from dotenv import load_dotenv
+load_dotenv()
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils import executor
 from fastapi import FastAPI
 import logging
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = os.getenv("BOT_TOKEN" )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
