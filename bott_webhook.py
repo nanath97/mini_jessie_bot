@@ -1,38 +1,66 @@
-from dotenv import load_dotenv
-load_dotenv()
 import os
+from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.utils import executor
-from fastapi import FastAPI
+from aiogram.types import Update
+from dotenv import load_dotenv
 import logging
+import time
 
-BOT_TOKEN = os.getenv("BOT_TOKEN" )
+# === Chargement des variables d'environnement ===
+load_dotenv()
+TOKEN = os.getenv('BOT_TOKEN')
 
-# Configure logging
+# === Configuration du webhook ===
+WEBHOOK_PATH = f"/bot/{TOKEN}"
+RENDER_WEB_SERVICE_NAME = "mini-jessie-bot"
+WEBHOOK_URL = "https://" + RENDER_WEB_SERVICE_NAME + ".onrender.com" + WEBHOOK_PATH
+
+# === Configuration du bot et de FastAPI ===
 logging.basicConfig(level=logging.INFO)
-
-# Initialize bot and dispatcher
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TOKEN)
+Bot.set_current(bot)
 dp = Dispatcher(bot)
-
-# FastAPI app (for Render webhook)
 app = FastAPI()
 
+# === Configuration du webhook au démarrage ===
+@app.on_event("startup")
+async def on_startup():
+    webhook_info = await bot.get_webhook_info()
+    if webhook_info.url != WEBHOOK_URL:
+        await bot.set_webhook(url=WEBHOOK_URL)
+
+# === Commande /start avec les boutons personnalisés ===
 @dp.message_handler(commands=['start'])
-async def start_command(message: types.Message):
+async def handle_start(message: types.Message):
     payload = message.get_args()
-    user_full_name = message.from_user.first_name
+    user_name = message.from_user.first_name or message.from_user.username or "mon cœur"
 
     if payload == "paid123":
         await message.answer("Merci mon cœur pour ton achat 😇 ! Ta vidéo est en cours de chargement, elle arrive dans un instant, ne t’inquiète pas mon cœur 💗")
     elif payload == "vipaccess":
-        await message.answer(f"Coucou {user_full_name} ! Ça me fait plaisir que tu veuilles apprendre à me connaître plus en profondeur 🤭💦")
+        await message.answer(f"Coucou {user_name} ! Ça me fait plaisir que tu veuilles apprendre à me connaître plus en profondeur 🤭💦")
     else:
-        buttons = ReplyKeyboardMarkup(resize_keyboard=True)
-        buttons.add(KeyboardButton("Discuter en tant que VIP 🔥"))
-        buttons.add(KeyboardButton("Voir le contenu du jour 📸"))
-        buttons.add(KeyboardButton("Juste discuter 💬"))
-        await message.answer(f"Hello, {user_full_name} !", reply_markup=buttons)
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        buttons = ["🔥Discuter en tant que VIP", "📸Voir le contenu du jour", "💬Juste discuter"]
+        keyboard.add(*buttons)
+        await message.answer(f"Salut {user_name} ! Que veux-tu faire ?", reply_markup=keyboard)
 
-# Le reste de ton code webhook + handlers Telegram ici...
+# === Réponses pour chaque bouton ===
+
+@dp.message_handler(lambda message: message.text == "🔥Discuter en tant que VIP")
+async def show_preview(message: types.Message):
+    await message.answer("Nous allons faire connaissance, je t'offrirai des cadeaux surprises et je vais te montrer mon corps sous toutes ses formes ! Tu pourras les débloquer après achat. Clique ici : https://t.me/+Kk86-FYp4S05OWQ0")
+
+@dp.message_handler(lambda message: message.text == "📸Voir le contenu du jour")
+async def offer(message: types.Message):
+    await message.answer("Aujourd’hui, tu peux débloquer 1 vidéo de moi me doigtant comme une coquine dans ma salle de bain, plus 1 figurine digitale de ma miniature pour seulement 39€. Offre valable pendant 1 heure. Clique ici : https://t.me/+8Chmd4e9zVRjZjVk")
+
+@dp.message_handler(lambda message: message.text == "💬Juste discuter")
+async def chat(message: types.Message):
+    await message.answer("Tu peux m’écrire ici directement. Mais sache que mes contenus exclusifs sont réservés aux abonnés ! Et ce n'est pas sûr que je te réponde de suite...")
+
+# === Route webhook pour Telegram ===
+@app.post(WEBHOOK_PATH)
+async def process_webhook(update: dict, request: Request):
+    telegram_update = Update(**update)
+    await dp.process_update(telegram_update)
