@@ -6,21 +6,21 @@ from bott_webhook import register_handlers
 
 load_dotenv()
 
-# Initialisation
 TOKEN = os.getenv('BOT_TOKEN')
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot=bot)
 
-# Enregistrement des handlers personnalisés
-register_handlers(dp)
+register_handlers(bot, dp)
 
-# Application FastAPI
 app = FastAPI()
 
-# Route de Webhook
 @app.post(f"/bot/{TOKEN}")
 async def telegram_webhook(request: Request):
-    data = await request.json()
-    update = types.Update(**data)
-    await dp.process_update(update)
+    try:
+        data = await request.json()
+        update = types.Update(**data)
+        await dp.process_update(update)
+    except Exception as e:
+        print("Erreur dans webhook :", e)
+        return {"ok": False, "error": str(e)}
     return {"ok": True}
