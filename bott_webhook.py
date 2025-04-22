@@ -44,7 +44,7 @@ def register_handlers(bot, dp: Dispatcher):
 
         if param == "paid123":
             await bot.send_message(
-                message.chat.id,
+                message.from_user.id,
                 "Merci pour ton paiement mon coeur 💕 ! Je vais t’envoyer ton contenu dans quelques secondes... Le temps de chargement !"
             )
             log_to_airtable(
@@ -58,7 +58,7 @@ def register_handlers(bot, dp: Dispatcher):
 
         if param == "vipaccess123":
             await bot.send_message(
-                message.chat.id,
+                message.from_user.id,
                 "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié très bientôt."
             )
             log_to_airtable(
@@ -77,7 +77,7 @@ def register_handlers(bot, dp: Dispatcher):
             montant = int(param[4:])
             if montant in prix_list:
                 await bot.send_message(
-                    message.chat.id,
+                    message.from_user.id,
                     f"Merci pour ton paiement💕"
                 )
                 log_to_airtable(
@@ -107,7 +107,7 @@ def register_handlers(bot, dp: Dispatcher):
         )
         # Message privé simultané
         await bot.send_message(
-        message.from_user.id,
+        message.from_user.id == message.from_user.id,
         "Salut, c'est moi haha ! Je t'envoie le lien pour acheter ma vidéo dans quelques secondes ! Je t'enverrai un message directement quand tu auras payé 💵"
         )
 
