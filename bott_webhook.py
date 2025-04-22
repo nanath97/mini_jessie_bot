@@ -26,7 +26,7 @@ def register_handlers(bot, dp: Dispatcher):
         if param == "vipaccess123":
             await bot.send_message(
                 message.chat.id,
-                "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié très bientôt."
+                "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié rien que toi et moi très bientôt."
             )
             return
 
@@ -59,5 +59,5 @@ def register_handlers(bot, dp: Dispatcher):
     async def discuter_vip(message: types.Message):
         await bot.send_message(
             message.chat.id,
-            "Je t'envoie ce lien pour confirmer ton adhésion à mon VIP ! Pas d'abonnement, juste un preuve de confiance d'un montant de 1 euros pour enfin avoir des échanges privilégiés et plus intimes avec moi..."
+            "Je t'envoie ce lien pour confirmer ton adhésion à mon VIP ! Pas d'abonnement, juste un preuve de confiance d'un montant de (1 euro 🎁) pour enfin avoir des échanges privilégiés et plus intimes avec moi...🤭https://app.tillypay.com/pay/vd4gj6j"
         )
