@@ -1,8 +1,34 @@
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher import Dispatcher
+import requests
+from datetime import datetime
 
-# Clavier sans emojis
+# --- CONFIGURATION AIRTABLE ---
+AIRTABLE_API_KEY = "patPeZWTWqRxXZs9Y.7c7e244d42e71d3556943f17cfab41410ac4d7a9224a302ae10d375cd9fb25d1"
+BASE_ID = "appdA5tvdjXiktFzq"
+TABLE_NAME = "Clients Telegram"
+
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "fields": {
+            "Pseudo Telegram": pseudo,
+            "ID Telegram": str(user_id),
+            "Type d'accès": type_acces,
+            "Date du paiement": datetime.now().isoformat(),
+            "Montant (€)": montant,
+            "Contenu acheté": contenu
+        }
+    }
+    response = requests.post(url, json=data, headers=headers)
+    return response.status_code, response.text
+
+# Clavier avec emojis
 keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     KeyboardButton("🔞Voir la vidéo du jour"),
@@ -21,12 +47,26 @@ def register_handlers(bot, dp: Dispatcher):
                 message.chat.id,
                 "Merci pour ton paiement mon coeur 💕 ! Je vais t’envoyer ton contenu dans quelques secondes... Le temps de chargement !"
             )
+            log_to_airtable(
+                pseudo=message.from_user.username,
+                user_id=message.from_user.id,
+                type_acces="Achat direct",
+                montant=39.00,
+                contenu="Vidéo privée"
+            )
             return
 
         if param == "vipaccess123":
             await bot.send_message(
                 message.chat.id,
-                "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié rien que toi et moi très bientôt."
+                "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié très bientôt."
+            )
+            log_to_airtable(
+                pseudo=message.from_user.username,
+                user_id=message.from_user.id,
+                type_acces="VIP",
+                montant=1.00,
+                contenu="Accès communauté VIP"
             )
             return
 
@@ -39,8 +79,8 @@ def register_handlers(bot, dp: Dispatcher):
             f"Salut {user_name}, que veux-tu faire ?",
             reply_markup=keyboard
         )
-
-    # Gestion des réponses aux boutons
+        
+        # Gestion des réponses aux boutons
     @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
     async def voir_video(message: types.Message):
         await bot.send_message(
