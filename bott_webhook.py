@@ -70,7 +70,25 @@ def register_handlers(bot, dp: Dispatcher):
             )
             return
 
-        # Réinitialisation du clavier
+        
+        # Gestion des paiements standards prédéfinis
+        prix_list = [9, 14, 19, 25, 29, 34, 39, 45, 49, 59, 69, 79, 89, 99]
+        if param.startswith("paid") and param[4:].isdigit():
+            montant = int(param[4:])
+            if montant in prix_list:
+                await bot.send_message(
+                    message.chat.id,
+                    f"Merci pour ton paiement💕"
+                )
+                log_to_airtable(
+                    pseudo=message.from_user.username,
+                    user_id=message.from_user.id,
+                    type_acces="Achat direct",
+                    montant=montant,
+                    contenu=f"Contenu payé de {montant} €"
+                )
+                return
+    
         await bot.send_message(message.chat.id, "Chargement du nouveau menu...", reply_markup=types.ReplyKeyboardRemove())
 
         user_name = message.from_user.first_name or "toi"
@@ -80,12 +98,17 @@ def register_handlers(bot, dp: Dispatcher):
             reply_markup=keyboard
         )
         
-        # Gestion des réponses aux boutons
+       # Gestion des réponses aux boutons
     @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
     async def voir_video(message: types.Message):
         await bot.send_message(
             message.chat.id,
-            "Voici le lien pour acheter la vidéo du jour en toute discrétion ! 💵 Une fois payé, tu recevras directement ta vidéo dans tes messages privés 🤭 : https://app.tillypay.com/pay/ksaq9te"
+            "Je t'ai envoyé un message directement en privé pour avoir ma vidéo du jour 🔞🤭 ! 💵 Une fois payé, tu recevras directement ta vidéo"
+        )
+        # Message privé simultané
+        await bot.send_message(
+        message.from_user.id,
+        "Salut, c'est moi haha ! Je t'envoie le lien pour acheter ma vidéo dans quelques secondes ! Je t'enverrai un message directement quand tu auras payé 💵"
         )
 
     @dp.message_handler(lambda message: message.text == "💭Juste discuter")
