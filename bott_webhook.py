@@ -1,5 +1,3 @@
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher import Dispatcher
@@ -117,12 +115,12 @@ def register_handlers(bot, dp: Dispatcher):
 
     @dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
     async def confirmer_voyeur(message: types.Message):
-    clavier_confirmation = ReplyKeyboardMarkup(resize_keyboard=True)
-    clavier_confirmation.add(
+        clavier_confirmation = ReplyKeyboardMarkup(resize_keyboard=True)
+        clavier_confirmation.add(
         KeyboardButton("✅ Oui, je confirme (bannir)"),
         KeyboardButton("🚀 Non, je veux rejoindre le VIP")
     )
-    await bot.send_message(
+        await bot.send_message(
         message.from_user.id,
         "Tu t'apprêtes à quitter mon canal privé. Si tu confirmes, tu ne recevras plus rien 🥹.",
         reply_markup=clavier_confirmation
