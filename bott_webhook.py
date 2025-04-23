@@ -44,7 +44,7 @@ def register_handlers(bot, dp: Dispatcher):
 
         if param == "paid123":
             await bot.send_message(
-                message.from_user.id,
+                message.chat.id,
                 "Merci pour ton paiement mon coeur 💕 ! Je vais t’envoyer ton contenu dans quelques secondes... Le temps de chargement !"
             )
             log_to_airtable(
@@ -58,7 +58,7 @@ def register_handlers(bot, dp: Dispatcher):
 
         if param == "vipaccess123":
             await bot.send_message(
-                message.from_user.id,
+                message.chat.id,
                 "Bienvenue dans la communauté VIP ! Tu viens de débloquer un accès exclusif. Prépare-toi à recevoir du contenu privilégié très bientôt."
             )
             log_to_airtable(
@@ -77,8 +77,8 @@ def register_handlers(bot, dp: Dispatcher):
             montant = int(param[4:])
             if montant in prix_list:
                 await bot.send_message(
-                    message.from_user.id,
-                    f"Merci pour ton paiement💕"
+                    message.chat.id,
+                    f"Merci pour ton paiement 💕"
                 )
                 log_to_airtable(
                     pseudo=message.from_user.username,
@@ -98,24 +98,12 @@ def register_handlers(bot, dp: Dispatcher):
             reply_markup=keyboard
         )
         
-       # Gestion des réponses aux boutons
+        # Gestion des réponses aux boutons
     @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
     async def voir_video(message: types.Message):
         await bot.send_message(
             message.chat.id,
-            "Je t'ai envoyé un message directement en privé pour avoir ma vidéo du jour 🔞🤭 ! 💵 Une fois payé, tu recevras directement ta vidéo"
-        )
-        # Message privé simultané
-        await bot.send_message(
-        message.from_user.id == message.from_user.id,
-        "Salut, c'est moi haha ! Je t'envoie le lien pour acheter ma vidéo dans quelques secondes ! Je t'enverrai un message directement quand tu auras payé 💵"
-        )
-
-    @dp.message_handler(lambda message: message.text == "💭Juste discuter")
-    async def juste_discuter(message: types.Message):
-        await bot.send_message(
-            message.chat.id,
-            "Je suis là pour discuter avec toi, mais n'attends pas forcément une réponse de ma part !"
+            "Voici le lien pour acheter la vidéo du jour en toute discrétion ! 💵 Une fois payé, tu recevras directement ta vidéo ici dans notre conversation 🤭 : https://app.tillypay.com/pay/ksaq9te"
         )
 
     @dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
@@ -124,3 +112,37 @@ def register_handlers(bot, dp: Dispatcher):
             message.chat.id,
             "Je t'envoie ce lien pour confirmer ton adhésion à mon VIP ! Pas d'abonnement, juste un preuve de confiance d'un montant de (1 euro 🎁) pour enfin avoir des échanges privilégiés et plus intimes avec moi...🤭https://app.tillypay.com/pay/vd4gj6j"
         )
+
+@dp.message_handler(lambda message: message.text == "Je suis un voyeur")
+async def confirmer_voyeur(message: types.Message):
+    clavier_confirmation = ReplyKeyboardMarkup(resize_keyboard=True)
+    clavier_confirmation.add(
+        KeyboardButton("✅ Oui, je confirme (bannir)"),
+        KeyboardButton("🚀 Non, je veux rejoindre le VIP")
+    )
+    await bot.send_message(
+        message.from_user.id,
+        "Tu t'apprêtes à quitter mon canal privé. Si tu confirmes, tu ne recevras plus rien 🥹.",
+        reply_markup=clavier_confirmation
+    )
+
+@dp.message_handler(lambda message: message.text == "✅ Oui, je confirme (bannir)")
+async def bannir_utilisateur(message: types.Message):
+    log_to_airtable(
+        pseudo=message.from_user.username,
+        user_id=message.from_user.id,
+        type_acces="blacklisté",
+        montant=0,
+        contenu="Refus explicite"
+    )
+    await bot.send_message(
+        message.from_user.id,
+        "C’est noté ! Tu ne feras plus partie de cette expérience. Bonne route."
+    )
+
+@dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
+async def rediriger_vers_vip(message: types.Message):
+    await bot.send_message(
+        message.from_user.id,
+        "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://app.tillypay.com/pay/vd4gj6j"
+    )
