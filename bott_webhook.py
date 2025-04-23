@@ -23,7 +23,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
             "Type acces": type_acces,
             "Montant": montant,
             "Contenu": contenu,
-            "Email": vinteo@gmail.com
+            "Email": "vinteo@gmail.com"
         }
     }
     response = requests.post(url, json=data, headers=headers)
@@ -59,7 +59,7 @@ def register_handlers(bot, dp: Dispatcher):
             type_acces="Achat direct",
             montant=39.00,
             contenu="Vidéo privée",
-            email=vinteo@gmail.com
+            email="vinteo@gmail.com"
 
             )
             return
@@ -75,7 +75,7 @@ def register_handlers(bot, dp: Dispatcher):
             type_acces="VIP",
             montant=1.00,
             contenu="Accès communauté VIP",
-            email=vinteo@gmail.com
+            email="vinteo@gmail.com"
             )
             return
 
@@ -95,7 +95,7 @@ def register_handlers(bot, dp: Dispatcher):
                 type_acces="Achat direct",
                 montant=montant,
                 contenu="Vidéo privée",
-                email=vinteo@gmail.com
+                email="vinteo@gmail.com"
                 )
                 return
     
