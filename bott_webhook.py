@@ -23,14 +23,14 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
             "Type acces": type_acces,
             "Montant": montant,
             "Contenu": contenu,
-            "Email": email
+            "Email": vinteo@gmail.com
         }
     }
     response = requests.post(url, json=data, headers=headers)
     return response.status_code, response.text
 async def handle_start(message: types.Message):
     param = message.get_args()
-    email = "email"  # Exemple statique, à adapter avec une vraie saisie si souhaité
+    email = "vinteo@gmail.com"  # Exemple statique, à adapter avec une vraie saisie si souhaité
 
 
 # Clavier avec emojis
@@ -58,7 +58,7 @@ def register_handlers(bot, dp: Dispatcher):
             type_acces="Achat direct",
             montant=39.00,
             contenu="Vidéo privée",
-            email=email
+            email=vinteo@gmail.com
 
             )
             return
@@ -74,7 +74,7 @@ def register_handlers(bot, dp: Dispatcher):
             type_acces="VIP",
             montant=1.00,
             contenu="Accès communauté VIP",
-            email=email
+            email=vinteo@gmail.com
             )
             return
 
@@ -94,7 +94,7 @@ def register_handlers(bot, dp: Dispatcher):
                 type_acces="Achat direct",
                 montant=montant,
                 contenu="Vidéo privée",
-                email=email
+                email=vinteo@gmail.com
                 )
                 return
     
