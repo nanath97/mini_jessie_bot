@@ -27,6 +27,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
         }
     }
     response = requests.post(url, json=data, headers=headers)
+    print("Airtable response:", response.status_code, response.text)
     return response.status_code, response.text
 async def handle_start(message: types.Message):
     param = message.get_args()
