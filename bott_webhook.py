@@ -32,7 +32,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
 keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     KeyboardButton("🔞Voir la vidéo du jour"),
-    KeyboardButton("💭Juste discuter"),
+    KeyboardButton("👀Je suis un voyeur"),
     KeyboardButton("✨Discuter en tant que VIP")
 )
 
@@ -113,8 +113,8 @@ def register_handlers(bot, dp: Dispatcher):
             "Je t'envoie ce lien pour confirmer ton adhésion à mon VIP ! Pas d'abonnement, juste un preuve de confiance d'un montant de (1 euro 🎁) pour enfin avoir des échanges privilégiés et plus intimes avec moi...🤭https://app.tillypay.com/pay/vd4gj6j"
         )
 
-@dp.message_handler(lambda message: message.text == "Je suis un voyeur")
-async def confirmer_voyeur(message: types.Message):
+    @dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
+    async def confirmer_voyeur(message: types.Message):
     clavier_confirmation = ReplyKeyboardMarkup(resize_keyboard=True)
     clavier_confirmation.add(
         KeyboardButton("✅ Oui, je confirme (bannir)"),
