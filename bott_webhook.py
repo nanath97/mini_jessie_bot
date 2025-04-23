@@ -125,24 +125,23 @@ def register_handlers(bot, dp: Dispatcher):
         "Tu t'apprêtes à quitter mon canal privé. Si tu confirmes, tu ne recevras plus rien 🥹.",
         reply_markup=clavier_confirmation
     )
+    @dp.message_handler(lambda message: message.text == "✅ Oui, je confirme (bannir)")
+    async def bannir_utilisateur(message: types.Message):
+        log_to_airtable(
+            pseudo=message.from_user.username,
+            user_id=message.from_user.id,
+            type_acces="blacklisté",
+            montant=0,
+            contenu="Refus explicite"
+        )
+        await bot.send_message(
+            message.from_user.id,
+            "C’est noté ! Tu ne feras plus partie de cette expérience. Bonne route."
+        )
 
-@dp.message_handler(lambda message: message.text == "✅ Oui, je confirme (bannir)")
-async def bannir_utilisateur(message: types.Message):
-    log_to_airtable(
-        pseudo=message.from_user.username,
-        user_id=message.from_user.id,
-        type_acces="blacklisté",
-        montant=0,
-        contenu="Refus explicite"
-    )
-    await bot.send_message(
-        message.from_user.id,
-        "C’est noté ! Tu ne feras plus partie de cette expérience. Bonne route."
-    )
-
-@dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
-async def rediriger_vers_vip(message: types.Message):
-    await bot.send_message(
-        message.from_user.id,
-        "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://app.tillypay.com/pay/vd4gj6j"
-    )
+    @dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
+    async def rediriger_vers_vip(message: types.Message):
+        await bot.send_message(
+            message.from_user.id,
+            "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://app.tillypay.com/pay/vd4gj6j"
+        )
