@@ -10,7 +10,7 @@ AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b
 BASE_ID = "appdA5tvdjXiktFzq"
 TABLE_NAME = "Client Telegram"
 
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
@@ -23,12 +23,19 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu):
             "Type acces": type_acces,
             "Montant": montant,
             "Contenu": contenu,
-            "Email": "vinteo@gmail.com"
+            "Email": "vinteo.ac@gmail.com"
         }
     }
-    response = requests.post(url, json=data, headers=headers)
-    print("Airtable response:", response.status_code, response.text)
-    return response.status_code, response.text
+
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        print("Airtable response:", response.status_code, response.text)
+        return response.status_code, response.text
+    except Exception as e:
+        print("Erreur lors de l’envoi à Airtable :", e)
+        return None, str(e)
+
+
 async def handle_start(message: types.Message):
     param = message.get_args()
     email = "vinteo@gmail.com"  # Exemple statique, à adapter avec une vraie saisie si souhaité
