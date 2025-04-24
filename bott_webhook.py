@@ -165,7 +165,19 @@ def register_handlers(bot, dp: Dispatcher):
         )
         # Detection des liens frauduleux
         from detect_links_whitelist import detect_external_links
+
         @dp.message_handler(commands=["id"])
         async def send_admin_id(message: types.Message):
             admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID enregistré dans le .env : {admin_id}")
+
+        def register_handlers(bot, dp):
+            from aiogram import types
+
+        @dp.message_handler(commands=["id"])
+        async def send_admin_id(message: types.Message):
+            from os import getenv
+        admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
+        await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
+
+# ici tu pourras tranquillement copier-coller les autres @dp.message_handler
