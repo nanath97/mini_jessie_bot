@@ -53,6 +53,7 @@ keyboard.add(
 
 # Enregistrement des handlers avec bot explicite
 def register_handlers(bot, dp: Dispatcher):
+    from detect_links_whitelist import detect_external_links  # ✅ Ajout pour activer la détection des liens externes
     @dp.message_handler(commands=['start'])
     async def handle_start(message: types.Message):
         param = message.get_args()
