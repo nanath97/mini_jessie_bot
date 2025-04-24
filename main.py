@@ -2,13 +2,10 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
 import os
 from dotenv import load_dotenv
+from core import bot,dp
 from bott_webhook import register_handlers
-
+register_handlers(bot,dp)
 load_dotenv()
-
-TOKEN = os.getenv('BOT_TOKEN')
-bot = Bot(token=TOKEN)
-dp = Dispatcher(bot=bot)
 
 register_handlers(bot, dp)
 

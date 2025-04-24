@@ -1,5 +1,5 @@
 import email
-from main import dp 
+from core import bot,dp
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher import Dispatcher
