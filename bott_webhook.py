@@ -174,17 +174,11 @@ def register_handlers(bot, dp: Dispatcher):
 
         def register_handlers(bot, dp):
             from aiogram import types
+            import detect_links_whitelist
+
 
         @dp.message_handler(commands=["id"])
         async def send_admin_id(message: types.Message):
             from os import getenv
         admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
-
-# ici tu pourras tranquillement copier-coller les autres @dp.message_handler
-
-        from aiogram import types
-
-@dp.message_handler(commands=["testbot"])
-async def testbot_response(message: types.Message):
-        await message.answer("✅ Le bot fonctionne et a bien reçu la commande /testbot.")
