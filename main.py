@@ -11,7 +11,7 @@ register_handlers(bot, dp)
 
 app = FastAPI()
 
-@app.post(f"/bot/{TOKEN}")
+@app.post(f"/bot/{"BOT_TOKEN"}")
 async def telegram_webhook(request: Request):
     try:
         data = await request.json()
