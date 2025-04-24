@@ -162,3 +162,5 @@ def register_handlers(bot, dp: Dispatcher):
             message.from_user.id,
             "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://buy.stripe.com/4gwg32fhF4K62fCdQR"
         )
+        # Detection des liens frauduleux
+        from detect_links_whitelist import detect_external_links
