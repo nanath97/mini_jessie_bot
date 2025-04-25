@@ -20,15 +20,17 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
         "Content-Type": "application/json"
     }
     data = {
-        "fields": {
-            "Pseudo Telegram": pseudo,
-            "ID Telegram": str(user_id),
-            "Type acces": type_acces,
-            "Montant": montant,
-            "Contenu": contenu,
-            "Email": "vinteo.ac@gmail.com"
-        }
+    "fields": {
+        "Pseudo Telegram": pseudo,
+        "ID Telegram": str(user_id),
+        "Type acces": type_acces,
+        "Montant": montant,
+        "Contenu": contenu,
+        "Email": "vinteo.ac@gmail.com",
+        "Date": datetime.now().isoformat()  # ✅ date ajoutée proprement
     }
+}
+
 
     try:
         response = requests.post(url, json=data, headers=headers)
