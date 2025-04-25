@@ -218,10 +218,16 @@ async def bloquer_saisie_libre(message: types.Message):
     except Exception as e:
         print("Erreur suppression message libre :", e)
 
-        # ✅ Bloc chat libre :
-@dp.message_handler(lambda message: message.from_user.id in utilisateurs_valides)
-async def chat_libre(message: types.Message):
-    pass
+        # Handler pour capter tous les messages texte envoyés au bot
+@dp.message_handler(content_types=types.ContentType.TEXT)
+async def receive_text_message(message: types.Message):
+    user_id = message.from_user.id
+username = message.from_user.username
+text = message.text
+
+print(f"Message reçu de {username} ({user_id}): {text}")
+
+# Le bot capte le message, mais NE répond PAS automatiquement.
 
 
 
