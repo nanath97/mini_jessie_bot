@@ -6,6 +6,7 @@ from aiogram.dispatcher import Dispatcher
 import requests
 from datetime import datetime
 from os import getenv
+from detect_links_whitelist import detect_external_links
 
 # --- CONFIGURATION AIRTABLE ---
 AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
@@ -165,8 +166,12 @@ async def handle_start(message: types.Message):
             message.from_user.id,
             "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://buy.stripe.com/4gwg32fhF4K62fCdQR"
         )
+        await bot.send_message(
+        message.chat.id,
+        "Voici à nouveau le menu principal. Que veux-tu faire ?",
+        reply_markup=keyboard
+    )
         # Detection des liens frauduleux
-        from detect_links_whitelist import detect_external_links
 
         @dp.message_handler(commands=["id"])
         async def send_admin_id(message: types.Message):
