@@ -218,4 +218,13 @@ async def bloquer_saisie_libre(message: types.Message):
     except Exception as e:
         print("Erreur suppression message libre :", e)
 
+        # ✅ Bloc chat libre :
+@dp.message_handler(lambda message: message.from_user.id in utilisateurs_valides)
+async def chat_libre(message: types.Message):
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=f"✉️ {message.text}"
+    )
+
+
 
