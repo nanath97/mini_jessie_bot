@@ -183,29 +183,3 @@ def register_handlers(bot, dp: Dispatcher):
             from os import getenv
         admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
-
-        # Mémoire temporaire des utilisateurs validés
-utilisateurs_valides = set()
-
-BOUTONS_AUTORISES = [
-    "🔞Voir la vidéo du jour",
-    "👀Je suis un voyeur",
-    "✨Discuter en tant que VIP",
-    "✅ Oui, je confirme (bannir)",
-    "🚀 Non, je veux rejoindre le VIP"
-]
-
-@dp.message_handler(lambda message: message.text in BOUTONS_AUTORISES)
-async def bouton_selectionne(message: types.Message):
-    utilisateurs_valides.add(message.from_user.id)
-
-@dp.message_handler(lambda message: message.text and message.text not in BOUTONS_AUTORISES and message.from_user.id not in utilisateurs_valides)
-async def bloquer_saisie_libre(message: types.Message):
-    try:
-        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="🛑 Merci de cliquer sur un des boutons ci-dessous pour continuer."
-        )
-    except Exception as e:
-        print("Erreur suppression message libre :", e)
