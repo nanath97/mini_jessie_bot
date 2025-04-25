@@ -222,8 +222,8 @@ async def bloquer_saisie_libre(message: types.Message):
 @dp.message_handler(content_types=types.ContentType.TEXT)
 async def receive_text_message(message: types.Message):
     user_id = message.from_user.id
-username = message.from_user.username
-text = message.text
+    username = message.from_user.username
+    text = message.text
 
 print(f"Message reçu de {username} ({user_id}): {text}")
 
