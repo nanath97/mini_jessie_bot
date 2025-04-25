@@ -60,6 +60,9 @@ def register_handlers(bot, dp: Dispatcher):
     from detect_links_whitelist import detect_external_links  # ✅ Ajout pour activer la détection des liens externes
     @dp.message_handler(commands=['start'])
     async def handle_start(message: types.Message):
+
+        if message.from_user.id in utilisateurs_valides:
+            utilisateurs_valides.remove(message.from_user.id)
         
         if param == "paid123":
             await bot.send_message(
