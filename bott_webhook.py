@@ -199,7 +199,7 @@ BOUTONS_AUTORISES = [
 async def bouton_selectionne(message: types.Message):
     utilisateurs_valides.add(message.from_user.id)
 
-@dp.message_handler(lambda message: message.text and message.from_user.id not in utilisateurs_valides)
+@dp.message_handler(lambda message: message.text and message.text not in BOUTONS_AUTORISES and message.from_user.id not in utilisateurs_valides)
 async def bloquer_saisie_libre(message: types.Message):
     try:
         await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
@@ -209,4 +209,3 @@ async def bloquer_saisie_libre(message: types.Message):
         )
     except Exception as e:
         print("Erreur suppression message libre :", e)
-        
