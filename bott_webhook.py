@@ -192,7 +192,9 @@ def register_handlers(bot, dp: Dispatcher):
             from os import getenv
         admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
-# ✅ AJOUT FINAL : blocage des messages libres tant que l'utilisateur n'a pas cliqué sur un bouton
+        
+# ✅ AJOUT FINAL : blocage des messages libres tant que l'utilisateur n'a pas cliqué sur un bouton,
+# sauf s'il s'agit d'un /start Stripe (comme /start paid39)
 BOUTONS_AUTORISES = [
     "🔞Voir la vidéo du jour",
     "👀Je suis un voyeur",
@@ -201,7 +203,12 @@ BOUTONS_AUTORISES = [
     "🚀 Non, je veux rejoindre le VIP"
 ]
 
-@dp.message_handler(lambda message: message.text and message.text not in BOUTONS_AUTORISES and message.from_user.id not in utilisateurs_valides)
+@dp.message_handler(lambda message:
+    message.text and
+    not message.text.startswith("/start") and
+    message.text not in BOUTONS_AUTORISES and
+    message.from_user.id not in utilisateurs_valides
+)
 async def bloquer_saisie_libre(message: types.Message):
     try:
         await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
@@ -212,4 +219,5 @@ async def bloquer_saisie_libre(message: types.Message):
         print(f"🛑 Message bloqué pour utilisateur non validé : {message.from_user.username}")
     except Exception as e:
         print("Erreur suppression message libre :", e)
+
 
