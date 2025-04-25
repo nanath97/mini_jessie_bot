@@ -225,7 +225,7 @@ async def receive_text_message(message: types.Message):
     username = message.from_user.username
     text = message.text
 
-print(f"Message reçu de {username} ({user_id}): {text}")
+    print(f"Message reçu de {username} ({user_id}): {text}")
 
 # Le bot capte le message, mais NE répond PAS automatiquement.
 
