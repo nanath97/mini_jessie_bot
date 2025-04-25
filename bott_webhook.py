@@ -58,71 +58,62 @@ utilisateurs_valides = set()
 # Enregistrement des handlers avec bot explicite
 def register_handlers(bot, dp: Dispatcher):
     from detect_links_whitelist import detect_external_links  # ✅ Ajout pour activer la détection des liens externes
-    @dp.message_handler(commands=['start'])
-    async def handle_start(message: types.Message):
 
-        if message.from_user.id in utilisateurs_valides:
-            utilisateurs_valides.remove(message.from_user.id)
-        
-        if param == "paid123":
+
+@dp.message_handler(commands=['start'])
+async def handle_start(message: types.Message):
+    # ✅ Réinitialise si nécessaire
+    if message.from_user.id in utilisateurs_valides:
+        utilisateurs_valides.remove(message.from_user.id)
+
+    param = message.get_args()
+    email = "vinteo@gmail.com"
+
+    prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
+
+    if param.startswith("paid") and param[4:].isdigit():
+        montant = int(param[4:])
+        if montant in prix_list:
             await bot.send_message(
                 message.chat.id,
-                "Merci pour ton paiement mon coeur 💕 ! Je vais t’envoyer ton contenu dans quelques secondes... Le temps de chargement !"
+                f"Merci pour ton paiement 💕"
             )
+            utilisateurs_valides.add(message.from_user.id)  # ✅ Pour débloquer le chat
             log_to_airtable(
                 pseudo=message.from_user.username,
-            user_id=message.from_user.id,
-            type_acces="Achat direct",
-            montant=39.00,
-            contenu="Vidéo privée",
-            email="vinteo@gmail.com"
-
-            )
-            return
-
-        if param == "vipaccess123":
-            await bot.send_message(
-                message.chat.id,
-                "Tu fais maintenant parti de la communauté VIP ✨ ! Tu viens de débloquer un accès exclusif alors prépare-toi à recevoir du contenu privilégié."
-            )
-            log_to_airtable(
-                pseudo=message.from_user.username,
-            user_id=message.from_user.id,
-            type_acces="VIP",
-            montant=1.00,
-            contenu="Accès communauté VIP",
-            email="vinteo@gmail.com"
-            )
-            return
-
-        
-        # Gestion des paiements standards prédéfinis
-        prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
-        if param.startswith("paid") and param[4:].isdigit():
-            montant = int(param[4:])
-            if montant in prix_list:
-                await bot.send_message(
-                    message.chat.id,
-                    f"Merci pour ton paiement 💕"
-                )
-                log_to_airtable(
-                    pseudo=message.from_user.username,
                 user_id=message.from_user.id,
                 type_acces="Achat direct",
                 montant=montant,
                 contenu="Vidéo privée",
-                email="vinteo@gmail.com"
-                )
-                return
-    
-        await bot.send_message(message.chat.id, "Chargement du nouveau menu...", reply_markup=types.ReplyKeyboardRemove())
+                email=email
+            )
+            return
 
-        user_name = message.from_user.first_name or "toi"
+    if param == "vipaccess123":
         await bot.send_message(
             message.chat.id,
-            f"Salut {user_name}, que veux-tu faire ?",
-            reply_markup=keyboard
+            "Tu fais maintenant partie de la communauté VIP ✨ ! Prépare-toi à recevoir du contenu privilégié."
         )
+        utilisateurs_valides.add(message.from_user.id)
+        log_to_airtable(
+            pseudo=message.from_user.username,
+            user_id=message.from_user.id,
+            type_acces="VIP",
+            montant=1.00,
+            contenu="Accès communauté VIP",
+            email=email
+        )
+        return
+
+    await bot.send_message(message.chat.id, "Chargement du menu...", reply_markup=types.ReplyKeyboardRemove())
+
+    user_name = message.from_user.first_name or "toi"
+    await bot.send_message(
+        message.chat.id,
+        f"Salut {user_name}, que veux-tu faire ?",
+        reply_markup=keyboard
+    )
+
         
         # Gestion des réponses aux boutons
     @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
@@ -192,7 +183,7 @@ def register_handlers(bot, dp: Dispatcher):
             from os import getenv
         admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
-        
+
 # ✅ AJOUT FINAL : blocage des messages libres tant que l'utilisateur n'a pas cliqué sur un bouton,
 # sauf s'il s'agit d'un /start Stripe (comme /start paid39)
 BOUTONS_AUTORISES = [
