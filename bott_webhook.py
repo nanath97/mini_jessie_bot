@@ -51,6 +51,10 @@ keyboard.add(
     KeyboardButton("✨Discuter en tant que VIP")
 )
 
+# ✅ AJOUT : initialisation du suivi des utilisateurs validés
+utilisateurs_valides = set()
+
+
 # Enregistrement des handlers avec bot explicite
 def register_handlers(bot, dp: Dispatcher):
     from detect_links_whitelist import detect_external_links  # ✅ Ajout pour activer la détection des liens externes
@@ -121,6 +125,7 @@ def register_handlers(bot, dp: Dispatcher):
         # Gestion des réponses aux boutons
     @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
     async def voir_video(message: types.Message):
+        utilisateurs_valides.add(message.from_user.id)  # ✅ AJOUT : autorise cet utilisateur à écrire
         await bot.send_message(
             message.chat.id,
             "Voici le lien pour acheter la vidéo du jour en toute discrétion ! 💵 Une fois payé, tu recevras directement ta vidéo ici dans notre conversation 🤭 : https://buy.stripe.com/fZeg328Th4K67zW9AA"
@@ -128,6 +133,7 @@ def register_handlers(bot, dp: Dispatcher):
 
     @dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
     async def discuter_vip(message: types.Message):
+        utilisateurs_valides.add(message.from_user.id)  # ✅ AJOUT : autorise cet utilisateur à écrire
         await bot.send_message(
             message.chat.id,
             "Je t'envoie ce lien pour confirmer ton adhésion à mon VIP ! Pas d'abonnement, juste un preuve de confiance d'un montant de (1 euro 🎁) pour enfin avoir des échanges privilégiés et plus intimes avec moi...🤭https://buy.stripe.com/4gwg32fhF4K62fCdQR"
@@ -161,6 +167,7 @@ def register_handlers(bot, dp: Dispatcher):
 
     @dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
     async def rediriger_vers_vip(message: types.Message):
+        utilisateurs_valides.add(message.from_user.id)  # ✅ AJOUT : autorise cet utilisateur à écrire
         await bot.send_message(
             message.from_user.id,
             "Parfait. Voici le lien pour rejoindre le groupe VIP (1€) : https://buy.stripe.com/4gwg32fhF4K62fCdQR"
@@ -183,3 +190,15 @@ def register_handlers(bot, dp: Dispatcher):
             from os import getenv
         admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
+# ✅ AJOUT FINAL : blocage des messages libres tant que l'utilisateur n'a pas cliqué sur un bouton
+@dp.message_handler(lambda message: message.text and message.from_user.id not in utilisateurs_valides)
+async def bloquer_saisie_libre(message: types.Message):
+    try:
+        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="🛑 Merci de cliquer sur un des boutons ci-dessous pour continuer."
+        )
+        print(f"🛑 Message bloqué pour utilisateur non validé : {message.from_user.username}")
+    except Exception as e:
+        print("Erreur suppression message libre :", e)
