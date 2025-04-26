@@ -25,31 +25,37 @@ WHITELIST_LINKS = [
 
 # Fonction de détection de lien non autorisé
 def lien_non_autorise(text):
-    links = [part for part in text.split() if part.startswith("http")]
-    for link in links:
-        if not any(allowed in link for allowed in WHITELIST_LINKS):
-            return True
+    words = text.split()
+    for word in words:
+        if word.startswith("http://") or word.startswith("https://"):
+            if not any(allowed in word for allowed in WHITELIST_LINKS):
+                return True
     return False
 
 # Fonction pour ajouter un paiement à Airtable
-def enregistrer_paiement_airtable(username, user_id, montant, type_paiement):
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}"
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json"
     }
     data = {
         "fields": {
-            "username": username or "-",
-            "user_id": str(user_id),
-            "montant": str(montant),
-            "type": type_paiement,
-            "date": datetime.now().strftime("%d/%m/%Y %H:%M")
+            "Pseudo Telegram": pseudo,
+            "ID Telegram": str(user_id),
+            "Type acces": type_acces,
+            "Montant": str(montant),
+            "Contenu": contenu,
+            "Email": email,
+            "Date": datetime.now().strftime("%d/%m/%Y %H:%M")
         }
     }
     response = requests.post(url, json=data, headers=headers)
     if response.status_code != 200:
-        print(f"Erreur Airtable: {response.text}")
+        print(f"Erreur Airtable : {response.text}")
+    else:
+        print("✅ Paiement ajouté dans Airtable avec succès !")
+
 
 # Création du clavier
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
