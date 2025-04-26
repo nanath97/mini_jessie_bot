@@ -154,3 +154,8 @@ async def detecter_lien_externe(message: types.Message):
 @dp.message_handler(lambda message: message.from_user.id in declaring_utilisateurs_valides)
 async def chat_libre(message: types.Message):
     pass
+
+# Fonction factice pour Render
+def register_handlers(dp):
+    pass
+
