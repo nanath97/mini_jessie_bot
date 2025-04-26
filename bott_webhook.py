@@ -154,24 +154,20 @@ async def chat_libre(message: types.Message):
     # Pas de réponse automatique ici
 def register_handlers(dp):
     pass
-# Handler : Quand un client t'écrit (relayé vers toi)
-@dp.message_handler(lambda message: message.from_user.id not in [ADMIN_ID])
+
+# Handler : Quand un client écrit ➔ transférer au vendeur
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
 async def relay_message_to_admin(message: types.Message):
-    global last_client_id
-    last_client_id = message.from_user.id  # Mémoriser qui a écrit en dernier
     await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
 
-# Handler : Quand toi (admin) tu réponds
+# Handler : Quand le vendeur répond ➔ relayer au bon client
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
-async def relay_message_to_client(message: types.Message):
+async def relay_admin_reply(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
-        # Si tu réponds à un message transféré
-        client_id = message.reply_to_message.forward_from.id
+        target_client_id = message.reply_to_message.forward_from.id
+        await bot.copy_message(chat_id=target_client_id, from_chat_id=message.chat.id, message_id=message.message_id)
     else:
-        # Sinon on utilise le dernier client connu
-        client_id = last_client_id
+        await bot.send_message(ADMIN_ID, "❗Erreur : Merci de répondre à un message transféré pour que je sache à quel client répondre.")
 
-    if client_id:
-        await bot.copy_message(chat_id=client_id, from_chat_id=message.chat.id, message_id=message.message_id)
 
 
