@@ -4,7 +4,7 @@ import requests
 from datetime import datetime
 
 # === Config ===
-ADMIN_ID = 123456789  # Remplace 123456789 par ton vrai ID Telegram admin
+ADMIN_ID = 7334072965  # Remplace 123456789 par ton vrai ID Telegram admin
 
 AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
 BASE_ID = "appdA5tvdjXiktFzq"
