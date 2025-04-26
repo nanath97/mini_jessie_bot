@@ -126,6 +126,21 @@ keyboard.add(
 async def handle_start(message: types.Message):
     param = message.get_args()
 
+    if not param:
+        # S'il n'y a PAS de paramètre (juste /start normal), on affiche les boutons
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(
+            types.KeyboardButton("🔞Voir la vidéo du jour"),
+            types.KeyboardButton("✨Discuter en tant que VIP"),
+            types.KeyboardButton("👀Je suis un voyeur")
+        )
+        await bot.send_message(
+            message.chat.id,
+            "Bienvenue sur mon bot ! 👋\n\nChoisis une des trois options ci-dessous pour continuer :",
+            reply_markup=keyboard
+        )
+        return
+
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
