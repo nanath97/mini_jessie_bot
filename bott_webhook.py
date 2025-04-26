@@ -86,22 +86,43 @@ async def bannir_utilisateur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "Rejoins le VIP ici : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
-# === Relay Chat Client → Admin ===
-@dp.message_handler(lambda message: message.text and message.from_user.id != ADMIN_ID)
-async def relay_message_from_client(message: types.Message):
+# === BLOQUER LES LIENS NON AUTORISÉS
+@dp.message_handler(lambda message: message.text and "http" in message.text and message.from_user.id != ADMIN_ID)
+async def detect_external_links(message: types.Message):
+    WHITELIST_LINKS = [
+        "https://novapulseonline.wixsite.com/",
+        "https://buy.stripe.com/"
+    ]
+
+    # Si aucun lien autorisé trouvé dans le message ➔ on supprime
+    if not any(allowed in message.text for allowed in WHITELIST_LINKS):
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+            await bot.send_message(chat_id=message.chat.id, text="⚠️ Les liens extérieurs ne sont pas autorisés ici.")
+            print(f"❌ Lien bloqué : {message.text}")
+        except Exception as e:
+            print(f"Erreur suppression lien : {e}")
+
+
+
+
+
+# === RELAY CLIENT → ADMIN (TOUT TYPE DE MESSAGE)
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
+async def relay_all_from_client(message: types.Message):
     try:
         await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
     except Exception as e:
-        print(f"Erreur forward client ➔ admin : {e}")
+        print(f"Erreur lors du forward client ➔ admin : {e}")
 
-# === Relay Admin → Client ===
-@dp.message_handler(lambda message: message.text and message.from_user.id == ADMIN_ID)
-async def relay_reply_from_admin(message: types.Message):
+# === RELAY ADMIN → CLIENT (TOUT TYPE DE MESSAGE)
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
+async def relay_all_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
         target_client_id = message.reply_to_message.forward_from.id
         try:
             await bot.copy_message(chat_id=target_client_id, from_chat_id=message.chat.id, message_id=message.message_id)
         except Exception as e:
-            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur : impossible d'envoyer au client.")
+            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur : impossible d’envoyer le média.")
     else:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre directement au message transféré pour que je sache à quel client répondre.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre en cliquant sur un message transféré.")
