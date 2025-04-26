@@ -3,10 +3,9 @@ from aiogram import types
 import requests
 from datetime import datetime
 
-# === Config ===
-ADMIN_ID = 7334072965  # Remplace 123456789 par ton vrai ID Telegram admin
-
-AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
+# === CONFIGURATION ===
+ADMIN_ID = 7334072965  # Remplacer par ton ID Telegram réel
+AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214ab5f6c78aa2784b9701b6768ba40df285"
 BASE_ID = "appdA5tvdjXiktFzq"
 TABLE_NAME = "Client Telegram"
 
@@ -18,7 +17,7 @@ keyboard.add(
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
 
-# === Log Airtable ===
+# === Fonction Airtable ===
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
@@ -52,7 +51,7 @@ async def handle_start(message: types.Message):
             log_to_airtable(message.from_user.username, message.from_user.id, "Achat direct", montant, "Vidéo privée", "vinteo.ac@gmail.com")
             return
 
-    if param == "vipaccess" or param == "vipaccess123":
+    if param in ["vipaccess", "vipaccess123"]:
         await bot.send_message(message.chat.id, "Bienvenue dans le VIP ✨ !")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(message.from_user.username, message.from_user.id, "VIP", 1.00, "Accès VIP", "vinteo.ac@gmail.com")
@@ -60,7 +59,7 @@ async def handle_start(message: types.Message):
 
     await bot.send_message(message.chat.id, f"Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
 
-# === Gestion des boutons ===
+# === Handlers des boutons ===
 @dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
 async def voir_video(message: types.Message):
     await bot.send_message(message.chat.id, "Voici la vidéo du jour 🔥 : https://buy.stripe.com/fZeg328Th4K67zW9AA")
@@ -86,32 +85,30 @@ async def bannir_utilisateur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "Rejoins le VIP ici : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
-# === BLOQUER LES LIENS NON AUTORISÉS
-@dp.message_handler(lambda message: message.text and "http" in message.text and message.from_user.id != ADMIN_ID)
+# === Détection des liens non autorisés (texte et caption)
+@dp.message_handler(lambda message: (message.text or message.caption) and "http" in (message.text or message.caption) and message.from_user.id != ADMIN_ID)
 async def detect_external_links(message: types.Message):
     WHITELIST_LINKS = [
         "https://novapulseonline.wixsite.com/",
         "https://buy.stripe.com/"
     ]
-
-    # Si aucun lien autorisé trouvé dans le message ➔ on supprime
-    if not any(allowed in message.text for allowed in WHITELIST_LINKS):
+    content_to_check = message.text or message.caption
+    if not any(allowed in content_to_check for allowed in WHITELIST_LINKS):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
             await bot.send_message(chat_id=message.chat.id, text="⚠️ Les liens extérieurs ne sont pas autorisés ici.")
-            print(f"❌ Lien bloqué : {message.text}")
         except Exception as e:
             print(f"Erreur suppression lien : {e}")
 
-# === RELAY CLIENT → ADMIN (TOUT TYPE DE MESSAGE)
+# === Relay messages client → admin (tout type de message)
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
 async def relay_all_from_client(message: types.Message):
     try:
         await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
     except Exception as e:
-        print(f"Erreur lors du forward client ➔ admin : {e}")
+        print(f"Erreur forward client → admin : {e}")
 
-# === RELAY ADMIN → CLIENT (TOUT TYPE DE MESSAGE)
+# === Relay messages admin → client (tout type de message)
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
 async def relay_all_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
@@ -119,6 +116,6 @@ async def relay_all_from_admin(message: types.Message):
         try:
             await bot.copy_message(chat_id=target_client_id, from_chat_id=message.chat.id, message_id=message.message_id)
         except Exception as e:
-            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur : impossible d’envoyer le média.")
+            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur : impossible d’envoyer ce média.")
     else:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre en cliquant sur un message transféré.")
