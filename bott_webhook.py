@@ -113,14 +113,34 @@ async def relay_all_from_client(message: types.Message):
     except Exception as e:
         print(f"Erreur relay client ➔ admin : {e}")
 
-# === RELAY ADMIN ➔ CLIENT ===
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
-async def relay_all_from_admin(message: types.Message):
+async def relay_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
         target_id = message.reply_to_message.forward_from.id
         try:
-            await bot.copy_message(chat_id=target_id, from_chat_id=message.chat.id, message_id=message.message_id)
+            # Si texte
+            if message.text:
+                await bot.send_message(chat_id=target_id, text=message.text)
+            # Si photo
+            elif message.photo:
+                await bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=message.caption if message.caption else "")
+            # Si vidéo
+            elif message.video:
+                await bot.send_video(chat_id=target_id, video=message.video.file_id, caption=message.caption if message.caption else "")
+            # Si document
+            elif message.document:
+                await bot.send_document(chat_id=target_id, document=message.document.file_id, caption=message.caption if message.caption else "")
+            # Si audio
+            elif message.audio:
+                await bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=message.caption if message.caption else "")
+            # Si voice
+            elif message.voice:
+                await bot.send_voice(chat_id=target_id, voice=message.voice.file_id, caption=message.caption if message.caption else "")
+            else:
+                await bot.send_message(chat_id=ADMIN_ID, text="❗Type de message non supporté pour le moment.")
         except Exception as e:
-            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur pour envoyer au client.")
+            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur lors de l'envoi au client.")
+            print(f"Erreur envoi admin ➔ client : {e}")
     else:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre à un message transféré.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre à un message transféré pour identifier le client.")
+
