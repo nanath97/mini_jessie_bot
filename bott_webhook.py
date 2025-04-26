@@ -34,13 +34,8 @@ def lien_non_autorise(text):
                 return True
     return False
 
-@dp.message_handler(content_types=types.ContentType.ANY)
-async def verifier_tous_les_messages(message: types.Message):
-    # Exception spéciale pour laisser passer la commande /start
-    if message.text and message.text.startswith("/start"):
-        return  # On laisse passer sans filtrer
-
-    # Ensuite, filtrage normal
+@dp.message_handler(lambda message: (message.text and ("http://" in message.text or "https://" in message.text)) or (message.caption and ("http://" in message.caption or "https://" in message.caption)), content_types=types.ContentType.ANY)
+async def verifier_les_liens_uniquement(message: types.Message):
     text_to_check = message.text or message.caption or ""
     if lien_non_autorise(text_to_check):
         try:
@@ -50,6 +45,7 @@ async def verifier_tous_les_messages(message: types.Message):
         except Exception as e:
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
+
 
 
 # Fonction pour ajouter un paiement à Airtable
