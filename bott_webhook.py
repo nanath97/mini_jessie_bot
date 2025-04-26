@@ -109,6 +109,13 @@ async def rejoindre_vip(message: types.Message):
 
 # === RELAY CLIENT ➔ ADMIN (TOUT TYPE) ===
 
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
+async def relay_from_client(message: types.Message):
+    try:
+        await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
+    except Exception as e:
+        print(f"Erreur relay client -> admin : {e}")
+
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
 async def relay_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
