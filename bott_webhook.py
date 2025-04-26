@@ -51,7 +51,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
 # Fonction de détection de lien non autorisé
 def lien_non_autorise(text):
     return any(
-        part.startswith("http","https") and not any(allowed in part for allowed in WHITELIST_LINKS)
+        part.startswith(("http", "https"))and not any(allowed in part for allowed in WHITELIST_LINKS)
         for part in text.split()
     )
 
@@ -131,7 +131,7 @@ async def rejoindre_vip(message: types.Message):
     )
 
 # Suppression des liens non whitelistés
-@dp.message_handler(lambda message: "http","https" in message.text and message.from_user.id in declaring_utilisateurs_valides)
+@dp.message_handler(lambda message: ("http" in message.text or "https" in message.text) and message.from_user.id in declaring_utilisateurs_valides)
 async def detecter_lien_externe(message: types.Message):
     if lien_non_autorise(message.text):
         try:
