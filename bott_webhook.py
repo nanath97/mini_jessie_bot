@@ -146,8 +146,6 @@ async def detecter_lien_externe(message: types.Message):
 # Chat libre après validation
 @dp.message_handler(lambda message: message.from_user.id in declaring_utilisateurs_valides)
 async def chat_libre(message: types.Message):
-    pass
+    print(f"📨 Nouveau message reçu de {message.from_user.username} : {message.text}")
+    # Pas de réponse automatique ici
 
-# Fonction factice pour Render
-def register_handlers(dp):
-    pass
