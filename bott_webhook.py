@@ -32,6 +32,53 @@ def lien_non_autorise(text):
                 return True
     return False
 
+
+# --- Authorized users protection ---
+
+# Liste des utilisateurs ayant cliqué sur un des boutons
+authorized_users = set()
+
+# 1. Quand quelqu'un clique sur un des 3 boutons => il est autorisé
+@dp.message_handler(lambda message: message.text in ["🔞Voir la vidéo du jour", "✨Discuter en tant que VIP", "👀Je suis un voyeur"])
+async def bouton_clique(message: types.Message):
+    authorized_users.add(message.from_user.id)
+    # Ensuite continue normalement ton code actuel ici (affichage vidéo, VIP, etc.)
+    if message.text == "🔞Voir la vidéo du jour":
+        await bot.send_message(message.chat.id, "🎥 Voici ta vidéo du jour : https://buy.stripe.com/fZeg328Th4K67zW9AA")
+    elif message.text == "✨Discuter en tant que VIP":
+        await bot.send_message(message.chat.id, "🚀 Deviens VIP ici : https://buy.stripe.com/4gwg32fhF4K62fCdQR")
+    elif message.text == "👀Je suis un voyeur":
+        keyboard_confirm = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard_confirm.add(
+            types.KeyboardButton("✅ Oui je confirme (bannir)"),
+            types.KeyboardButton("🚀 Non, je veux rejoindre le VIP")
+        )
+        await bot.send_message(message.chat.id, "Confirme ton choix :", reply_markup=keyboard_confirm)
+
+# 2. Blocage des utilisateurs non autorisés
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
+async def filtrage_et_verification(message: types.Message):
+    # Si utilisateur pas encore autorisé
+    if message.from_user.id not in authorized_users:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+        except Exception as e:
+            print(f"Erreur suppression message non autorisé : {e}")
+        await bot.send_message(chat_id=message.chat.id, text="🚫 Tu dois d'abord choisir une des trois options avant de m'écrire.")
+        raise CancelHandler()
+
+    # Sinon l'utilisateur est autorisé : vérifier s'il envoie un lien interdit
+    text_to_check = message.text or message.caption or ""
+    if lien_non_autorise(text_to_check):  # Fonction que tu as déjà ou que je peux te donner
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+        except Exception as e:
+            print(f"Erreur suppression message avec lien interdit : {e}")
+        await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+        raise CancelHandler()
+
+# --- Fin Authorized users protection ---
+
 # Fonction pour ajouter un paiement à Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
     if not type_acces:
