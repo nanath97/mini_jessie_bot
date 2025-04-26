@@ -134,17 +134,6 @@ async def confirmer_voyeur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
-# Suppression des liens interdits
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID and ((message.text and "http" in message.text) or (message.caption and "http" in message.caption)), content_types=types.ContentType.ANY)
-async def supprimer_liens_interdits(message: types.Message):
-    text_to_check = message.text or message.caption or ""
-    if lien_non_autorise(text_to_check):
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-        except Exception as e:
-            print(f"Erreur suppression lien externe : {e}")
-        await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
-        raise CancelHandler()
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
