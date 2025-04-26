@@ -50,6 +50,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             "Date": datetime.now().strftime("%d/%m/%Y %H:%M")
         }
     }
+    print(data) 
     response = requests.post(url, json=data, headers=headers)
     if response.status_code != 200:
         print(f"Erreur Airtable : {response.text}")
