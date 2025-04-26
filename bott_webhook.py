@@ -50,6 +50,10 @@ async def detect_external_links(message: types.Message):
         "https://buy.stripe.com/"
         "https://t.me/mini_jessie_bot?startpaid"
     ]
+    # Fonction pour vérifier si un lien n'est pas autorisé
+def lien_non_autorise(text):
+    return any(part.startswith("http") and not any(allowed in part for allowed in WHITELIST_LINKS) for part in text.split())
+
     content = message.text if message.text else message.caption
     if not any(allowed in content for allowed in WHITELIST_LINKS):
         try:
