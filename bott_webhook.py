@@ -75,14 +75,14 @@ async def handle_start(message: types.Message):
         if montant in prix_list:
             await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖")
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
-            enregistrer_paiement_airtable(message.from_user.username or message.from_user.first_name, message.from_user.id, montant, "Paiement standard")
+            log_to_airtable(message.from_user.username or message.from_user.first_name, message.from_user.id, montant, "Paiement standard")
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans Airtable.")
             return
 
     if param in ["vipaccess", "vipaccess123"]:
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP !")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
-        enregistrer_paiement_airtable(message.from_user.username or message.from_user.first_name, message.from_user.id, "VIP Access", "VIP Access")
+        log_to_airtable(message.from_user.username or message.from_user.first_name, message.from_user.id, "VIP Access", "VIP Access")
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans Airtable.")
         return
 
