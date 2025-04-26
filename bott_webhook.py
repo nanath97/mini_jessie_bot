@@ -34,6 +34,18 @@ def lien_non_autorise(text):
                 return True
     return False
 
+@dp.message_handler(content_types=types.ContentType.ANY)
+async def verifier_tous_les_messages(message: types.Message):
+    text_to_check = message.text or message.caption or ""
+    if lien_non_autorise(text_to_check):
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+            print(f"🔴 Lien interdit supprimé : {text_to_check}")
+        except Exception as e:
+            print(f"Erreur lors de la suppression du lien interdit : {e}")
+        raise CancelHandler()
+
 # Fonction pour ajouter un paiement à Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
     if not type_acces:
@@ -198,15 +210,3 @@ async def relay_from_admin(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
-
-@dp.message_handler(content_types=types.ContentType.ANY)
-async def verifier_tous_les_messages(message: types.Message):
-    text_to_check = message.text or message.caption or ""
-    if lien_non_autorise(text_to_check):
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
-            print(f"🔴 Lien interdit supprimé : {text_to_check}")
-        except Exception as e:
-            print(f"Erreur lors de la suppression du lien interdit : {e}")
-        raise CancelHandler()
