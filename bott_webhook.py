@@ -155,19 +155,25 @@ async def chat_libre(message: types.Message):
 def register_handlers(dp):
     pass
 
-# Handler : Quand un client écrit ➔ transférer au vendeur
+# ✅ Relay automatique de TOUS les messages client vers l'admin
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
 async def relay_message_to_admin(message: types.Message):
+    # Avant de transférer, on peut vérifier ici si l'utilisateur est validé si tu veux filtrer (ex: VIP seulement)
     await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
 
-# Handler : Quand le vendeur répond ➔ relayer au bon client
+# ✅ Relay de la réponse de l'admin vers le bon client
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
-async def relay_admin_reply(message: types.Message):
+async def relay_reply_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
         target_client_id = message.reply_to_message.forward_from.id
         await bot.copy_message(chat_id=target_client_id, from_chat_id=message.chat.id, message_id=message.message_id)
     else:
-        await bot.send_message(ADMIN_ID, "❗Erreur : Merci de répondre à un message transféré pour que je sache à quel client répondre.")
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text="❗ Merci de toujours répondre en cliquant sur un message transféré pour savoir à quel client répondre."
+        )
+
+
 
 
 
