@@ -3,6 +3,7 @@ from aiogram import types
 import requests
 import asyncio
 from datetime import datetime
+import os
 
 # === CONFIGURATION ===
 ADMIN_ID = 7334072965  # Ton ID Telegram Admin
@@ -47,6 +48,7 @@ async def detect_external_links(message: types.Message):
     WHITELIST_LINKS = [
         "https://novapulseonline.wixsite.com/",
         "https://buy.stripe.com/"
+        "https://t.me/mini_jessie_bot?startpaid"
     ]
     content = message.text if message.text else message.caption
     if not any(allowed in content for allowed in WHITELIST_LINKS):
@@ -106,41 +108,73 @@ async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
 # === RELAY CLIENT ➔ ADMIN (TOUT TYPE) ===
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
-async def relay_all_from_client(message: types.Message):
-    try:
-        await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
-    except Exception as e:
-        print(f"Erreur relay client ➔ admin : {e}")
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
 async def relay_from_admin(message: types.Message):
     if message.reply_to_message and message.reply_to_message.forward_from:
         target_id = message.reply_to_message.forward_from.id
         try:
-            # Si texte
+            # Si le message est un texte
             if message.text:
+                if lien_non_autorise(message.text):
+                    await bot.send_message(chat_id=ADMIN_ID, text="🚫 Lien interdit détecté dans ton message texte. Message bloqué.")
+                    return
                 await bot.send_message(chat_id=target_id, text=message.text)
-            # Si photo
+            
+            # Si le message est une photo
             elif message.photo:
-                await bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=message.caption if message.caption else "")
-            # Si vidéo
+                if message.caption and lien_non_autorise(message.caption):
+                    await bot.send_message(chat_id=ADMIN_ID, text="🚫 Lien interdit détecté dans la légende de la photo. Message bloqué.")
+                    return
+                file = await bot.get_file(message.photo[-1].file_id)
+                file_path = file.file_path
+                temp_file = f"/tmp/{file_path.split('/')[-1]}"
+                await bot.download_file(file_path, temp_file)
+                with open(temp_file, 'rb') as photo:
+                    await bot.send_photo(chat_id=target_id, photo=photo, caption=message.caption if message.caption else "")
+                os.remove(temp_file)
+
+            # Si le message est une vidéo
             elif message.video:
-                await bot.send_video(chat_id=target_id, video=message.video.file_id, caption=message.caption if message.caption else "")
-            # Si document
-            elif message.document:
-                await bot.send_document(chat_id=target_id, document=message.document.file_id, caption=message.caption if message.caption else "")
-            # Si audio
+                if message.caption and lien_non_autorise(message.caption):
+                    await bot.send_message(chat_id=ADMIN_ID, text="🚫 Lien interdit détecté dans la légende de la vidéo. Message bloqué.")
+                    return
+                file = await bot.get_file(message.video.file_id)
+                file_path = file.file_path
+                temp_file = f"/tmp/{file_path.split('/')[-1]}"
+                await bot.download_file(file_path, temp_file)
+                with open(temp_file, 'rb') as video:
+                    await bot.send_video(chat_id=target_id, video=video, caption=message.caption if message.caption else "")
+                os.remove(temp_file)
+
+            # Si le message est un audio (message vocal ou musique)
             elif message.audio:
-                await bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=message.caption if message.caption else "")
-            # Si voice
+                if message.caption and lien_non_autorise(message.caption):
+                    await bot.send_message(chat_id=ADMIN_ID, text="🚫 Lien interdit détecté dans la légende de l'audio. Message bloqué.")
+                    return
+                file = await bot.get_file(message.audio.file_id)
+                file_path = file.file_path
+                temp_file = f"/tmp/{file_path.split('/')[-1]}"
+                await bot.download_file(file_path, temp_file)
+                with open(temp_file, 'rb') as audio:
+                    await bot.send_audio(chat_id=target_id, audio=audio, caption=message.caption if message.caption else "")
+                os.remove(temp_file)
+
+            # Si le message est un voice
             elif message.voice:
-                await bot.send_voice(chat_id=target_id, voice=message.voice.file_id, caption=message.caption if message.caption else "")
+                file = await bot.get_file(message.voice.file_id)
+                file_path = file.file_path
+                temp_file = f"/tmp/{file_path.split('/')[-1]}"
+                await bot.download_file(file_path, temp_file)
+                with open(temp_file, 'rb') as voice:
+                    await bot.send_voice(chat_id=target_id, voice=voice)
+                os.remove(temp_file)
+
             else:
-                await bot.send_message(chat_id=ADMIN_ID, text="❗Type de message non supporté pour le moment.")
+                await bot.send_message(chat_id=ADMIN_ID, text="❗Type de message non supporté pour l'instant.")
+        
         except Exception as e:
-            await bot.send_message(chat_id=ADMIN_ID, text="❗Erreur lors de l'envoi au client.")
-            print(f"Erreur envoi admin ➔ client : {e}")
+            await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors de l'envoi du message au client.\n{e}")
+            print(f"Erreur relay admin -> client: {e}")
     else:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Merci de répondre à un message transféré pour identifier le client.")
-
