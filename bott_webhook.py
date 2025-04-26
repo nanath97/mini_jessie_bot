@@ -5,6 +5,9 @@ from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
 import requests
 
+# Fonction de détection de lien non autorisé
+ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
+
 # --- CONFIGURATION AIRTABLE ---
 AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
 BASE_ID = "appdA5tvdjXiktFzq"
@@ -22,9 +25,6 @@ WHITELIST_LINKS = [
     "https://buy.stripe.com/",
     "https://t.me/mini_jessie_bot?start=paid"
 ]
-
-# Fonction de détection de lien non autorisé
-ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
 def lien_non_autorise(text):
     words = text.split()
@@ -209,16 +209,15 @@ async def relay_from_admin(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
-        @dp.message_handler(content_types=types.ContentType.ANY)
-        async def verification_liens(message: types.Message):
 
-            text_to_check = message.text or message.caption or ""
+@dp.message_handler(content_types=types.ContentType.ANY)
+async def verifier_tous_les_messages(message: types.Message):
+    text_to_check = message.text or message.caption or ""
     if lien_non_autorise(text_to_check):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
             await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
-            print(f"🔴 Message supprimé car lien interdit : {text_to_check}")
+            print(f"🔴 Lien interdit supprimé : {text_to_check}")
         except Exception as e:
-            print(f"Erreur suppression message lien interdit : {e}")
+            print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
-
