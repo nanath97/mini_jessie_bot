@@ -148,4 +148,6 @@ async def detecter_lien_externe(message: types.Message):
 async def chat_libre(message: types.Message):
     print(f"📨 Nouveau message reçu de {message.from_user.username} : {message.text}")
     # Pas de réponse automatique ici
+def register_handlers(dp):
+    pass
 
