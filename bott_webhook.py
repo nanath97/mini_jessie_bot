@@ -46,7 +46,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             "Pseudo Telegram": pseudo or "-",
             "ID Telegram": str(user_id),
             "Type acces": str(type_acces),
-            "Montant": str(montant),
+            "Montant": float(montant),
             "Contenu": contenu,
             "Email": email,
             "Date": datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -83,7 +83,7 @@ async def handle_start(message: types.Message):
     pseudo=message.from_user.username or message.from_user.first_name,
     user_id=message.from_user.id,
     type_acces="Paiement",
-    montant=montant,
+    montant= float(montant),
     contenu="Paiement Contenu"
 )
 
@@ -97,7 +97,7 @@ async def handle_start(message: types.Message):
     pseudo=message.from_user.username or message.from_user.first_name,
     user_id=message.from_user.id,
     type_acces="VIP",
-    montant=1,  # car VIP coûte 1 €
+    montant= float(montant),
     contenu="Accès VIP Telegram"
 )
 
