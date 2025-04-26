@@ -159,19 +159,6 @@ async def rejoindre_vip(message: types.Message):
         reply_markup=keyboard
     )
 
-async def bloquer_saisie_libre(message: types.Message):
-    # Bloque les messages envoyés sans utiliser les boutons
-    try:
-        await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    except Exception as e:
-        # En privé, le bot peut échouer à supprimer le message de l'utilisateur (selon l’ancienneté)
-        print("Erreur suppression message libre :", e)
-    # Envoi d’un rappel d’utiliser les boutons
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text="🛑 Merci de cliquer sur un des boutons pour continuer."
-    )
-
 async def detecter_lien_externe(message: types.Message):
     # Supprime les liens extérieurs non autorisés et avertit l'utilisateur
     if lien_non_autorise(message.text):
@@ -204,14 +191,8 @@ def register_handlers(bot_instance=None, dp_instance=None):
     # Boutons de confirmation VIP
     dp_obj.register_message_handler(confirmer_voyeur, lambda message: message.text == "✅ Oui je confirme")
     dp_obj.register_message_handler(rejoindre_vip, lambda message: message.text == "🚀 Non je veux rejoindre le VIP")
-    # Blocage des messages libres non validés
-    dp_obj.register_message_handler(
-        bloquer_saisie_libre,
-        lambda message: message.text 
-                        and not message.text.startswith("/start") 
-                        and message.text not in ALLOWED_TEXTS 
-                        and message.from_user.id not in declaring_utilisateurs_valides
-    )
+    
+
     # Suppression des liens non whitelistés (pour utilisateurs validés)
     dp_obj.register_message_handler(
         detecter_lien_externe,
