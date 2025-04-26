@@ -49,7 +49,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             "Montant": float(montant),
             "Contenu": contenu,
             "Email": email,
-            "Date": datetime.now().strftime("%d/%m/%Y %H:%M")
+            "Date": datetime.utcnow().isoformat() + "Z"
         }
     }
     print(data)  # Debug temporaire pour vérifier ce qu'on envoie
