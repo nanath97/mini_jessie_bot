@@ -208,3 +208,17 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
+        @dp.message_handler(content_types=types.ContentType.ANY)
+        async def verification_liens(message: types.Message):
+
+            text_to_check = message.text or message.caption or ""
+    if lien_non_autorise(text_to_check):
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+            print(f"🔴 Message supprimé car lien interdit : {text_to_check}")
+        except Exception as e:
+            print(f"Erreur suppression message lien interdit : {e}")
+        raise CancelHandler()
+
