@@ -58,6 +58,10 @@ async def bouton_clique(message: types.Message):
 # 2. Blocage des utilisateurs non autorisés
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def filtrage_et_verification(message: types.Message):
+    # Exception spéciale pour /start : ne pas bloquer
+    if message.text and message.text.startswith("/start"):
+        return  # On laisse passer pour envoyer les boutons
+
     # Si utilisateur pas encore autorisé
     if message.from_user.id not in authorized_users:
         try:
@@ -67,15 +71,16 @@ async def filtrage_et_verification(message: types.Message):
         await bot.send_message(chat_id=message.chat.id, text="🚫 Tu dois d'abord choisir une des trois options avant de m'écrire.")
         raise CancelHandler()
 
-    # Sinon l'utilisateur est autorisé : vérifier s'il envoie un lien interdit
+    # Ensuite, contrôle des liens pour les utilisateurs autorisés
     text_to_check = message.text or message.caption or ""
-    if lien_non_autorise(text_to_check):  # Fonction que tu as déjà ou que je peux te donner
+    if lien_non_autorise(text_to_check):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
         except Exception as e:
-            print(f"Erreur suppression message avec lien interdit : {e}")
+            print(f"Erreur suppression lien interdit : {e}")
         await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
         raise CancelHandler()
+
 
 # --- Fin Authorized users protection ---
 
