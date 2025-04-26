@@ -2,6 +2,7 @@ from core import bot, dp
 from aiogram import types
 import os
 from datetime import datetime
+from aiogram.dispatcher.handler import CancelHandler
 
 # ADMIN ID
 ADMIN_ID = 7334072965
@@ -73,71 +74,103 @@ async def confirmer_voyeur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
-# Suppression des liens interdits
-@dp.message_handler(lambda message: message.text and "http" in message.text)
+# Suppression des liens interdits dans les messages des utilisateurs (texte ou légende)
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID and (
+                                   (message.text and "http" in message.text) or 
+                                   (message.caption and "http" in message.caption)),
+                    content_types=types.ContentType.ANY)
 async def supprimer_liens_interdits(message: types.Message):
-    if lien_non_autorise(message.text):
+    text_to_check = message.text or message.caption or ""
+    if lien_non_autorise(text_to_check):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
         except Exception as e:
             print(f"Erreur suppression lien externe : {e}")
+        # Avertir l'utilisateur
+        await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+        # Stoppe la propagation de cet événement à d'autres handlers
+        raise CancelHandler()
 
-# Relay client -> admin
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
+# Dictionnaire pour faire correspondre les messages envoyés à l'admin avec l'utilisateur d'origine
+pending_replies = {}
+
+# Relais Client -> Admin
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
+    """
+    Relais des messages du client vers l'administrateur.
+    Gère texte, photo, vidéo, document, audio et voice en utilisant les file_id Telegram pour éviter le stockage local.
+    """
     try:
+        sent_msg = None
         if message.text:
-            await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
-
+            # Transférer le message texte tel quel (conserve la référence de l'utilisateur)
+            sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
         elif message.photo:
-            file = await bot.get_file(message.photo[-1].file_id)
-            file_path = file.file_path
-            temp_file = f"/tmp/{file_path.split('/')[-1]}"
-            await bot.download_file(file_path, temp_file)
-            with open(temp_file, 'rb') as photo:
-                await bot.send_photo(chat_id=ADMIN_ID, photo=photo, caption=message.caption if message.caption else "")
-            os.remove(temp_file)
-
+            # Envoyer la photo et sa légende à l'admin
+            sent_msg = await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
         elif message.video:
-            file = await bot.get_file(message.video.file_id)
-            file_path = file.file_path
-            temp_file = f"/tmp/{file_path.split('/')[-1]}"
-            await bot.download_file(file_path, temp_file)
-            with open(temp_file, 'rb') as video:
-                await bot.send_video(chat_id=ADMIN_ID, video=video, caption=message.caption if message.caption else "")
-            os.remove(temp_file)
-
+            sent_msg = await bot.send_video(chat_id=ADMIN_ID, video=message.video.file_id, caption=message.caption or "")
         elif message.document:
-            file = await bot.get_file(message.document.file_id)
-            file_path = file.file_path
-            temp_file = f"/tmp/{file_path.split('/')[-1]}"
-            await bot.download_file(file_path, temp_file)
-            with open(temp_file, 'rb') as doc:
-                await bot.send_document(chat_id=ADMIN_ID, document=doc, caption=message.caption if message.caption else "")
-            os.remove(temp_file)
-
+            sent_msg = await bot.send_document(chat_id=ADMIN_ID, document=message.document.file_id, caption=message.caption or "")
         elif message.voice:
-            file = await bot.get_file(message.voice.file_id)
-            file_path = file.file_path
-            temp_file = f"/tmp/{file_path.split('/')[-1]}"
-            await bot.download_file(file_path, temp_file)
-            with open(temp_file, 'rb') as voice:
-                await bot.send_voice(chat_id=ADMIN_ID, voice=voice)
-            os.remove(temp_file)
-
+            sent_msg = await bot.send_voice(chat_id=ADMIN_ID, voice=message.voice.file_id)
         elif message.audio:
-            file = await bot.get_file(message.audio.file_id)
-            file_path = file.file_path
-            temp_file = f"/tmp/{file_path.split('/')[-1]}"
-            await bot.download_file(file_path, temp_file)
-            with open(temp_file, 'rb') as audio:
-                await bot.send_audio(chat_id=ADMIN_ID, audio=audio, caption=message.caption if message.caption else "")
-            os.remove(temp_file)
-
+            sent_msg = await bot.send_audio(chat_id=ADMIN_ID, audio=message.audio.file_id, caption=message.caption or "")
         else:
+            # Type non supporté (ex. sticker, contact)
             await bot.send_message(chat_id=ADMIN_ID, text="📂 Un type de fichier non supporté a été reçu.")
+            return  # Sortie anticipée sans erreur
+
+        # Si un message a bien été envoyé à l'admin, lier son ID au chat utilisateur d'origine
+        if sent_msg:
+            pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
 
     except Exception as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relay client -> admin.\n{e}")
+        # Informer l'admin de l'échec du transfert
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais client -> admin.\n{e}")
         print(f"Erreur relay client -> admin : {e}")
+
+# Relais Admin -> Client
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
+async def relay_from_admin(message: types.Message):
+    """
+    Relais des réponses de l'administrateur vers le client d'origine.
+    L'administrateur doit répondre (reply) à un message du bot pour que sa réponse soit relayée.
+    """
+    if not message.reply_to_message:
+        return  # Ignorer si le message de l'admin n'est pas une réponse à un message existant
+
+    # Obtenir l'ID de l'utilisateur cible soit via la référence du message forwardé, soit via le dictionnaire
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
+        return
+
+    try:
+        # Relayer en fonction du type de contenu du message de l'admin
+        if message.text:
+            await bot.send_message(chat_id=user_id, text=message.text)
+        elif message.photo:
+            await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
+        elif message.video:
+            await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
+        elif message.document:
+            await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
+        elif message.voice:
+            await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
+        elif message.audio:
+            await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
+        else:
+            await bot.send_message(chat_id=ADMIN_ID, text="📂 Le type de message de l'admin n'est pas supporté pour le relais.")
+            return
+
+    except Exception as e:
+        # Alerter l'admin en cas d'erreur d'envoi
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+        print(f"Erreur relay admin -> client : {e}")
