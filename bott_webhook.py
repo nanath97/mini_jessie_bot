@@ -34,6 +34,8 @@ def lien_non_autorise(text):
 
 # Fonction pour ajouter un paiement à Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
+    if not type_acces:
+        type_acces = "Paiement"  # Par défaut pour éviter erreurs
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
@@ -41,21 +43,22 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
     }
     data = {
         "fields": {
-            "Pseudo Telegram": pseudo,
+            "Pseudo Telegram": pseudo or "-",
             "ID Telegram": str(user_id),
-            "Type acces": type_acces,
+            "Type acces": str(type_acces),
             "Montant": str(montant),
             "Contenu": contenu,
             "Email": email,
             "Date": datetime.now().strftime("%d/%m/%Y %H:%M")
         }
     }
-    print(data) 
+    print(data)  # Debug temporaire pour vérifier ce qu'on envoie
     response = requests.post(url, json=data, headers=headers)
     if response.status_code != 200:
         print(f"Erreur Airtable : {response.text}")
     else:
         print("✅ Paiement ajouté dans Airtable avec succès !")
+
 
 
 # Création du clavier
