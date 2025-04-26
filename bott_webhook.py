@@ -24,11 +24,13 @@ WHITELIST_LINKS = [
 ]
 
 # Fonction de détection de lien non autorisé
+ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
+
 def lien_non_autorise(text):
     words = text.split()
     for word in words:
         if word.startswith("http://") or word.startswith("https://"):
-            if not any(allowed in word for allowed in WHITELIST_LINKS):
+            if not any(domain.strip() in word for domain in ALLOWED_DOMAINS):
                 return True
     return False
 
