@@ -175,20 +175,10 @@ async def handle_start(message: types.Message):
     )
         # Detection des liens frauduleux
 
-        @dp.message_handler(commands=["id"])
-        async def send_admin_id(message: types.Message):
-            admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
+        
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID enregistré dans le .env : {admin_id}")
 
-        def register_handlers(bot, dp):
-            from aiogram import types
-            import detect_links_whitelist
-
-
-        @dp.message_handler(commands=["id"])
-        async def send_admin_id(message: types.Message):
-            from os import getenv
-        admin_id = getenv("ADMIN_TELEGRAM_ID", "non défini")
+        
         await message.answer(f"Ton ID Telegram est : {message.from_user.id}\nID dans le .env : {admin_id}")
 
 # ✅ AJOUT FINAL : blocage des messages libres tant que l'utilisateur n'a pas cliqué sur un bouton,
