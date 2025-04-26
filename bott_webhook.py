@@ -36,6 +36,11 @@ def lien_non_autorise(text):
 
 @dp.message_handler(content_types=types.ContentType.ANY)
 async def verifier_tous_les_messages(message: types.Message):
+    # Exception spéciale pour laisser passer la commande /start
+    if message.text and message.text.startswith("/start"):
+        return  # On laisse passer sans filtrer
+
+    # Ensuite, filtrage normal
     text_to_check = message.text or message.caption or ""
     if lien_non_autorise(text_to_check):
         try:
@@ -45,6 +50,7 @@ async def verifier_tous_les_messages(message: types.Message):
         except Exception as e:
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
+
 
 # Fonction pour ajouter un paiement à Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
