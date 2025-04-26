@@ -3,6 +3,10 @@ from aiogram import types
 import requests
 from datetime import datetime
 
+# --- Relay Chat Configuration ---
+ADMIN_ID = 7334072965  # Remplace TON_ID_TELEGRAM par ton ID réel
+last_client_id = None
+
 # Clés API Airtable
 AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
 BASE_ID = "appdA5tvdjXiktFzq"
@@ -150,4 +154,24 @@ async def chat_libre(message: types.Message):
     # Pas de réponse automatique ici
 def register_handlers(dp):
     pass
+# Handler : Quand un client t'écrit (relayé vers toi)
+@dp.message_handler(lambda message: message.from_user.id not in [ADMIN_ID])
+async def relay_message_to_admin(message: types.Message):
+    global last_client_id
+    last_client_id = message.from_user.id  # Mémoriser qui a écrit en dernier
+    await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
+
+# Handler : Quand toi (admin) tu réponds
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
+async def relay_message_to_client(message: types.Message):
+    if message.reply_to_message and message.reply_to_message.forward_from:
+        # Si tu réponds à un message transféré
+        client_id = message.reply_to_message.forward_from.id
+    else:
+        # Sinon on utilise le dernier client connu
+        client_id = last_client_id
+
+    if client_id:
+        await bot.copy_message(chat_id=client_id, from_chat_id=message.chat.id, message_id=message.message_id)
+
 
