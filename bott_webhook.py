@@ -103,10 +103,6 @@ async def detect_external_links(message: types.Message):
         except Exception as e:
             print(f"Erreur suppression lien : {e}")
 
-
-
-
-
 # === RELAY CLIENT → ADMIN (TOUT TYPE DE MESSAGE)
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID)
 async def relay_all_from_client(message: types.Message):
