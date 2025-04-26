@@ -17,6 +17,9 @@ WHITELIST_LINKS = [
     "https://buy.stripe.com/",
 ]
 
+# Lien pour rejoindre le VIP
+VIP_JOIN_LINK = "https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+
 # Création du clavier principal
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
@@ -25,8 +28,17 @@ keyboard.add(
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
 
-# Utilisateurs validés
+# Utilisateurs validés (ayant accès au chat libre)
 declaring_utilisateurs_valides = set()
+
+# Liste des textes de boutons autorisés (pour ne pas être bloqués)
+ALLOWED_TEXTS = [
+    "🔞Voir la vidéo du jour",
+    "👀Je suis un voyeur",
+    "✨Discuter en tant que VIP",
+    "✅ Oui je confirme",
+    "🚀 Non je veux rejoindre le VIP"
+]
 
 # Fonction d'envoi Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
@@ -50,24 +62,45 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
 
 # Fonction de détection de lien non autorisé
 def lien_non_autorise(text):
-    return any(part.startswith("http") and not any(allowed in part for allowed in WHITELIST_LINKS) for part in text.split())
+    return any(
+        part.startswith("http") 
+        and not any(allowed in part for allowed in WHITELIST_LINKS) 
+        for part in text.split()
+    )
 
 # Commande /start
-@dp.message_handler(commands=['start'])
 async def handle_start(message: types.Message):
     param = message.get_args()
 
-    if param.startswith("paid") and param[4:].isdigit():
-        montant = int(param[4:])
-        if montant in prix_list:
+    if param:
+        if param.startswith("paid") and param[4:].isdigit():
+            montant = int(param[4:])
+            if montant in prix_list:
+                await bot.send_message(
+                    message.chat.id,
+                    f"Merci pour ton paiement de {montant}€ 💖"
+                )
+                declaring_utilisateurs_valides.add(message.from_user.id)
+                log_to_airtable(
+                    message.from_user.username, message.from_user.id,
+                    "Achat direct", montant, "Vidéo privée", "email@exemple.com"
+                )
+                return
+        elif param == "vipaccess":
+            # Accès VIP direct
+            declaring_utilisateurs_valides.add(message.from_user.id)
+            log_to_airtable(
+                message.from_user.username, message.from_user.id,
+                "Accès VIP", 0, "Accès VIP", "email@exemple.com"
+            )
             await bot.send_message(
                 message.chat.id,
-                f"Merci pour ton paiement de {montant}€ 💖"
+                f"Bienvenue {message.from_user.first_name or 'à toi'}, tu as désormais un accès VIP !",
+                reply_markup=keyboard
             )
-            declaring_utilisateurs_valides.add(message.from_user.id)
-            log_to_airtable(message.from_user.username, message.from_user.id, "Achat direct", montant, "Vidéo privée", "email@exemple.com")
             return
 
+    # Message de bienvenue par défaut si aucun paramètre spécial
     await bot.send_message(
         message.chat.id,
         f"Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
@@ -75,25 +108,30 @@ async def handle_start(message: types.Message):
     )
 
 # Gestion des boutons
-@dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
 async def voir_video(message: types.Message):
-    declaring_utilisateurs_valides.add(message.from_user.id)
+    # Envoi de la vidéo du jour (accès libre)
     await bot.send_message(
         message.chat.id,
         "Voici la vidéo du jour 🔥!"
     )
 
-@dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
 async def discuter_vip(message: types.Message):
-    declaring_utilisateurs_valides.add(message.from_user.id)
-    await bot.send_message(
-        message.chat.id,
-        "Bienvenue dans la discussion VIP ✨!"
-    )
+    if message.from_user.id not in declaring_utilisateurs_valides:
+        # Si l'utilisateur n'est pas VIP, on l’invite à le devenir
+        await bot.send_message(
+            message.chat.id,
+            f"✨ Cette section est réservée aux membres VIP. Pour nous rejoindre, utilise ce lien : {VIP_JOIN_LINK}",
+            reply_markup=keyboard
+        )
+    else:
+        # Si déjà VIP
+        await bot.send_message(
+            message.chat.id,
+            "✨ Tu as déjà accès à l'espace VIP, tu peux discuter librement."
+        )
 
-@dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
 async def voyeur(message: types.Message):
-    declaring_utilisateurs_valides.add(message.from_user.id)
+    # Demande de confirmation pour rester spectateur ou devenir VIP
     keyboard_confirmation = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard_confirmation.add(
         types.KeyboardButton("✅ Oui je confirme"),
@@ -101,61 +139,87 @@ async def voyeur(message: types.Message):
     )
     await bot.send_message(
         message.chat.id,
-        "Confirme si tu veux rester ou rejoindre le VIP.",
+        "Confirme si tu veux rester un simple spectateur ou rejoindre le VIP.",
         reply_markup=keyboard_confirmation
     )
 
-@dp.message_handler(lambda message: message.text == "✅ Oui je confirme")
 async def confirmer_voyeur(message: types.Message):
+    # L'utilisateur choisit de rester spectateur (accès limité)
     await bot.send_message(
         message.chat.id,
-        "Tu as choisi de rester un simple spectateur. Accès limité."
-    )
-
-@dp.message_handler(lambda message: message.text == "🚀 Non je veux rejoindre le VIP")
-async def rejoindre_vip(message: types.Message):
-    await bot.send_message(
-        message.chat.id,
-        "Parfait ! Voici le lien pour rejoindre le VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR",
+        "Tu as choisi de rester un simple spectateur. Accès limité.",
         reply_markup=keyboard
     )
 
-# Blocage des messages sans clic
-@dp.message_handler(lambda message:
-    message.text and
-    not message.text.startswith("/start") and
-    message.text not in ["🔞Voir la vidéo du jour", "👀Je suis un voyeur", "✨Discuter en tant que VIP", "✅ Oui je confirme", "🚀 Non je veux rejoindre le VIP"] and
-    message.from_user.id not in declaring_utilisateurs_valides
-)
+async def rejoindre_vip(message: types.Message):
+    # Fournir le lien d’adhésion VIP
+    await bot.send_message(
+        message.chat.id,
+        f"Parfait ! Voici le lien pour rejoindre le VIP : {VIP_JOIN_LINK}",
+        reply_markup=keyboard
+    )
+
 async def bloquer_saisie_libre(message: types.Message):
+    # Bloque les messages envoyés sans utiliser les boutons
     try:
         await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="🛑 Merci de cliquer sur un des boutons pour continuer."
-        )
     except Exception as e:
+        # En privé, le bot peut échouer à supprimer le message de l'utilisateur (selon l’ancienneté)
         print("Erreur suppression message libre :", e)
+    # Envoi d’un rappel d’utiliser les boutons
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text="🛑 Merci de cliquer sur un des boutons pour continuer."
+    )
 
-# Suppression des liens non whitelistés
-@dp.message_handler(lambda message: "http" in message.text and message.from_user.id in declaring_utilisateurs_valides)
 async def detecter_lien_externe(message: types.Message):
+    # Supprime les liens extérieurs non autorisés et avertit l'utilisateur
     if lien_non_autorise(message.text):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            await bot.send_message(
-                chat_id=message.chat.id,
-                text="🛘 Les liens extérieurs ne sont pas autorisés."
-            )
         except Exception as e:
             print("Erreur suppression lien externe :", e)
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="🛘 Les liens extérieurs ne sont pas autorisés."
+        )
 
-# Chat libre après validation
-@dp.message_handler(lambda message: message.from_user.id in declaring_utilisateurs_valides)
 async def chat_libre(message: types.Message):
+    # Gère le chat libre avec l'utilisateur VIP validé (à implémenter)
     pass
 
-# Fonction factice pour Render
-def register_handlers(dp):
-    pass
-
+# Enregistrement des handlers pour FastAPI/Render
+_handlers_registered = False
+def register_handlers(bot_instance=None, dp_instance=None):
+    global _handlers_registered
+    if _handlers_registered:
+        return
+    dp_obj = dp_instance or dp
+    # Commande /start
+    dp_obj.register_message_handler(handle_start, commands=['start'])
+    # Boutons du menu principal
+    dp_obj.register_message_handler(voir_video, lambda message: message.text == "🔞Voir la vidéo du jour")
+    dp_obj.register_message_handler(voyeur, lambda message: message.text == "👀Je suis un voyeur")
+    dp_obj.register_message_handler(discuter_vip, lambda message: message.text == "✨Discuter en tant que VIP")
+    # Boutons de confirmation VIP
+    dp_obj.register_message_handler(confirmer_voyeur, lambda message: message.text == "✅ Oui je confirme")
+    dp_obj.register_message_handler(rejoindre_vip, lambda message: message.text == "🚀 Non je veux rejoindre le VIP")
+    # Blocage des messages libres non validés
+    dp_obj.register_message_handler(
+        bloquer_saisie_libre,
+        lambda message: message.text 
+                        and not message.text.startswith("/start") 
+                        and message.text not in ALLOWED_TEXTS 
+                        and message.from_user.id not in declaring_utilisateurs_valides
+    )
+    # Suppression des liens non whitelistés (pour utilisateurs validés)
+    dp_obj.register_message_handler(
+        detecter_lien_externe,
+        lambda message: "http" in message.text and message.from_user.id in declaring_utilisateurs_valides
+    )
+    # Chat libre pour utilisateurs validés (VIP)
+    dp_obj.register_message_handler(
+        chat_libre,
+        lambda message: message.from_user.id in declaring_utilisateurs_valides
+    )
+    _handlers_registered = True
