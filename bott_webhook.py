@@ -4,8 +4,35 @@ import os
 from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
 
-# ADMIN ID
+# === CONFIGURATION ===
+AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214ab5f6c78aa2784b9701b6768ba40df7b32ab5df285"
+BASE_ID = "appdA5tvdjXiktFzq"
+TABLE_NAME = "Client Telegram"
 ADMIN_ID = 7334072965
+
+# === ENREGISTRER UN EVENEMENT DANS AIRTABLE ===
+async def log_to_airtable(pseudo, user_id, type_acces, montant, contenu, email):
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "fields": {
+            "Pseudo Telegram": pseudo,
+            "ID Telegram": str(user_id),
+            "Type acces": type_acces,
+            "Montant": montant,
+            "Contenu": contenu,
+            "Email": email,
+            "Date": datetime.now().isoformat()
+        }
+    }
+    try:
+        await asyncio.to_thread(requests.post, url, json=data, headers=headers)
+    except Exception as e:
+        print(f"Erreur Airtable : {e}")
+
 
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
