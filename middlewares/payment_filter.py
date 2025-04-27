@@ -3,7 +3,7 @@ from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 
 BOUTONS_AUTORISES = [
-    "🔞 Voir la vidéo du jour",
+    "🔞Voir la vidéo du jour",
     "✨ Discuter en tant que VIP",
     "👀 Je suis un voyeur",
     "✅ Oui je confirme (bannir)",  # <-- ton premier sous bouton
