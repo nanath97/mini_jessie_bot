@@ -16,6 +16,10 @@ class PaymentFilterMiddleware(BaseMiddleware):
         self.authorized_users = authorized_users
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
+        
+        if message.content_type != types.ContentType.TEXT:
+            return
+
         if message.text and message.text.startswith("/start"):
             return  # Laisser passer /start normal
         
