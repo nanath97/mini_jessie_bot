@@ -19,8 +19,8 @@ class PaymentFilterMiddleware(BaseMiddleware):
         if message.text and message.text.startswith("/start"):
             return  # Laisser passer /start normal
         
-        if message.text and any(button in message.text for button in BOUTONS_AUTORISES):
-            return  # Laisser passer tous les textes qui ressemblent à nos boutons
+        if message.text and message.text.strip() in BOUTONS_AUTORISES:
+            return
         
         if message.from_user.id not in self.authorized_users:
             try:
