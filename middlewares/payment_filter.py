@@ -4,7 +4,7 @@ from aiogram.dispatcher.handler import CancelHandler
 
 BOUTONS_AUTORISES = [
     "🔞 Voir la vidéo du jour",
-    "✨ Devenir VIP",
+    "✨ Discuter en tant que VIP",
     "👀 Je suis un voyeur",
     "✅ Oui je confirme (bannir)",  # <-- ton premier sous bouton
     "🚀 Non, je veux rejoindre le VIP"  # <-- ton deuxième sous bouton
@@ -18,6 +18,9 @@ class PaymentFilterMiddleware(BaseMiddleware):
     async def on_pre_process_message(self, message: types.Message, data: dict):
         if message.text and message.text.startswith("/start"):
             return  # Laisser passer /start normal
+        
+        if message.text and any(button in message.text for button in BOUTONS_AUTORISES):
+            return  # Laisser passer tous les textes qui ressemblent à nos boutons
         
         if message.from_user.id not in self.authorized_users:
             try:
