@@ -2,6 +2,14 @@ from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 
+BOUTONS_AUTORISES = [
+    "🔞 Voir la vidéo du jour",
+    "✨ Devenir VIP",
+    "👀 Je suis un voyeur",
+    "✅ Oui je confirme (bannir)",  # <-- ton premier sous bouton
+    "🚀 Non, je veux rejoindre le VIP"  # <-- ton deuxième sous bouton
+]
+
 class PaymentFilterMiddleware(BaseMiddleware):
     def __init__(self, authorized_users):
         super(PaymentFilterMiddleware, self).__init__()
