@@ -16,6 +16,11 @@ TABLE_NAME = "Client Telegram"
 # ADMIN ID
 ADMIN_ID = 7334072965
 
+# ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
+authorized_users = set()
+# ===== FIN AJOUT =====
+
+
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 
@@ -93,6 +98,7 @@ async def handle_start(message: types.Message):
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
+            authorized_users.add(message.from_user.id)
             await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖")
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
@@ -107,6 +113,7 @@ async def handle_start(message: types.Message):
             return
 
     if param in ["vipaccess", "vipaccess123"]:
+        authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP !")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
@@ -147,6 +154,30 @@ async def confirmer_voyeur(message: types.Message):
 @dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+
+
+
+
+# ===== AJOUT NOVA PROTECTION FILTRAGE APRES PAIEMENT (NE PAS TOUCHER) =====
+@dp.message_handler(content_types=types.ContentType.TEXT)
+async def filtrage_messages_non_payes(message: types.Message):
+    if message.text and message.text.startswith("/start"):
+        return  # On laisse passer la commande /start normalement
+
+    if message.from_user.id not in authorized_users:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+        except Exception as e:
+            print(f"Erreur suppression message non autorisé : {e}")
+        await bot.send_message(
+            message.chat.id,
+            "🚫 Merci de souscrire à un accès VIP ou d’acheter un contenu pour pouvoir discuter."
+        )
+        raise CancelHandler()
+# ===== FIN AJOUT =====
+
+
+
 
 
 # --- Message relay (client -> admin & admin -> client) ---
@@ -211,4 +242,5 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
 
