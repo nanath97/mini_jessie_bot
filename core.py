@@ -2,11 +2,13 @@ from aiogram import Bot, Dispatcher
 import os
 from dotenv import load_dotenv
 from middlewares.payment_filter import PaymentFilterMiddleware
-from bott_webhook import authorized_users
 
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
+# ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
+authorized_users = set()
+# ===== Activation du middleware =====
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))

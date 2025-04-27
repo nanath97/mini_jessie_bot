@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
 import requests
+from core import authorized_users
 
 # Fonction de détection de lien non autorisé
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
@@ -15,10 +16,6 @@ TABLE_NAME = "Client Telegram"
 
 # ADMIN ID
 ADMIN_ID = 7334072965
-
-# ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
-authorized_users = set()
-# ===== FIN AJOUT =====
 
 
 # Liste des prix autorisés
