@@ -20,13 +20,8 @@ class PaymentFilterMiddleware(BaseMiddleware):
             return  # Laisser passer /start normal
         
         # >>> NOUVEL AJOUT TRES IMPORTANT
-        if message.text in BOUTONS_AUTORISES:
-            return  # C'est un bouton connu, on laisse passer
-        
-        # Si le message vient d'un ReplyKeyboardMarkup (clavier réponse Telegram), laisser passer
-        if message.reply_to_message or message.reply_markup:
-            return  # Il y a un clavier associé, donc c'est un bouton, on laisse passer
-        # <<< FIN AJOUT
+        if message.text.strip() in BOUTONS_AUTORISES:
+            return
         
         if message.from_user.id not in self.authorized_users:
             try:
