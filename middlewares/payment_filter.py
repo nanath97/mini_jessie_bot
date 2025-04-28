@@ -1,8 +1,11 @@
-from core import ADMIN_ID  # Pour savoir qui est l'admin
 from detect_links_whitelist import lien_non_autorise  # Pour filtrer les liens
 from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
+
+
+ADMIN_ID = 7334072965  # Remets ici ton vrai ID Telegram admin
+
 
 BOUTONS_AUTORISES = [
     "🔞Voir la vidéo du jour",
