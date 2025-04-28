@@ -1,3 +1,5 @@
+from core import ADMIN_ID  # Pour savoir qui est l'admin
+from detect_links_whitelist import lien_non_autorise  # Pour filtrer les liens
 from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
@@ -19,6 +21,17 @@ class PaymentFilterMiddleware(BaseMiddleware):
         
         if message.content_type != types.ContentType.TEXT:
             return
+        
+        # ➡️ SI c'est l'ADMIN, vérifier uniquement les liens
+        if message.from_user.id == ADMIN_ID:
+            if lien_non_autorise(message.text):
+                try:
+                    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+                    await message.bot.send_message(chat_id=message.chat.id, text="🚫 Seuls les liens autorisés sont acceptés.")
+                except Exception as e:
+                    print(f"Erreur suppression lien admin : {e}")
+                raise CancelHandler()
+            return  # Sinon laisser passer normal
 
         if message.text and message.text.startswith("/start"):
             return  # Laisser passer /start normal
