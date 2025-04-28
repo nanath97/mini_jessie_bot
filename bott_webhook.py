@@ -5,6 +5,8 @@ from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
+from detect_links_whitelist import lien_non_autorise
+
 
 # Fonction de détection de lien non autorisé
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
@@ -16,6 +18,8 @@ TABLE_NAME = "Client Telegram"
 
 # ADMIN ID
 ADMIN_ID = 7334072965
+DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
+
 
 
 # Liste des prix autorisés
@@ -43,6 +47,13 @@ async def verifier_les_liens_uniquement(message: types.Message):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
             await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+            # Message perso au CEO pour avertir des fraudeurs
+            await bot.send_message(DIRECTEUR_ID,
+                                   f"🚨 Tentative de lien interdit détectée !\n\n"
+            f"👤 User: {message.from_user.username or message.from_user.first_name}\n"
+            f"🆔 ID: {message.from_user.id}\n"
+            f"🔗 Lien envoyé : {text_to_check}")
+
             print(f"🔴 Lien interdit supprimé : {text_to_check}")
         except Exception as e:
             print(f"Erreur lors de la suppression du lien interdit : {e}")
@@ -106,7 +117,7 @@ async def handle_start(message: types.Message):
     contenu="Paiement Contenu"
 )
 
-            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans Airtable.")
+            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
 
     if param in ["vipaccess", "vipaccess123"]:
@@ -117,11 +128,11 @@ async def handle_start(message: types.Message):
     pseudo=message.from_user.username or message.from_user.first_name,
     user_id=message.from_user.id,
     type_acces="VIP",
-    montant= float(montant),
+    montant= 1.0,
     contenu="Accès VIP Telegram"
 )
 
-        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans Airtable.")
+        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
 
     await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
