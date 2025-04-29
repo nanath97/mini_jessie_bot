@@ -47,6 +47,7 @@ async def verifier_les_liens_uniquement(message: types.Message):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
             await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
+            
             # Message perso au CEO pour avertir des fraudeurs
             await bot.send_message(DIRECTEUR_ID,
                                    f"🚨 Tentative de lien interdit détectée !\n\n"
@@ -162,6 +163,57 @@ async def confirmer_voyeur(message: types.Message):
 @dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+
+
+
+# === Envoi automatique de lien de paiement à partir d'une commande admin ===
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID 
+                              and message.text 
+                              and message.text.startswith("/envoyer"),
+                    content_types=types.ContentType.TEXT)
+async def envoyer_lien_stripe(message: types.Message):
+    if not message.reply_to_message:
+        await bot.send_message(chat_id=ADMIN_ID, 
+                               text="❗ Utilise la commande en réponse à un message du client.")
+        return
+
+    cmd = message.text.strip().lower()
+
+    # Dictionnaire des liens personnalisés
+    liens_paiement = {
+        "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
+        "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
+    }
+
+    # Extraction du suffixe de la commande
+    key = cmd.replace("/envoyer", "")
+    if key not in liens_paiement:
+        await bot.send_message(chat_id=ADMIN_ID, 
+                               text="❗ Cette commande n'est pas reconnue. Vérifie bien le montant.")
+        return
+
+    # Identification de l'utilisateur ciblé
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await bot.send_message(chat_id=ADMIN_ID, 
+                               text="❗ Impossible d'identifier le destinataire.")
+        return
+
+    # Envoi du lien au bon client
+    lien = liens_paiement[key]
+    await bot.send_message(chat_id=user_id, 
+                           text=f"💸 Pour débloquer ce contenu, clique ici :\n{lien}", 
+                           disable_web_page_preview=True)
+
+    # Ne pas relayer cette commande comme message
+    raise CancelHandler()
+
+
 
 
 # --- Message relay (client -> admin & admin -> client) ---
