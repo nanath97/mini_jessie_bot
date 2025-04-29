@@ -167,17 +167,20 @@ async def rejoindre_vip(message: types.Message):
 
 
 # === Envoi automatique de lien de paiement à partir d'une commande admin ===
-@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID 
-                              and message.text 
-                              and message.text.startswith("/envoyer"),
-                    content_types=types.ContentType.TEXT)
+@dp.message_handler(
+    lambda message: message.from_user.id == ADMIN_ID and (
+        (message.text and message.text.startswith("/envoyer")) or 
+        (message.caption and message.caption.startswith("/envoyer"))
+    ),
+    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, types.ContentType.VIDEO]
+)
 async def envoyer_lien_stripe(message: types.Message):
     if not message.reply_to_message:
         await bot.send_message(chat_id=ADMIN_ID, 
                                text="❗ Utilise la commande en réponse à un message du client.")
         return
 
-    cmd = message.text.strip().lower()
+    cmd = (message.text or message.caption).strip().lower()
 
     # Dictionnaire des liens personnalisés
     liens_paiement = {
@@ -185,14 +188,13 @@ async def envoyer_lien_stripe(message: types.Message):
         "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
     }
 
-    # Extraction du suffixe de la commande
     key = cmd.replace("/envoyer", "")
     if key not in liens_paiement:
         await bot.send_message(chat_id=ADMIN_ID, 
                                text="❗ Cette commande n'est pas reconnue. Vérifie bien le montant.")
         return
 
-    # Identification de l'utilisateur ciblé
+    # Identification du client ciblé
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
@@ -210,8 +212,8 @@ async def envoyer_lien_stripe(message: types.Message):
                            text=f"💸 Pour débloquer ce contenu, clique ici :\n{lien}", 
                            disable_web_page_preview=True)
 
-    # Ne pas relayer cette commande comme message
     raise CancelHandler()
+
 
 
 
