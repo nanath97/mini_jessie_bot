@@ -164,23 +164,32 @@ async def confirmer_voyeur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
+# IMessage avec lien
 
+import re
 
-# === Envoi automatique de lien de paiement à partir d'une commande admin ===
 @dp.message_handler(
     lambda message: message.from_user.id == ADMIN_ID and (
-        (message.text and message.text.startswith("/envoyer")) or 
-        (message.caption and message.caption.startswith("/envoyer"))
+        (message.text and "/envoyer" in message.text) or 
+        (message.caption and "/envoyer" in message.caption)
     ),
-    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, types.ContentType.VIDEO]
+    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT]
 )
 async def envoyer_lien_stripe(message: types.Message):
     if not message.reply_to_message:
-        await bot.send_message(chat_id=ADMIN_ID, 
-                               text="❗ Utilise la commande en réponse à un message du client.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilise la commande en réponse à un message du client.")
         return
 
-    cmd = (message.text or message.caption).strip().lower()
+    # Identifier le client ciblé
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
+        return
 
     # Dictionnaire des liens personnalisés
     liens_paiement = {
@@ -189,36 +198,32 @@ async def envoyer_lien_stripe(message: types.Message):
         "vip": "https://buy.stripe.com/4gwg32fhF4K62fCdQR"
     }
 
-    key = cmd.replace("/envoyer", "")
-    if key not in liens_paiement:
-        await bot.send_message(chat_id=ADMIN_ID, 
-                               text="❗ Cette commande n'est pas reconnue. Vérifie bien le montant.")
+    # Détection de /envoyerXX dans le texte ou la légende
+    texte = message.caption or message.text or ""
+    match = re.search(r"/envoyer(\d+|vip)", texte.lower())
+    if not match:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun code /envoyerXX valide détecté.")
         return
 
-    # Identification du client ciblé
-    user_id = None
-    if message.reply_to_message.forward_from:
-        user_id = message.reply_to_message.forward_from.id
-    else:
-        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
-
-    if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, 
-                               text="❗ Impossible d'identifier le destinataire.")
+    code = match.group(1)
+    lien = liens_paiement.get(code)
+    if not lien:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
         return
 
-    # Envoi du média + légende avec lien
-    lien = liens_paiement[key]
-    caption = f"{message.caption or ''}\n\n💸 Pour débloquer ce contenu, clique ici :\n{lien}"
+    # Remplacer le mot-clé /envoyerXX par le lien dans la légende
+    nouvelle_legende = re.sub(r"/envoyer(\d+|vip)", f"{lien}", texte)
 
+    # Renvoyer le média avec la nouvelle légende
     if message.content_type == types.ContentType.PHOTO:
-        await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=caption)
+        await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=nouvelle_legende)
     elif message.content_type == types.ContentType.VIDEO:
-        await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=caption)
+        await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=nouvelle_legende)
     elif message.content_type == types.ContentType.DOCUMENT:
-        await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=caption)
+        await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=nouvelle_legende)
     else:
-        await bot.send_message(chat_id=user_id, text=caption, disable_web_page_preview=True)
+        await bot.send_message(chat_id=user_id, text=nouvelle_legende, disable_web_page_preview=True)
+
 
 
 
