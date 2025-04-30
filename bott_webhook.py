@@ -296,7 +296,7 @@ async def relay_from_client(message: types.Message):
 async def relay_from_admin(message: types.Message):
     if not message.reply_to_message:
         return
-        # ⛔ Ne rien envoyer si la commande est /deverrouiller
+# ⛔ Ne rien envoyer si la commande est /deverrouiller
     if (message.text and "/deverrouiller" in message.text.lower()) or \
        (message.caption and "/deverrouiller" in message.caption.lower()):
         return
@@ -353,7 +353,7 @@ async def preparer_contenu_deverrouillable(message: types.Message):
         "caption": texte.replace(f"/deverrouiller{code}", "").strip()
     }
     await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€")
-        # Si des paiements sont en attente pour ce code → on envoie maintenant
+# Si des paiements sont en attente pour ce code → on envoie maintenant
     if code in paiements_en_attente:
         for user_id in paiements_en_attente[code]:
             contenu = contenus_a_deverrouiller[code]
