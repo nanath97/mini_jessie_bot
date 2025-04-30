@@ -10,7 +10,7 @@ from detect_links_whitelist import lien_non_autorise
 
 # 1.=== Variables globales ===
 contenus_a_deverrouiller = {}
-DEFAULT_FLOU_IMAGE_FILE_ID = "TON_FILE_ID_ICI"  # Remplace par le vrai file_id Telegram
+DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rjEbM2KQRDdrQA-mqmNwAQADAgADeAADNgQ" # Remplace par le vrai file_id Telegram
 
 
 # Fonction de détection de lien non autorisé
