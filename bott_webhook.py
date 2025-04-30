@@ -390,5 +390,10 @@ async def preparer_contenu_deverrouillable(message: types.Message):
 
 
 @dp.message_handler(content_types=types.ContentType.ANY)
-async def catch_all(message: types.Message):
-    print("📥 Message NON ATTRIBUÉ capté :", message, flush=True)
+async def catch_all_debug(message: types.Message):
+    print("📥 DEBUG – Message reçu mais ignoré par les autres handlers :", message, flush=True)
+    print("🧾 Contenu brut :")
+    print("text:", message.text)
+    print("caption:", message.caption)
+    print("content_type:", message.content_type)
+
