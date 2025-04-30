@@ -8,6 +8,11 @@ from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 
 
+# 1.=== Variables globales ===
+contenus_a_deverrouiller = {}
+DEFAULT_FLOU_IMAGE_FILE_ID = "TON_FILE_ID_ICI"  # Remplace par le vrai file_id Telegram
+
+
 # Fonction de détection de lien non autorisé
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
@@ -120,6 +125,17 @@ async def handle_start(message: types.Message):
 
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
+        # 1. Fonction deverrouiller
+        code_str = str(montant)
+        if code_str in contenus_a_deverrouiller:
+            contenu = contenus_a_deverrouiller[code_str]
+            if contenu["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(chat_id=message.chat.id, photo=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.VIDEO:
+                await bot.send_video(chat_id=message.chat.id, video=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(chat_id=message.chat.id, document=contenu["file_id"], caption=contenu["caption"])
+# 1. Fin de de la fonction deverrouiller
 
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
@@ -164,7 +180,7 @@ async def confirmer_voyeur(message: types.Message):
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
-# IMessage avec lien
+# Message avec lien
 
 import re
 
@@ -180,7 +196,6 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilise la commande en réponse à un message du client.")
         return
 
-    # Identifier le client ciblé
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
@@ -191,14 +206,12 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
         return
 
-    # Dictionnaire des liens personnalisés
     liens_paiement = {
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
         "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
         "vip": "https://buy.stripe.com/4gwg32fhF4K62fCdQR"
     }
 
-    # Détection de /envoyerXX dans le texte ou la légende
     texte = message.caption or message.text or ""
     match = re.search(r"/envoyer(\d+|vip)", texte.lower())
     if not match:
@@ -211,10 +224,18 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
         return
 
-    # Remplacer le mot-clé /envoyerXX par le lien dans la légende
     nouvelle_legende = re.sub(r"/envoyer(\d+|vip)", f"{lien}", texte)
 
-    # Renvoyer le média avec la nouvelle légende
+    if not (message.photo or message.video or message.document):
+        await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
+        await bot.send_message(
+    chat_id=user_id,
+    text=f"`🔒 Ce contenu à {code} € est verrouillé. Clique sur le lien ci-dessus pour le débloquer.`",
+    parse_mode="Markdown"
+)
+
+        return
+
     if message.content_type == types.ContentType.PHOTO:
         await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=nouvelle_legende)
     elif message.content_type == types.ContentType.VIDEO:
@@ -223,9 +244,6 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=nouvelle_legende)
     else:
         await bot.send_message(chat_id=user_id, text=nouvelle_legende, disable_web_page_preview=True)
-
-
-
 
 
 
@@ -239,6 +257,7 @@ async def relay_from_client(message: types.Message):
         if message.text:
             sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
         elif message.photo:
+            print("📸 PHOTO file_id :", message.photo[-1].file_id)
             sent_msg = await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
         elif message.video:
             sent_msg = await bot.send_video(chat_id=ADMIN_ID, video=message.video.file_id, caption=message.caption or "")
@@ -292,4 +311,26 @@ async def relay_from_admin(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
+# 1/ Bloc deverrouuiller x 
+@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
+    (m.caption and "/deverrouiller" in m.caption) or 
+    (m.text and "/deverrouiller" in m.text)
+), content_types=types.ContentType.ANY)
+async def preparer_contenu_deverrouillable(message: types.Message):
+    texte = message.caption or message.text or ""
+    match = re.search(r"/deverrouiller(\d+)", texte.lower())
+    if not match:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Format invalide. Utilise par exemple /deverrouiller14")
+        return
+    code = match.group(1)
+    contenus_a_deverrouiller[code] = {
+        "type": message.content_type,
+        "file_id": (
+            message.photo[-1].file_id if message.photo else
+            message.video.file_id if message.video else
+            message.document.file_id if message.document else None
+        ),
+        "caption": texte.replace(f"/deverrouiller{code}", "").strip()
+    }
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€")
 
