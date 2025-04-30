@@ -186,6 +186,7 @@ async def envoyer_lien_stripe(message: types.Message):
     liens_paiement = {
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
         "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
+        "vip": "https://buy.stripe.com/4gwg32fhF4K62fCdQR"
     }
 
     key = cmd.replace("/envoyer", "")
@@ -206,13 +207,18 @@ async def envoyer_lien_stripe(message: types.Message):
                                text="❗ Impossible d'identifier le destinataire.")
         return
 
-    # Envoi du lien au bon client
+    # Envoi du média + légende avec lien
     lien = liens_paiement[key]
-    await bot.send_message(chat_id=user_id, 
-                           text=f"💸 Pour débloquer ce contenu, clique ici :\n{lien}", 
-                           disable_web_page_preview=True)
+    caption = f"{message.caption or ''}\n\n💸 Pour débloquer ce contenu, clique ici :\n{lien}"
 
-    raise CancelHandler()
+    if message.content_type == types.ContentType.PHOTO:
+        await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=caption)
+    elif message.content_type == types.ContentType.VIDEO:
+        await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=caption)
+    elif message.content_type == types.ContentType.DOCUMENT:
+        await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=caption)
+    else:
+        await bot.send_message(chat_id=user_id, text=caption, disable_web_page_preview=True)
 
 
 
