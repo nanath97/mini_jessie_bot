@@ -281,6 +281,11 @@ async def relay_from_client(message: types.Message):
 async def relay_from_admin(message: types.Message):
     if not message.reply_to_message:
         return
+        # ⛔ Ne rien envoyer si la commande est /deverrouiller
+    if (message.text and "/deverrouiller" in message.text.lower()) or \
+       (message.caption and "/deverrouiller" in message.caption.lower()):
+        return
+
 
     user_id = None
     if message.reply_to_message.forward_from:
