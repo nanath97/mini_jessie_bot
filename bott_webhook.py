@@ -257,7 +257,6 @@ async def relay_from_client(message: types.Message):
         if message.text:
             sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
         elif message.photo:
-            print("📸 PHOTO file_id :", message.photo[-1].file_id)
             sent_msg = await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
         elif message.video:
             sent_msg = await bot.send_video(chat_id=ADMIN_ID, video=message.video.file_id, caption=message.caption or "")
@@ -280,6 +279,16 @@ async def relay_from_client(message: types.Message):
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
     if not message.reply_to_message:
+        return
+
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
         return
 
     try:
