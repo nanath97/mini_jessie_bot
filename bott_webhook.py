@@ -334,17 +334,33 @@ async def relay_from_admin(message: types.Message):
 # 1/ Bloc deverrouuiller x 
 
 @dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
-    (m.caption and "/deverrouiller" in m.caption) or 
-    (m.text and "/deverrouiller" in m.text)
+    (m.caption and "/deverrouiller" in m.caption.lower()) or 
+    (m.text and "/deverrouiller" in m.text.lower())
 ), content_types=types.ContentType.ANY)
 async def preparer_contenu_deverrouillable(message: types.Message):
     print("🟡 COMMANDE /deverrouiller détectée", flush=True)
+
+    # Ne pas utiliser en réponse à un message client
+    if message.reply_to_message:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Ne réponds pas à un message client pour /deverrouiller.")
+        return
+
     texte = message.caption or message.text or ""
+
+    # Vérifie qu’un média est bien présent (photo, vidéo ou document)
+    if not (message.photo or message.video or message.document):
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun média détecté avec /deverrouiller.")
+        return
+
+    # Extraction du code (ex: "14")
     match = re.search(r"/deverrouiller(\d+)", texte.lower())
     if not match:
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Format invalide. Utilise par exemple /deverrouiller14")
         return
+
     code = match.group(1)
+
+    # Enregistrement en mémoire
     contenus_a_deverrouiller[code] = {
         "type": message.content_type,
         "file_id": (
@@ -354,8 +370,10 @@ async def preparer_contenu_deverrouillable(message: types.Message):
         ),
         "caption": texte.replace(f"/deverrouiller{code}", "").strip()
     }
-    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€")
-# Si des paiements sont en attente pour ce code → on envoie maintenant
+
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€ (stocké en mémoire).")
+
+    # Si des paiements sont en attente pour ce code → on envoie maintenant
     if code in paiements_en_attente:
         for user_id in paiements_en_attente[code]:
             contenu = contenus_a_deverrouiller[code]
@@ -366,6 +384,7 @@ async def preparer_contenu_deverrouillable(message: types.Message):
             elif contenu["type"] == types.ContentType.DOCUMENT:
                 await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
         
-        del paiements_en_attente[code]  # On vide les paiements une fois envoyés
+        del paiements_en_attente[code]  # Nettoyage après envoi
+
 
 
