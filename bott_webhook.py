@@ -332,12 +332,13 @@ async def relay_from_admin(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
 # 1/ Bloc deverrouuiller x 
-print("🟡 COMMANDE /deverrouiller détectée", flush=True)
+
 @dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
     (m.caption and "/deverrouiller" in m.caption) or 
     (m.text and "/deverrouiller" in m.text)
 ), content_types=types.ContentType.ANY)
 async def preparer_contenu_deverrouillable(message: types.Message):
+    print("🟡 COMMANDE /deverrouiller détectée", flush=True)
     texte = message.caption or message.text or ""
     match = re.search(r"/deverrouiller(\d+)", texte.lower())
     if not match:
