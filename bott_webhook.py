@@ -338,7 +338,8 @@ async def relay_from_admin(message: types.Message):
     (m.text and "/deverrouiller" in m.text.lower())
 ), content_types=types.ContentType.ANY)
 async def preparer_contenu_deverrouillable(message: types.Message):
-    print("🟡 COMMANDE /deverrouiller détectée", flush=True)
+    print("🟥 Handler capté brut :", message, flush=True)
+
 
     # Ne pas utiliser en réponse à un message client
     if message.reply_to_message:
