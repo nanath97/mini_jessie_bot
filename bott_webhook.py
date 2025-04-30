@@ -11,6 +11,7 @@ from detect_links_whitelist import lien_non_autorise
 # 1.=== Variables globales ===
 contenus_a_deverrouiller = {}
 DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rjEbM2KQRDdrQA-mqmNwAQADAgADeAADNgQ" # Remplace par le vrai file_id Telegram
+paiements_en_attente = {}  # Exemple : {"14": [123456789, 987654321]}
 
 
 # Fonction de détection de lien non autorisé
@@ -112,6 +113,20 @@ async def handle_start(message: types.Message):
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
+                    code_str = str(montant)
+        if code_str in contenus_a_deverrouiller:
+            contenu = contenus_a_deverrouiller[code_str]
+            if contenu["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(chat_id=message.chat.id, photo=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.VIDEO:
+                await bot.send_video(chat_id=message.chat.id, video=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(chat_id=message.chat.id, document=contenu["file_id"], caption=contenu["caption"])
+        else:
+            # Contenu pas encore prêt → on stocke le paiement
+            paiements_en_attente.setdefault(code_str, []).append(message.chat.id)
+            await bot.send_message(chat_id=message.chat.id, text="✅ Paiement reçu. Le contenu arrive bientôt…")
+
             authorized_users.add(message.from_user.id)
             await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖")
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
@@ -338,4 +353,17 @@ async def preparer_contenu_deverrouillable(message: types.Message):
         "caption": texte.replace(f"/deverrouiller{code}", "").strip()
     }
     await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€")
+        # Si des paiements sont en attente pour ce code → on envoie maintenant
+    if code in paiements_en_attente:
+        for user_id in paiements_en_attente[code]:
+            contenu = contenus_a_deverrouiller[code]
+            if contenu["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.VIDEO:
+                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+        
+        del paiements_en_attente[code]  # On vide les paiements une fois envoyés
+
 
