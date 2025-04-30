@@ -9,9 +9,7 @@ from detect_links_whitelist import lien_non_autorise
 
 
 # 1.=== Variables globales ===
-contenus_a_deverrouiller = {}
 DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rjEbM2KQRDdrQA-mqmNwAQADAgADeAADNgQ" # Remplace par le vrai file_id Telegram
-paiements_en_attente = {}  # Exemple : {"14": [123456789, 987654321]}
 
 
 # Fonction de détection de lien non autorisé
@@ -113,23 +111,10 @@ async def handle_start(message: types.Message):
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
-                    code_str = str(montant)
-        if code_str in contenus_a_deverrouiller:
-            contenu = contenus_a_deverrouiller[code_str]
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=message.chat.id, photo=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=message.chat.id, video=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(chat_id=message.chat.id, document=contenu["file_id"], caption=contenu["caption"])
-        else:
-            # Contenu pas encore prêt → on stocke le paiement
-            paiements_en_attente.setdefault(code_str, []).append(message.chat.id)
-            await bot.send_message(chat_id=message.chat.id, text="✅ Paiement reçu. Le contenu arrive bientôt…")
 
             authorized_users.add(message.from_user.id)
-            await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖")
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
+            await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.N'oublie pas d'envoyer son média.")
             log_to_airtable(
     pseudo=message.from_user.username or message.from_user.first_name,
     user_id=message.from_user.id,
@@ -140,17 +125,6 @@ async def handle_start(message: types.Message):
 
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
-        # 1. Fonction deverrouiller
-        code_str = str(montant)
-        if code_str in contenus_a_deverrouiller:
-            contenu = contenus_a_deverrouiller[code_str]
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=message.chat.id, photo=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=message.chat.id, video=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(chat_id=message.chat.id, document=contenu["file_id"], caption=contenu["caption"])
-# 1. Fin de de la fonction deverrouiller
 
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
@@ -224,7 +198,17 @@ async def envoyer_lien_stripe(message: types.Message):
     liens_paiement = {
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
         "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
-        "vip": "https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+        "19": "https://buy.stripe.com/...",
+        "24": "https://buy.stripe.com/...",
+        "29": "https://buy.stripe.com/...",
+        "34": "https://buy.stripe.com/...",
+        "39": "https://buy.stripe.com/...",
+        "49": "https://buy.stripe.com/...",
+        "59": "https://buy.stripe.com/...",
+        "69": "https://buy.stripe.com/...",
+        "79": "https://buy.stripe.com/...",
+        "89": "https://buy.stripe.com/...",
+        "99": "https://buy.stripe.com/...",
     }
 
     texte = message.caption or message.text or ""
@@ -245,9 +229,10 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
         await bot.send_message(
     chat_id=user_id,
-    text=f"`🔒 Ce contenu à {code} € est verrouillé. Clique sur le lien ci-dessus pour le débloquer.`",
+    text=f"_🔒 Ce contenu à {code} € est verrouillé. Clique sur le lien ci-dessus pour le débloquer._",
     parse_mode="Markdown"
 )
+
 
         return
 
@@ -296,21 +281,6 @@ async def relay_from_client(message: types.Message):
 async def relay_from_admin(message: types.Message):
     if not message.reply_to_message:
         return
-# ⛔ Ne rien envoyer si la commande est /deverrouiller
-    if (message.text and "/deverrouiller" in message.text.lower()) or \
-       (message.caption and "/deverrouiller" in message.caption.lower()):
-        return
-
-
-    user_id = None
-    if message.reply_to_message.forward_from:
-        user_id = message.reply_to_message.forward_from.id
-    else:
-        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
-
-    if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
-        return
 
     try:
         if message.text:
@@ -330,70 +300,3 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-
-# 1/ Bloc deverrouuiller x 
-
-@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
-    (m.caption and "/deverrouiller" in m.caption.lower()) or 
-    (m.text and "/deverrouiller" in m.text.lower())
-), content_types=types.ContentType.ANY)
-async def preparer_contenu_deverrouillable(message: types.Message):
-    print("🟥 Handler capté brut :", message, flush=True)
-
-
-    # Ne pas utiliser en réponse à un message client
-    if message.reply_to_message:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Ne réponds pas à un message client pour /deverrouiller.")
-        return
-
-    texte = message.caption or message.text or ""
-
-    # Vérifie qu’un média est bien présent (photo, vidéo ou document)
-    if not (message.photo or message.video or message.document):
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun média détecté avec /deverrouiller.")
-        return
-
-    # Extraction du code (ex: "14")
-    match = re.search(r"/deverrouiller(\d+)", texte.lower())
-    if not match:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Format invalide. Utilise par exemple /deverrouiller14")
-        return
-
-    code = match.group(1)
-
-    # Enregistrement en mémoire
-    contenus_a_deverrouiller[code] = {
-        "type": message.content_type,
-        "file_id": (
-            message.photo[-1].file_id if message.photo else
-            message.video.file_id if message.video else
-            message.document.file_id if message.document else None
-        ),
-        "caption": texte.replace(f"/deverrouiller{code}", "").strip()
-    }
-
-    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour {code}€ (stocké en mémoire).")
-
-    # Si des paiements sont en attente pour ce code → on envoie maintenant
-    if code in paiements_en_attente:
-        for user_id in paiements_en_attente[code]:
-            contenu = contenus_a_deverrouiller[code]
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
-        
-        del paiements_en_attente[code]  # Nettoyage après envoi
-
-
-
-@dp.message_handler(content_types=types.ContentType.ANY)
-async def catch_all_debug(message: types.Message):
-    print("📥 DEBUG – Message reçu mais ignoré par les autres handlers :", message, flush=True)
-    print("🧾 Contenu brut :")
-    print("text:", message.text)
-    print("caption:", message.caption)
-    print("content_type:", message.content_type)
-
