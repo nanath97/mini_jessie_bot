@@ -291,7 +291,7 @@ async def stocker_media_par_user(message: types.Message):
     contenus_en_attente[user_id] = {
         "file_id": message.photo[-1].file_id if message.photo else message.video.file_id if message.video else message.document.file_id,
         "type": message.content_type,
-        "caption": message.caption or message.text or ""
+        "caption": (message.caption or message.text or "").replace("/dev", "").strip()
     }
 
     await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour l'utilisateur {user_id}.")
