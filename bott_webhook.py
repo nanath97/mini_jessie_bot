@@ -24,7 +24,10 @@ TABLE_NAME = "Client Telegram"
 ADMIN_ID = 7334072965
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 
-
+# === DEBUT TEST ===
+contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
+paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
+# === FIN TEST ===
 
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
@@ -103,7 +106,7 @@ keyboard.add(
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
 
-# Commande /start
+# === Bloc 2 : Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
@@ -113,19 +116,35 @@ async def handle_start(message: types.Message):
         if montant in prix_list:
 
             authorized_users.add(message.from_user.id)
-            await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.N'oublie pas d'envoyer son média.")
-            log_to_airtable(
-    pseudo=message.from_user.username or message.from_user.first_name,
-    user_id=message.from_user.id,
-    type_acces="Paiement",
-    montant= float(montant),
-    contenu="Paiement Contenu"
-)
 
+            # --- Envoi du média si déjà prêt ---
+            user_id = message.from_user.id
+            if user_id in contenus_en_attente:
+                contenu = contenus_en_attente[user_id]
+                if contenu["type"] == types.ContentType.PHOTO:
+                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+                elif contenu["type"] == types.ContentType.VIDEO:
+                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+                elif contenu["type"] == types.ContentType.DOCUMENT:
+                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+                del contenus_en_attente[user_id]
+            else:
+                paiements_en_attente_par_user.add(user_id)
+
+            # --- Message automatique habituel ---
+            await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
+            log_to_airtable(
+                pseudo=message.from_user.username or message.from_user.first_name,
+                user_id=message.from_user.id,
+                type_acces="Paiement",
+                montant=float(montant),
+                contenu="Paiement Contenu"
+            )
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
-
+        else:
+            paiements_en_attente_par_user.add(user_id)
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP !")
@@ -245,7 +264,50 @@ async def envoyer_lien_stripe(message: types.Message):
     else:
         await bot.send_message(chat_id=user_id, text=nouvelle_legende, disable_web_page_preview=True)
 
+# === DEBUT TEST : Stocker le média personnalisé en réponse avec /dev ===
+@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
+    (m.caption and "/dev" in m.caption.lower()) or 
+    (m.text and "/dev" in m.text.lower())
+), content_types=types.ContentType.ANY)
+async def stocker_media_par_user(message: types.Message):
+    if not message.reply_to_message:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilise cette commande en réponse à un message client.")
+        return
 
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
+        return
+
+    if not (message.photo or message.video or message.document):
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun média détecté.")
+        return
+
+    contenus_en_attente[user_id] = {
+        "file_id": message.photo[-1].file_id if message.photo else message.video.file_id if message.video else message.document.file_id,
+        "type": message.content_type,
+        "caption": message.caption or message.text or ""
+    }
+
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour l'utilisateur {user_id}.")
+
+    # Si le client avait déjà payé → on lui envoie tout de suite
+    if user_id in paiements_en_attente_par_user:
+        contenu = contenus_en_attente[user_id]
+        if contenu["type"] == types.ContentType.PHOTO:
+            await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+        elif contenu["type"] == types.ContentType.VIDEO:
+            await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+        elif contenu["type"] == types.ContentType.DOCUMENT:
+            await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+        paiements_en_attente_par_user.remove(user_id)
+        del contenus_en_attente[user_id]
+# === FIN TEST : Stocker le média personnalisé en réponse avec /dev ===       
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
