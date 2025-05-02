@@ -16,10 +16,11 @@ DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rj
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
 # --- CONFIGURATION AIRTABLE TEST ---
-AIRTABLE_API_KEY = os.getenv("patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285")
-BASE_ID = os.getenv("appdA5tvdjXiktFzq")
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME", "Client Telegram")
-SELLER_EMAIL = os.getenv("vinteo.ac@gmail.com")
+SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
+
 
 
 # ADMIN ID
