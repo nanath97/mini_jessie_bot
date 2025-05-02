@@ -18,7 +18,7 @@ ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 # --- CONFIGURATION AIRTABLE TEST ---
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
-TABLE_NAME = os.getenv("TABLE_NAME", "Client Telegram")
+TABLE_NAME = os.getenv("TABLE_NAME")
 SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
 
 
@@ -35,92 +35,56 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 
 # === DEBUT TEST ===
 
-@dp.message_handler(lambda m: m.text and m.text.strip().lower() == "/stat")
-async def stat_handler(message: types.Message):
-    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
-    print(f"✅ /stat reçu de {message.from_user.id}")
-
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    vendeur_email = SELLER_EMAIL.strip().lower()
-
-    total_today = 0.0
-    total_all = 0.0
-    contenu_count = 0
-    vip_clients = set()
-    offset = None
-    today_date = datetime.utcnow().date()
+@dp.message_handler(commands=["stat"])
+async def handle_stat(message: types.Message):
+    if not SELLER_EMAIL:
+        await bot.send_message(message.chat.id, "❌ Erreur : adresse email non configurée.")
+        return
 
     try:
-        while True:
-            params = {}
-            if offset:
-                params["offset"] = offset
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
 
-            response = requests.get(url, headers=headers, params=params)
-            if response.status_code != 200:
-                await message.reply("❗ Impossible de récupérer les statistiques.")
-                return
+        response = requests.get(url, headers=headers)
+        data = response.json()
 
-            data = response.json()
-            for rec in data.get("records", []):
-                fields = rec.get("fields", {})
-                try:
-                    email = fields.get("Email", "").strip().lower()
-                    if email != vendeur_email:
-                        continue
+        ventes_totales = 0
+        ventes_jour = 0
+        contenus_vendus = 0
 
-                    montant = float(fields.get("Montant", 0) or 0)
-                    type_acces = fields.get("Type acces", "").strip().lower()
-                    date_str = fields.get("Date")
+        today = datetime.utcnow().date().isoformat()
 
-                    total_all += montant
+        for record in data.get("records", []):
+            fields = record.get("fields", {})
+            email = fields.get("Email", "")
+            date_str = fields.get("Date", "")
+            montant = float(fields.get("Montant", 0))
 
-                    if date_str:
-                        try:
-                            dt = datetime.fromisoformat(date_str.replace("Z", ""))
-                            if dt.date() == today_date:
-                                total_today += montant
-                        except:
-                            pass
+            if email == SELLER_EMAIL:
+                ventes_totales += montant
+                contenus_vendus += 1
+                if date_str.startswith(today):
+                    ventes_jour += montant
 
-                    if type_acces == "paiement":
-                        contenu_count += 1
+        benefice_net = round(ventes_totales * 0.94, 2)
 
-                    if type_acces == "vip":
-                        pseudo = fields.get("Pseudo Telegram", "VIP")
-                        vip_clients.add(pseudo)
-
-                except Exception as e:
-                    print(f"❗ Ligne ignorée : {e}")
-                    continue
-
-            offset = data.get("offset")
-            if not offset:
-                break
-
-        total_today_disp = int(total_today) if total_today.is_integer() else round(total_today, 2)
-        total_all_disp = int(total_all) if total_all.is_integer() else round(total_all, 2)
-        net = total_all * 0.94
-        net_disp = int(net) if net.is_integer() else round(net, 2)
-        vip_count = len(vip_clients)
-
-        note = "_Le bénéfice net correspond à 94 % du chiffre d'affaires après retrait de 6 % de commission._"
-
-        stat_message = (
-            f"📊 Tes statistiques de vente :\n\n"
-            f"📅 Ventes du jour : {total_today_disp} €\n"
-            f"💰 Ventes totales : {total_all_disp} €\n"
-            f"📦 Contenus vendus total : {contenu_count}\n"
-            f"👑 Clients VIP : {vip_count}\n"
-            f"💸 Bénéfice estimé (net) : {net_disp} €\n\n"
-            f"{note}"
+        message_final = (
+            f"📊 Résumé de tes ventes :\n\n"
+            f"💰 Ventes du jour : {ventes_jour}€\n"
+            f"📦 Contenus vendus total : {contenus_vendus}\n"
+            f"💼 Chiffre d’affaires total : {ventes_totales}€\n"
+            f"🧾 Bénéfice net estimé : {benefice_net}€\n\n"
+            f"_Le bénéfice net tient compte d’une commission de 6 %._"
         )
 
-        await bot.send_message(message.chat.id, stat_message, parse_mode=types.ParseMode.MARKDOWN)
+        await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
 
     except Exception as e:
-        await message.reply(f"❗ Erreur inattendue : {e}")
+        print(f"Erreur dans /stat : {e}")
+        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 # FIN DU TEST
 
