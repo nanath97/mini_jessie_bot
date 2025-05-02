@@ -46,5 +46,5 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 await message.delete()
             except Exception as e:
                 print(f"Erreur suppression message non autorisé : {e}")
-            await message.answer("🚫 Merci de souscrire à un accès VIP ou d’acheter un contenu pour pouvoir discuter.")
+            await message.answer("🚫 Merci de souscrire à un accès VIP ou d’acheter un contenu pour pouvoir discuter ! Tu as accès au menu en bas à droite de ton clavier (le petit carré) ")
             raise CancelHandler()
