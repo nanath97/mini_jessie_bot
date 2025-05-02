@@ -375,7 +375,7 @@ async def relay_from_admin(message: types.Message):
 
 # AJOUT DES STATS TEST
 
-@dp.message_handler(commands=["stat"])
+@dp.message_handler(lambda m: m.text and m.text.lower().startswith("/stat"))
 async def stat_handler(message: types.Message):
     print("💡 La commande /stat a été reçue.")  # Vérif dans Render
 
