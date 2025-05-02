@@ -371,3 +371,8 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
+@dp.message_handler(lambda m: m.text and "/stat" in m.text.lower())
+async def simple_stat_debug(message: types.Message):
+    await message.reply("📊 Le handler stat minimal a bien été déclenché.")
+    print(f"✅ /stat reçu de {message.from_user.id}")
