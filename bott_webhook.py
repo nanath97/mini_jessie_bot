@@ -400,7 +400,8 @@ async def stat_handler(message: types.Message):
             for rec in data.get("records", []):
                 fields = rec.get("fields", {})
                 try:
-                    uid = fields.get("User ID")
+                    uid = fields.get("ID Telegram")
+
                     if uid != str(message.from_user.id):
                         continue  # On ne garde que les ventes de l'utilisateur
                     mont = float(fields.get("Montant", 0) or 0)
