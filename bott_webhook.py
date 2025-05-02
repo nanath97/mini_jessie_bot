@@ -271,7 +271,7 @@ async def handle_start(message: types.Message):
             paiements_en_attente_par_user.add(user_id)
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
-        await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP !")
+        await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
     pseudo=message.from_user.username or message.from_user.first_name,
