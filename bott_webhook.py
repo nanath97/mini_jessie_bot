@@ -172,10 +172,12 @@ async def bannir_client(message: types.Message):
         await message.reply("✅ Le client a été retiré avec succès.")
         try:
             await bot.send_message(client_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
-        except:
-            pass
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du message au client banni : {e}")
+       
     else:
         await message.reply("ℹ️ Ce client est déjà retiré.")
+
 @dp.message_handler(commands=['unsupp'])
 async def reintegrer_client(message: types.Message):
     if not message.reply_to_message:
@@ -191,10 +193,12 @@ async def reintegrer_client(message: types.Message):
         await message.reply("✅ Le client a été réintégré avec succès.")
         try:
             await bot.send_message(client_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
-        except:
-            pass
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du message au client réintégré : {e}")
+
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
+
 # Fin du test pour les clients bannis ou admis 
 
 
@@ -476,9 +480,13 @@ async def stocker_media_par_user(message: types.Message):
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
-
+# === petite partie ajouté 
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
+    if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
+        print(f"❌ Message bloqué de {message.from_user.id} (banni)")
+        return
+
     try:
         sent_msg = None
         if message.text:
@@ -542,11 +550,13 @@ async def relay_from_admin(message: types.Message):
 
 @dp.message_handler()
 async def filtrer_clients_bannis(message: types.Message):
-    admin_id = 7334072965  # Remplace par ton ID réel
+    admin_id = 7334072965  # ← remplace par ton ID réel
 
     if admin_id in ban_list and message.from_user.id in ban_list[admin_id]:
-        return  # Ignorer le message sans rien faire
+        print(f"Client banni bloqué : {message.from_user.id}")
+        return  # Silence complet
 
-    # Si le message n'est pas bloqué, tu peux éventuellement logguer ou répondre par défaut
-    await message.reply("🤖 Commande non reconnue.")
+    # Sinon, on peut ignorer ou afficher un message de type "commande inconnue"
+    await message.reply("❌ Cette commande n'est pas reconnue.")
+
 
