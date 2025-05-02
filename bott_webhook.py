@@ -18,7 +18,8 @@ ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 # --- CONFIGURATION AIRTABLE TEST ---
 AIRTABLE_API_KEY = os.getenv("patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285")
 BASE_ID = os.getenv("appdA5tvdjXiktFzq")
-TABLE_NAME = "Client Telegram"
+TABLE_NAME = os.getenv("Client Telegram")
+SELLER_EMAIL = os.getenv("vinteo.ac@gmail.com")
 
 
 # ADMIN ID
