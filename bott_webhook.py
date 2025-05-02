@@ -15,10 +15,11 @@ DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rj
 # Fonction de détection de lien non autorisé
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
-# --- CONFIGURATION AIRTABLE ---
-AIRTABLE_API_KEY = "patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285"
-BASE_ID = "appdA5tvdjXiktFzq"
+# --- CONFIGURATION AIRTABLE TEST ---
+AIRTABLE_API_KEY = os.getenv("patAGB8w2HG44dvJy.8b57a2fe014dfcabc109214abf6c78aa2784b9701b6768ba40df7b32ab5df285")
+BASE_ID = os.getenv("appdA5tvdjXiktFzq")
 TABLE_NAME = "Client Telegram"
+
 
 # ADMIN ID
 ADMIN_ID = 7334072965
@@ -34,16 +35,17 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 
 @dp.message_handler(lambda m: m.text and m.text.strip().lower() == "/stat")
 async def stat_handler(message: types.Message):
-    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques en cours...")
+    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
     print(f"✅ /stat reçu de {message.from_user.id}")
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+    vendeur_email = SELLER_EMAIL.strip().lower()
+
     total_today = 0.0
     total_all = 0.0
     contenu_count = 0
     vip_clients = set()
-    details_lines = []
     offset = None
     today_date = datetime.utcnow().date()
 
@@ -62,14 +64,13 @@ async def stat_handler(message: types.Message):
             for rec in data.get("records", []):
                 fields = rec.get("fields", {})
                 try:
-                    uid = fields.get("ID Telegram")
-                    if str(uid) != str(message.from_user.id):
+                    email = fields.get("Email", "").strip().lower()
+                    if email != vendeur_email:
                         continue
 
                     montant = float(fields.get("Montant", 0) or 0)
                     type_acces = fields.get("Type acces", "").strip().lower()
                     date_str = fields.get("Date")
-                    contenu = fields.get("Contenu", "Contenu inconnu")
 
                     total_all += montant
 
@@ -83,8 +84,6 @@ async def stat_handler(message: types.Message):
 
                     if type_acces == "paiement":
                         contenu_count += 1
-                        montant_aff = int(montant) if montant.is_integer() else round(montant, 2)
-                        details_lines.append(f"• {contenu} — {montant_aff} €")
 
                     if type_acces == "vip":
                         pseudo = fields.get("Pseudo Telegram", "VIP")
@@ -103,23 +102,24 @@ async def stat_handler(message: types.Message):
         net = total_all * 0.94
         net_disp = int(net) if net.is_integer() else round(net, 2)
         vip_count = len(vip_clients)
-        details_text = "\n".join(details_lines) if details_lines else "Aucune vente enregistrée."
+
         note = "_Le bénéfice net correspond à 94 % du chiffre d'affaires après retrait de 6 % de commission._"
 
         stat_message = (
             f"📊 Tes statistiques de vente :\n\n"
-            f"📅 Ventes aujourd’hui : {total_today_disp} €\n"
+            f"📅 Ventes du jour : {total_today_disp} €\n"
             f"💰 Ventes totales : {total_all_disp} €\n"
-            f"📦 Contenus vendus : {contenu_count}\n"
+            f"📦 Contenus vendus total : {contenu_count}\n"
             f"👑 Clients VIP : {vip_count}\n"
             f"💸 Bénéfice estimé (net) : {net_disp} €\n\n"
-            f"🧾 Détail :\n{details_text}\n\n{note}"
+            f"{note}"
         )
 
         await bot.send_message(message.chat.id, stat_message, parse_mode=types.ParseMode.MARKDOWN)
 
     except Exception as e:
         await message.reply(f"❗ Erreur inattendue : {e}")
+
 # FIN DU TEST
 
 
