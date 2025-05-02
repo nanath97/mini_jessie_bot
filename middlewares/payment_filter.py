@@ -19,6 +19,11 @@ class PaymentFilterMiddleware(BaseMiddleware):
         self.authorized_users = authorized_users
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
+
+        # code pour voir si c'est le dilter qui bloque
+        if message.text and message.text.strip().lower() == "/stat":
+            return  # fin du code pour voir si blocage
+
         
         if message.content_type != types.ContentType.TEXT:
             return
