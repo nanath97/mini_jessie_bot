@@ -377,9 +377,11 @@ async def relay_from_admin(message: types.Message):
 
 @dp.message_handler(commands=["stat"])
 async def stat_handler(message: types.Message):
-    print("💡 La commande /stat a été reçue.")  # Pour debug Render
+    print("💡 La commande /stat a été reçue.")  # Vérif dans Render
+
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+
     total_today = 0.0
     total_all = 0.0
     contenu_count = 0
@@ -387,52 +389,58 @@ async def stat_handler(message: types.Message):
     details_lines = []
     offset = None
     today_date = datetime.utcnow().date()
+
     try:
         while True:
             params = {}
             if offset:
-                params['offset'] = offset
+                params["offset"] = offset
+
             response = requests.get(url, headers=headers, params=params)
             if response.status_code != 200:
                 await message.reply("❗ Impossible de récupérer les statistiques.")
                 return
+
             data = response.json()
             for rec in data.get("records", []):
                 fields = rec.get("fields", {})
                 try:
                     uid = fields.get("ID Telegram")
+                    if str(uid) != str(message.from_user.id):
+                        continue
 
-                    if uid != str(message.from_user.id):
-                        continue  # On ne garde que les ventes de l'utilisateur
-                    mont = float(fields.get("Montant", 0) or 0)
-                    type_acces = fields.get("Type acces", "").strip()
+                    montant = float(fields.get("Montant", 0) or 0)
+                    type_acces = fields.get("Type acces", "").strip().lower()
                     date_str = fields.get("Date")
-                    contenu = fields.get("Contenu", "Contenu inconnu")
-                    # Total brut
-                    total_all += mont
-                    # Si vente aujourd'hui
+                    contenu = fields.get("Contenu")
+
+                    total_all += montant
+
                     if date_str:
                         try:
                             dt = datetime.fromisoformat(date_str.replace("Z", ""))
                             if dt.date() == today_date:
-                                total_today += mont
+                                total_today += montant
                         except:
                             pass
-                    if type_acces.lower() == "paiement":
+
+                    if type_acces == "paiement":
                         contenu_count += 1
-                        montant_aff = int(mont) if mont.is_integer() else round(mont, 2)
+                        montant_aff = int(montant) if montant.is_integer() else round(montant, 2)
                         details_lines.append(f"• {contenu} — {montant_aff} €")
-                    if type_acces.lower() == "vip":
-                        pseudo = fields.get("Pseudo Telegram", "VIP inconnu")
+
+                    if type_acces == "vip":
+                        pseudo = fields.get("Pseudo Telegram", "VIP")
                         vip_clients.add(pseudo)
-                except Exception as inner_e:
-                    print(f"❗ Ligne ignorée à cause d'une erreur : {inner_e}")
+
+                except Exception as e:
+                    print(f"❗ Ligne ignorée : {e}")
                     continue
+
             offset = data.get("offset")
             if not offset:
                 break
 
-        # Formattage
         total_today_disp = int(total_today) if total_today.is_integer() else round(total_today, 2)
         total_all_disp = int(total_all) if total_all.is_integer() else round(total_all, 2)
         net = total_all * 0.94
@@ -440,6 +448,7 @@ async def stat_handler(message: types.Message):
         vip_count = len(vip_clients)
         details_text = "\n".join(details_lines) if details_lines else "Aucune vente enregistrée."
         note = "_Le bénéfice net correspond à 94 % du chiffre d'affaires après retrait de 6 % de commission._"
+
         stat_message = (
             f"📊 Tes statistiques de vente :\n\n"
             f"📅 Ventes aujourd’hui : {total_today_disp} €\n"
@@ -449,8 +458,10 @@ async def stat_handler(message: types.Message):
             f"💸 Bénéfice estimé (net) : {net_disp} €\n\n"
             f"🧾 Détail :\n{details_text}\n\n{note}"
         )
+
         await bot.send_message(message.chat.id, stat_message, parse_mode=types.ParseMode.MARKDOWN)
 
     except Exception as e:
         await message.reply(f"❗ Erreur inattendue : {e}")
+
 
