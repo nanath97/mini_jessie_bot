@@ -371,3 +371,119 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
+
+# AJOUT DES STATS TEST
+
+@dp.message_handler(commands=["stat"])
+async def stat_handler(message: types.Message):
+    # Récupérer toutes les ventes depuis Airtable
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+    total_today = 0.0
+    total_all = 0.0
+    contenu_count = 0
+    vip_clients = set()
+    details_lines = []
+    offset = None
+    today_date = datetime.utcnow().date()
+    # Boucle pour récupérer tous les enregistrements
+    while True:
+        params = {}
+        if offset:
+            params['offset'] = offset
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            await message.reply("❗ Impossible de récupérer les statistiques.")
+            return
+        data = response.json()
+        for rec in data.get("records", []):
+            fields = rec.get("fields", {})
+            mont = float(fields.get("Montant", 0))
+            type_acces = fields.get("Type acces", "")
+            date_str = fields.get("Date")
+            contenu = fields.get("Contenu", "")
+            # Ajout aux totaux
+            total_all += mont
+            # Vérifier si la vente est du jour
+            if date_str:
+                try:
+                    dt = datetime.fromisoformat(date_str.replace("Z", ""))
+                except Exception:
+                    dt = None
+                if dt and dt.date() == today_date:
+                    total_today += mont
+            # Compter les ventes de contenu (type "Paiement")
+            if type_acces.lower() == "paiement":
+                contenu_count += 1
+                # Format du montant sans décimales inutiles
+                montant_aff = int(mont) if mont.is_integer() else mont
+                details_lines.append(f"• {contenu} — {montant_aff} €")
+            # Compter les clients VIP (type "VIP")
+            if type_acces.lower() == "vip":
+                vip_clients.add(fields.get("Pseudo Telegram", "-"))
+        # Pagination
+        offset = data.get("offset")
+        if not offset:
+            break
+    # Préparer le message
+    total_today_disp = int(total_today) if total_today.is_integer() else round(total_today, 2)
+    total_all_disp = int(total_all) if total_all.is_integer() else round(total_all, 2)
+    vip_count = len(vip_clients)
+    details_text = "\n".join(details_lines) if details_lines else "Aucune vente enregistrée."
+    # Note en italique pour le bénéfice net
+    note = "_Le bénéfice net correspond à 94 % du chiffre d'affaires après retrait de 6 % de commission._"
+    stat_message = (
+        f"Chiffre d'affaires aujourd'hui : {total_today_disp} €\n"
+        f"Chiffre d'affaires total : {total_all_disp} €\n"
+        f"Contenus vendus : {contenu_count}\n"
+        f"Clients VIP : {vip_count}\n"
+        f"Détail des ventes :\n"
+        f"{details_text}\n\n"
+        f"{note}"
+    )
+    await bot.send_message(message.chat.id, stat_message, parse_mode=types.ParseMode.MARKDOWN)
+
+# STATS PERSO POUR MOI
+
+
+@dp.message_handler(commands=["clients"])
+async def clients_handler(message: types.Message):
+    # Vérifier que l'utilisateur est administrateur
+    if message.from_user.id != ADMIN_ID:
+        await message.reply("⚠️ Commande réservée à l'administrateur.")
+        return
+    # Récupérer toutes les ventes depuis Airtable
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+    sales_by_email = {}
+    offset = None
+    # Boucle pour récupérer tous les enregistrements
+    while True:
+        params = {}
+        if offset:
+            params['offset'] = offset
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            await message.reply("❗ Impossible de récupérer les données clients.")
+            return
+        data = response.json()
+        for rec in data.get("records", []):
+            fields = rec.get("fields", {})
+            email = fields.get("Email", "Inconnu")
+            mont = float(fields.get("Montant", 0))
+            sales_by_email[email] = sales_by_email.get(email, 0) + mont
+        offset = data.get("offset")
+        if not offset:
+            break
+    # Calcul du bénéfice net et format de sortie
+    result_lines = []
+    for email in sorted(sales_by_email):
+        total = sales_by_email[email]
+        net = total * 0.94
+        # Obtenir le nom depuis l'email pour l'affichage (avant le "@")
+        name = email.split("@")[0].capitalize() if "@" in email else email
+        net_display = int(net) if net.is_integer() else round(net, 2)
+        result_lines.append(f"• {name} — {net_display} €")
+    result_text = "\n".join(result_lines) if result_lines else "Aucun client trouvé."
+    await bot.send_message(message.chat.id, result_text)
