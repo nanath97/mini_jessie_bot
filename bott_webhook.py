@@ -41,6 +41,8 @@ async def handle_stat(message: types.Message):
         await bot.send_message(message.chat.id, "❌ Erreur : adresse email non configurée.")
         return
 
+    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
+
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
         headers = {
@@ -53,7 +55,7 @@ async def handle_stat(message: types.Message):
         ventes_totales = 0
         ventes_jour = 0
         contenus_vendus = 0
-        clients_vip = 0
+        emails_vip = set()
 
         today = datetime.now().date().isoformat()
 
@@ -66,12 +68,17 @@ async def handle_stat(message: types.Message):
 
             if email == SELLER_EMAIL:
                 ventes_totales += montant
-                contenus_vendus += 1
+
+                if type_acces.lower() != "vip":
+                    contenus_vendus += 1
+
                 if date_str.startswith(today):
                     ventes_jour += montant
-                if type_acces.lower() == "vip":
-                    clients_vip += 1
 
+                if type_acces.lower() == "vip":
+                    emails_vip.add(email)
+
+        clients_vip = len(emails_vip)
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
@@ -89,6 +96,7 @@ async def handle_stat(message: types.Message):
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 
