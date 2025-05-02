@@ -33,7 +33,7 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
 
 
-# === DEBUT TEST ===
+# === Statistiques ===
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
@@ -97,9 +97,9 @@ async def handle_stat(message: types.Message):
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
 
-# FIN DU TEST
+# Fin de la fonction des stats
 
-# DEBUT DU NOUVEAU TEST POUR MOI PERSO STAT DE TOUT
+# DEBUT de la fonction du proprietaire ! Ne pas toucher
 
 @dp.message_handler(commands=["nath"])
 async def handle_nath_global_stats(message: types.Message):
@@ -150,7 +150,52 @@ async def handle_nath_global_stats(message: types.Message):
         print(f"Erreur dans /nath : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
 
-# FIN DU TEST STAT PERSO DE TOUS
+# FIN de la fonction du propriétaire 
+
+# TEST Liste des clients bannis par admin
+ban_list = {}
+@dp.message_handler(commands=['supp'])
+async def bannir_client(message: types.Message):
+    if not message.reply_to_message:
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à retirer.")
+        return
+
+    admin_id = message.from_user.id
+    client_id = message.reply_to_message.from_user.id
+
+    if admin_id not in ban_list:
+        ban_list[admin_id] = []
+
+    if client_id not in ban_list[admin_id]:
+        ban_list[admin_id].append(client_id)
+
+        await message.reply("✅ Le client a été retiré avec succès.")
+        try:
+            await bot.send_message(client_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
+        except:
+            pass
+    else:
+        await message.reply("ℹ️ Ce client est déjà retiré.")
+@dp.message_handler(commands=['unsupp'])
+async def reintegrer_client(message: types.Message):
+    if not message.reply_to_message:
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à réintégrer.")
+        return
+
+    admin_id = message.from_user.id
+    client_id = message.reply_to_message.from_user.id
+
+    if admin_id in ban_list and client_id in ban_list[admin_id]:
+        ban_list[admin_id].remove(client_id)
+
+        await message.reply("✅ Le client a été réintégré avec succès.")
+        try:
+            await bot.send_message(client_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
+        except:
+            pass
+    else:
+        await message.reply("ℹ️ Ce client n’était pas retiré.")
+# Fin du test pour les clients bannis ou admis 
 
 
 # Liste des prix autorisés
@@ -491,3 +536,17 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
+
+# Debut du test pour activer le bannissement
+
+@dp.message_handler()
+async def filtrer_clients_bannis(message: types.Message):
+    admin_id = 7334072965  # Remplace par ton ID réel
+
+    if admin_id in ban_list and message.from_user.id in ban_list[admin_id]:
+        return  # Ignorer le message sans rien faire
+
+    # Si le message n'est pas bloqué, tu peux éventuellement logguer ou répondre par défaut
+    await message.reply("🤖 Commande non reconnue.")
+
