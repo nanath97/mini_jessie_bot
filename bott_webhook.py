@@ -24,10 +24,20 @@ TABLE_NAME = "Client Telegram"
 ADMIN_ID = 7334072965
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 
-# === DEBUT TEST ===
+# === MEDIA EN ATTENTE ===
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
-# === FIN TEST ===
+# === FIN MEDIA EN ATTENTE ===
+
+
+# === DEBUT TEST ===
+
+@dp.message_handler(lambda m: m.text and "/stat" in m.text.lower())
+async def simple_stat_debug(message: types.Message):
+    await message.reply("📊 Le handler stat minimal a bien été déclenché.")
+    print(f"✅ /stat reçu de {message.from_user.id}")
+
+
 
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
@@ -371,8 +381,3 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-
-@dp.message_handler(lambda m: m.text and "/stat" in m.text.lower())
-async def simple_stat_debug(message: types.Message):
-    await message.reply("📊 Le handler stat minimal a bien été déclenché.")
-    print(f"✅ /stat reçu de {message.from_user.id}")
