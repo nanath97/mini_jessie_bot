@@ -53,30 +53,35 @@ async def handle_stat(message: types.Message):
         ventes_totales = 0
         ventes_jour = 0
         contenus_vendus = 0
+        clients_vip = 0
 
-        today = datetime.utcnow().date().isoformat()
+        today = datetime.now().date().isoformat()
 
         for record in data.get("records", []):
             fields = record.get("fields", {})
             email = fields.get("Email", "")
             date_str = fields.get("Date", "")
             montant = float(fields.get("Montant", 0))
+            type_acces = fields.get("Type acces", "")
 
             if email == SELLER_EMAIL:
                 ventes_totales += montant
                 contenus_vendus += 1
                 if date_str.startswith(today):
                     ventes_jour += montant
+                if type_acces.lower() == "vip":
+                    clients_vip += 1
 
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
-            f"📊 Résumé de tes ventes :\n\n"
+            f"📊 Tes statistiques de vente :\n\n"
             f"💰 Ventes du jour : {ventes_jour}€\n"
+            f"💶 Ventes totales : {ventes_totales}€\n"
             f"📦 Contenus vendus total : {contenus_vendus}\n"
-            f"💼 Chiffre d’affaires total : {ventes_totales}€\n"
-            f"🧾 Bénéfice net estimé : {benefice_net}€\n\n"
-            f"_Le bénéfice net tient compte d’une commission de 6 %._"
+            f"🌟 Clients VIP : {clients_vip}\n"
+            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
+            f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
 
         await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
@@ -84,6 +89,7 @@ async def handle_stat(message: types.Message):
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 # FIN DU TEST
@@ -147,7 +153,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             "Montant": float(montant),
             "Contenu": contenu,
             "Email": email,
-            "Date": datetime.utcnow().isoformat() + "Z"
+            "Date": datetime.now().isoformat()
         }
     }
     print(data)  # Debug temporaire pour vérifier ce qu'on envoie
