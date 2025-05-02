@@ -225,7 +225,6 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 # Création du clavier
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
-    types.KeyboardButton("🔞Voir la vidéo du jour"),
     types.KeyboardButton("👀Je suis un voyeur"),
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
@@ -287,9 +286,6 @@ async def handle_start(message: types.Message):
     await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
 
 # Gestion des boutons
-@dp.message_handler(lambda message: message.text == "🔞Voir la vidéo du jour")
-async def voir_video(message: types.Message):
-    await bot.send_message(message.chat.id, "🎥 Voici ta vidéo du jour : https://buy.stripe.com/fZeg328Th4K67zW9AA")
 
 @dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
 async def discuter_vip(message: types.Message):
