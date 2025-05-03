@@ -6,7 +6,6 @@ from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton # 22 TEST BOUTON ADMIN
 
 
 # 1.=== Variables globales ===
@@ -27,14 +26,6 @@ SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
 # ADMIN ID
 ADMIN_ID = 7334072965
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
-
-# 22TEST BOUTON ADMIN ET FAQ
-
-menu_buttons = InlineKeyboardMarkup(row_width=1)
-menu_buttons.add(
-    InlineKeyboardButton("📊 Voir mes statistiques", callback_data="voir_stats"),
-    InlineKeyboardButton("❓ FAQ / Aide", callback_data="voir_faq")
-)
 
 # === MEDIA EN ATTENTE ===
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
@@ -107,14 +98,6 @@ async def handle_stat(message: types.Message):
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
 
 # Fin de la fonction des stats
-
-# 22TEST MENU BOUTON
-@dp.message_handler(commands=["menu"])
-async def afficher_menu(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("Voici ton menu d’aide :", reply_markup=menu_buttons)
-    else:
-        await message.answer("✅ Interface admin chargée (aucun bouton pour l’administrateur).")
 
 # DEBUT de la fonction du proprietaire ! Ne pas toucher
 
@@ -304,19 +287,28 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
     else:
         print("✅ Paiement ajouté dans Airtable avec succès !")
 
+
+
 # Création du clavier
 
+keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add(
+    types.KeyboardButton("👀Je suis un voyeur"),
+    types.KeyboardButton("✨Discuter en tant que VIP")
+)
 
 # Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
 
-    # Paiement
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
+
             authorized_users.add(message.from_user.id)
+
+            # --- Envoi du média si déjà prêt ---
             user_id = message.from_user.id
             if user_id in contenus_en_attente:
                 contenu = contenus_en_attente[user_id]
@@ -330,8 +322,9 @@ async def handle_start(message: types.Message):
             else:
                 paiements_en_attente_par_user.add(user_id)
 
+            # --- Message automatique habituel ---
             await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=message.from_user.id,
@@ -339,48 +332,26 @@ async def handle_start(message: types.Message):
                 montant=float(montant),
                 contenu="Paiement Contenu"
             )
+            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
-
-    # VIP
+        else:
+            paiements_en_attente_par_user.add(user_id)
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=message.from_user.id,
-            type_acces="VIP",
-            montant=1.0,
-            contenu="Accès VIP Telegram"
-        )
+    pseudo=message.from_user.username or message.from_user.first_name,
+    user_id=message.from_user.id,
+    type_acces="VIP",
+    montant= 1.0,
+    contenu="Accès VIP Telegram"
+)
+
+        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
 
-    # ADMIN → boutons admin en bas
-    if message.from_user.id == ADMIN_ID:
-        keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard_admin.add(
-            types.KeyboardButton("📖 FAQ"),
-            types.KeyboardButton("📊 Statistiques")
-        )
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="👋 Bonjour admin ! Que veux-tu faire ?",
-            reply_markup=keyboard_admin
-        )
-        return
-
-    # CLIENT → boutons normaux
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(
-        types.KeyboardButton("👀Je suis un voyeur"),
-        types.KeyboardButton("✨Discuter en tant que VIP")
-    )
-    await bot.send_message(
-        message.chat.id,
-        f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
-        reply_markup=keyboard
-    )
-
+    await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
 
 # Gestion des boutons
 
@@ -591,29 +562,6 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-
-
-    # 22TEST BOUTON ADMIN
-@dp.message_handler(lambda message: message.text == "📖 FAQ" and message.from_user.id == ADMIN_ID)
-async def handle_faq_button_admin(message: types.Message):
-    faq_text = (
-        "📖 *Liste des commandes disponibles :*\n\n"
-        "📦 */dev* – Stocker un contenu\n"
-        "_Réponds à un message client avec cette commande et joins un média._\n\n"
-        "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
-        "_Commande à inclure dans la légende du média._\n\n"
-        "❌ */supp* – Retirer un client\n"
-        "_En réponse à un message transféré._\n\n"
-        "✅ */unsupp* – Réintégrer un client\n"
-        "_Réponds à un message du client banni._\n\n"
-        "📊 */stat* – Voir tes statistiques\n\n"
-        "📬 *Besoin d’aide ?* support@tonmail.com"
-    )
-    await message.reply(faq_text, parse_mode="Markdown")
-
-@dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
-async def handle_stats_button_admin(message: types.Message):
-    await message.reply("/stat")
 
 
 
