@@ -160,23 +160,33 @@ async def bannir_client(message: types.Message):
         await message.reply("❌ Utilisez cette commande en réponse au message du client à retirer.")
         return
 
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
+        return
+
     admin_id = message.from_user.id
-    client_id = message.reply_to_message.from_user.id
 
     if admin_id not in ban_list:
         ban_list[admin_id] = []
 
-    if client_id not in ban_list[admin_id]:
-        ban_list[admin_id].append(client_id)
+    if user_id not in ban_list[admin_id]:
+        ban_list[admin_id].append(user_id)
 
         await message.reply("✅ Le client a été retiré avec succès.")
         try:
-            await bot.send_message(client_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
+            await bot.send_message(user_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client banni : {e}")
-       
+            await message.reply("ℹ️ Le client est bien banni, mais je n’ai pas pu lui envoyer le message (permissions Telegram).")
     else:
         await message.reply("ℹ️ Ce client est déjà retiré.")
+
 
 @dp.message_handler(commands=['unsupp'])
 async def reintegrer_client(message: types.Message):
@@ -184,20 +194,31 @@ async def reintegrer_client(message: types.Message):
         await message.reply("❌ Utilisez cette commande en réponse au message du client à réintégrer.")
         return
 
-    admin_id = message.from_user.id
-    client_id = message.reply_to_message.from_user.id
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
-    if admin_id in ban_list and client_id in ban_list[admin_id]:
-        ban_list[admin_id].remove(client_id)
+    if not user_id:
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
+        return
+
+    admin_id = message.from_user.id
+
+    if admin_id in ban_list and user_id in ban_list[admin_id]:
+        ban_list[admin_id].remove(user_id)
 
         await message.reply("✅ Le client a été réintégré avec succès.")
         try:
-            await bot.send_message(client_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
+            await bot.send_message(user_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client réintégré : {e}")
+            await message.reply("ℹ️ Réintégré, mais le message n’a pas pu être envoyé (permissions Telegram).")
 
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
+
 
 # Fin du test pour les clients bannis ou admis 
 
