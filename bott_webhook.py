@@ -546,17 +546,3 @@ async def relay_from_admin(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
 
-# Debut du test pour activer le bannissement
-
-@dp.message_handler()
-async def filtrer_clients_bannis(message: types.Message):
-    admin_id = 7334072965  # ← remplace par ton ID réel
-
-    if admin_id in ban_list and message.from_user.id in ban_list[admin_id]:
-        print(f"Client banni bloqué : {message.from_user.id}")
-        return  # Silence complet
-
-    # Sinon, on peut ignorer ou afficher un message de type "commande inconnue"
-    await message.reply("❌ Cette commande n'est pas reconnue.")
-
-
