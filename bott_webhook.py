@@ -6,6 +6,7 @@ from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 # 1.=== Variables globales ===
@@ -26,6 +27,14 @@ SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
 # ADMIN ID
 ADMIN_ID = 7334072965
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
+
+# TEST BOUTON ADMIN ET FAQ
+
+menu_buttons = InlineKeyboardMarkup(row_width=1)
+menu_buttons.add(
+    InlineKeyboardButton("📊 Voir mes statistiques", callback_data="voir_stats"),
+    InlineKeyboardButton("❓ FAQ / Aide", callback_data="voir_faq")
+)
 
 # === MEDIA EN ATTENTE ===
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
@@ -99,6 +108,14 @@ async def handle_stat(message: types.Message):
 
 # Fin de la fonction des stats
 
+# TEST MENU BOUTON
+@dp.message_handler(commands=["menu"])
+async def afficher_menu(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("Voici ton menu d’aide :", reply_markup=menu_buttons)
+    else:
+        await message.answer("✅ Interface admin chargée (aucun bouton pour l’administrateur).")
+
 # DEBUT de la fonction du proprietaire ! Ne pas toucher
 
 @dp.message_handler(commands=["nath"])
@@ -152,7 +169,7 @@ async def handle_nath_global_stats(message: types.Message):
 
 # FIN de la fonction du propriétaire 
 
-# TEST Liste des clients bannis par admin
+# Liste des clients bannis par admin
 ban_list = {}
 @dp.message_handler(commands=['supp'])
 async def bannir_client(message: types.Message):
@@ -218,9 +235,6 @@ async def reintegrer_client(message: types.Message):
 
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
-
-
-# Fin du test pour les clients bannis ou admis 
 
 
 # Liste des prix autorisés
@@ -293,8 +307,11 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
 
 # Création du clavier
-keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard.add(
+# TEST retirer les boutons pour l'admin
+
+if message.from_user.id != ADMIN_ID:
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(
     types.KeyboardButton("👀Je suis un voyeur"),
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
@@ -565,5 +582,34 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+
+
+# TEST BOUTON ADMIN
+@dp.callback_query_handler(lambda c: c.data == "voir_stats")
+async def bouton_stats(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "/stat")
+
+@dp.callback_query_handler(lambda c: c.data == "voir_faq")
+async def bouton_faq(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+
+    faq_text = (
+        "📖 *Liste des commandes disponibles :*\n\n"
+        "📦 */dev* – Stocker un contenu\n"
+        "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende._\n\n"
+        "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
+        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement._\n\n"
+        "❌ */supp* – Retirer un client\n"
+        "_À utiliser en réponse à un message transféré d’un client. Il sera banni et ne pourra plus te recontacter._\n\n"
+        "✅ */unsupp* – Réintégrer un client\n"
+        "_À utiliser en réponse à un message transféré précédemment banni. Il pourra à nouveau utiliser le bot._\n\n"
+        "📊 */stat* – Voir mes statistiques\n"
+        "_Affiche tes ventes, le total encaissé, et le nombre de clients VIP._\n\n"
+        "📬 *Besoin d’aide ?* Écris-moi par mail : support@tonmail.com"
+    )
+
+    await bot.send_message(callback_query.from_user.id, faq_text, parse_mode="Markdown")
+
 
 
