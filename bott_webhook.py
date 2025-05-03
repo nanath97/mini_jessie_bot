@@ -368,7 +368,7 @@ async def handle_start(message: types.Message):
         types.KeyboardButton("👀Je suis un voyeur"),
         types.KeyboardButton("✨Discuter en tant que VIP")
     )
-    await bot.send_message(
+        await bot.send_message(
         message.chat.id,
         f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
         reply_markup=keyboard
