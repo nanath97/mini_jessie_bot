@@ -24,7 +24,7 @@ SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
 
 
 # ADMIN ID
-ADMIN_ID = 7334072965
+ADMIN_ID = 7334072965 # 22
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 
 # === MEDIA EN ATTENTE ===
@@ -227,7 +227,7 @@ prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 WHITELIST_LINKS = [
     "https://novapulseonline.wixsite.com/",
     "https://buy.stripe.com/",
-    "https://t.me/mini_jessie_bot?start=paid"
+    "https://t.me/mini_jessie_bot?start=paid" # 22 Rajouter à la ligne en bas le lien propre de l'admin
 ]
 
 def lien_non_autorise(text):
@@ -258,8 +258,8 @@ async def verifier_les_liens_uniquement(message: types.Message):
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
 
-# Fonction pour ajouter un paiement à Airtable
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
+# Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"): 
     if not type_acces:
         type_acces = "Paiement"  # Par défaut pour éviter erreurs
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
@@ -353,9 +353,9 @@ async def handle_start(message: types.Message):
         return
 # TEST VFdebut
     if message.from_user.id == ADMIN_ID:
-        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper ainsi que tes statistiques ! Tu dois cliquer sur la réponse lorsque tu cliques sur le bouton statistique. :", reply_markup=keyboard_admin)
+        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper ainsi que tes statistiques ! Tu dois cliquer sur la réponse, lorsque tu cliques sur le bouton statistique :", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
+        await bot.send_message(message.chat.id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
 # TEST VFin
 
 # Gestion des boutons
@@ -368,18 +368,18 @@ async def discuter_vip(message: types.Message):
 async def je_suis_voyeur(message: types.Message):
     keyboard_confirm = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard_confirm.add(
-        types.KeyboardButton("✅ Oui je confirme (bannir)"),
-        types.KeyboardButton("🚀 Non, je veux rejoindre le VIP")
+        types.KeyboardButton("❌ Oui je confirme (bannir)"),
+        types.KeyboardButton("✅ Non, je veux rejoindre le VIP")
     )
     await bot.send_message(message.chat.id, "Confirme ton choix :", reply_markup=keyboard_confirm)
 
-@dp.message_handler(lambda message: message.text == "✅ Oui je confirme (bannir)")
+@dp.message_handler(lambda message: message.text == "❌ Oui je confirme (bannir)")
 async def confirmer_voyeur(message: types.Message):
     await bot.send_message(message.chat.id, "🛑 Tu restes simple spectateur.")
 
-@dp.message_handler(lambda message: message.text == "🚀 Non, je veux rejoindre le VIP")
+@dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "🚀 Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
 # Message avec lien
 
@@ -406,7 +406,7 @@ async def envoyer_lien_stripe(message: types.Message):
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
         return
-
+# 22 Mettre les liens propres à l'admin
     liens_paiement = {
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
         "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
@@ -508,8 +508,8 @@ async def show_commandes_admin(message: types.Message):
         "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
         "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende.Il sera placé en attente et se débloquera au moment où ton client aura payé._\n\n"
-        "🔒 */envoyerxxx* – Envoyer un contenu payant €\n"
-        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
+        "🔒 */envoyerxx* – Envoyer un contenu payant €\n"
+        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "❌ */supp* – Retirer un client\n"
         "_À utiliser en réponse à un message transféré d’un client. Il sera banni et ne pourra plus te recontacter._\n\n"
         "✅ */unsupp* – Réintégrer un client\n"
@@ -517,7 +517,8 @@ async def show_commandes_admin(message: types.Message):
         "📊 */stat* – Voir mes statistiques\n"
         "_Affiche tes ventes, le total encaissé, et le nombre de clients VIP._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
-        "📬 *Besoin d’aide ?* Écris-moi par mail : support@tonmail.com"
+        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n"
+        "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
     await message.reply(commandes, parse_mode="Markdown")
 
