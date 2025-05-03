@@ -296,6 +296,12 @@ keyboard.add(
     types.KeyboardButton("👀Je suis un voyeur"),
     types.KeyboardButton("✨Discuter en tant que VIP")
 )
+keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard_admin.add(
+    types.KeyboardButton("📖 Commandes"),
+    types.KeyboardButton("📊 Statistiques")
+)
+# TEST VFin
 
 # Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -350,8 +356,12 @@ async def handle_start(message: types.Message):
 
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
-
-    await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
+# TEST VFdebut
+    if message.from_user.id == ADMIN_ID:
+        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Voici ton menu :", reply_markup=keyboard_admin)
+    else:
+        await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
+# TEST VFin
 
 # Gestion des boutons
 
@@ -494,7 +504,29 @@ async def stocker_media_par_user(message: types.Message):
         elif contenu["type"] == types.ContentType.DOCUMENT:
             await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
         paiements_en_attente_par_user.remove(user_id)
-        del contenus_en_attente[user_id]       
+        del contenus_en_attente[user_id]   
+
+# TEST VF debut
+@dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
+async def show_commandes_admin(message: types.Message):
+    commandes = (
+        "📦 */dev* – Stocker un contenu\n"
+        "_Réponds à un message client avec cette commande et joins un média._\n\n"
+        "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
+        "_Commande à inclure dans la légende du média._\n\n"
+        "❌ */supp* – Bannir un client\n"
+        "_En réponse à un message transféré._\n\n"
+        "✅ */unsupp* – Réintégrer un client\n"
+        "_En réponse à un message du client banni._\n\n"
+        "📊 */stat* – Voir tes statistiques\n\n"
+        "📬 *Besoin d’aide ?* support@tonmail.com"
+    )
+    await message.reply(commandes, parse_mode="Markdown")
+
+@dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
+async def trigger_stat_command(message: types.Message):
+    await message.reply("/stat")
+# TEST VFIN
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
