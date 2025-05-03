@@ -6,7 +6,7 @@ from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton # 22 TEST BOUTON ADMIN
 
 
 # 1.=== Variables globales ===
@@ -28,7 +28,7 @@ SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
 ADMIN_ID = 7334072965
 DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 
-# TEST BOUTON ADMIN ET FAQ
+# 22TEST BOUTON ADMIN ET FAQ
 
 menu_buttons = InlineKeyboardMarkup(row_width=1)
 menu_buttons.add(
@@ -108,7 +108,7 @@ async def handle_stat(message: types.Message):
 
 # Fin de la fonction des stats
 
-# TEST MENU BOUTON
+# 22TEST MENU BOUTON
 @dp.message_handler(commands=["menu"])
 async def afficher_menu(message: types.Message):
     if message.from_user.id != ADMIN_ID:
@@ -307,16 +307,9 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
 
 # Création du clavier
-# TEST retirer les boutons pour l'admin
 
-if message.from_user.id != ADMIN_ID:
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(
-    types.KeyboardButton("👀Je suis un voyeur"),
-    types.KeyboardButton("✨Discuter en tant que VIP")
-)
 
-# === Bloc 2 : Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
+# Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
@@ -369,8 +362,19 @@ async def handle_start(message: types.Message):
 
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
+    if message.from_user.id != ADMIN_ID:
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(
+        types.KeyboardButton("👀Je suis un voyeur"),
+        types.KeyboardButton("✨Discuter en tant que VIP")
+    )
+    await bot.send_message(
+        message.chat.id,
+        f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
+        reply_markup=keyboard
+    )
+# sinon... rien du tout, pas besoin d'un message pour l'admin
 
-    await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
 
 # Gestion des boutons
 
@@ -471,7 +475,7 @@ async def envoyer_lien_stripe(message: types.Message):
     else:
         await bot.send_message(chat_id=user_id, text=nouvelle_legende, disable_web_page_preview=True)
 
-# === DEBUT TEST : Stocker le média personnalisé en réponse avec /dev ===
+# Stocker le média personnalisé en réponse avec /dev ===
 @dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and (
     (m.caption and "/dev" in m.caption.lower()) or 
     (m.text and "/dev" in m.text.lower())
@@ -513,8 +517,7 @@ async def stocker_media_par_user(message: types.Message):
         elif contenu["type"] == types.ContentType.DOCUMENT:
             await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
         paiements_en_attente_par_user.remove(user_id)
-        del contenus_en_attente[user_id]
-# === FIN TEST : Stocker le média personnalisé en réponse avec /dev ===       
+        del contenus_en_attente[user_id]       
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
@@ -584,7 +587,7 @@ async def relay_from_admin(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
 
-# TEST BOUTON ADMIN
+# 22TEST BOUTON ADMIN
 @dp.callback_query_handler(lambda c: c.data == "voir_stats")
 async def bouton_stats(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
@@ -610,6 +613,7 @@ async def bouton_faq(callback_query: types.CallbackQuery):
     )
 
     await bot.send_message(callback_query.from_user.id, faq_text, parse_mode="Markdown")
+    # 22TEST BOUTON ADMIN
 
 
 
