@@ -258,8 +258,6 @@ async def verifier_les_liens_uniquement(message: types.Message):
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
 
-
-
 # Fonction pour ajouter un paiement à Airtable
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"):
     if not type_acces:
@@ -287,8 +285,6 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
     else:
         print("✅ Paiement ajouté dans Airtable avec succès !")
 
-
-
 # Création du clavier
 
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -301,7 +297,6 @@ keyboard_admin.add(
     types.KeyboardButton("📖 Commandes"),
     types.KeyboardButton("📊 Statistiques")
 )
-# TEST VFin
 
 # Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -338,13 +333,13 @@ async def handle_start(message: types.Message):
                 montant=float(montant),
                 contenu="Paiement Contenu"
             )
-            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
+            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
             return
         else:
             paiements_en_attente_par_user.add(user_id)
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
-        await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire...💕")
+        await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
     pseudo=message.from_user.username or message.from_user.first_name,
@@ -358,9 +353,9 @@ async def handle_start(message: types.Message):
         return
 # TEST VFdebut
     if message.from_user.id == ADMIN_ID:
-        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Voici ton menu :", reply_markup=keyboard_admin)
+        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper ainsi que tes statistiques ! Tu dois cliquer sur la réponse lorsque tu cliques sur le bouton statistique. :", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?", reply_markup=keyboard)
+        await bot.send_message(message.chat.id, f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
 # TEST VFin
 
 # Gestion des boutons
@@ -510,16 +505,19 @@ async def stocker_media_par_user(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
 async def show_commandes_admin(message: types.Message):
     commandes = (
+        "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
-        "_Réponds à un message client avec cette commande et joins un média._\n\n"
-        "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
-        "_Commande à inclure dans la légende du média._\n\n"
-        "❌ */supp* – Bannir un client\n"
-        "_En réponse à un message transféré._\n\n"
+        "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende.Il sera placé en attente et se débloquera au moment où ton client aura payé._\n\n"
+        "🔒 */envoyerxxx* – Envoyer un contenu payant €\n"
+        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
+        "❌ */supp* – Retirer un client\n"
+        "_À utiliser en réponse à un message transféré d’un client. Il sera banni et ne pourra plus te recontacter._\n\n"
         "✅ */unsupp* – Réintégrer un client\n"
-        "_En réponse à un message du client banni._\n\n"
-        "📊 */stat* – Voir tes statistiques\n\n"
-        "📬 *Besoin d’aide ?* support@tonmail.com"
+        "_À utiliser en réponse à un message transféré précédemment banni. Il pourra à nouveau utiliser le bot._\n\n"
+        "📊 */stat* – Voir mes statistiques\n"
+        "_Affiche tes ventes, le total encaissé, et le nombre de clients VIP._\n\n"
+        "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
+        "📬 *Besoin d’aide ?* Écris-moi par mail : support@tonmail.com"
     )
     await message.reply(commandes, parse_mode="Markdown")
 
