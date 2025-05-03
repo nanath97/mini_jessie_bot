@@ -304,8 +304,6 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
     else:
         print("✅ Paiement ajouté dans Airtable avec succès !")
 
-
-
 # Création du clavier
 
 
@@ -314,13 +312,25 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 async def handle_start(message: types.Message):
     param = message.get_args()
 
+    if message.from_user.id == ADMIN_ID:
+        # Boutons ADMIN
+        admin_buttons = InlineKeyboardMarkup(row_width=1)
+        admin_buttons.add(
+            InlineKeyboardButton("📊 Voir mes statistiques", callback_data="voir_stats"),
+            InlineKeyboardButton("❓ FAQ / Aide", callback_data="voir_faq")
+        )
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="👋 Bonjour admin ! Que veux-tu faire ?",
+            reply_markup=admin_buttons
+        )
+        return
+
+    # Gestion des accès payants ou VIP
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
-
             authorized_users.add(message.from_user.id)
-
-            # --- Envoi du média si déjà prêt ---
             user_id = message.from_user.id
             if user_id in contenus_en_attente:
                 contenu = contenus_en_attente[user_id]
@@ -334,9 +344,8 @@ async def handle_start(message: types.Message):
             else:
                 paiements_en_attente_par_user.add(user_id)
 
-            # --- Message automatique habituel ---
             await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=message.from_user.id,
@@ -344,37 +353,33 @@ async def handle_start(message: types.Message):
                 montant=float(montant),
                 contenu="Paiement Contenu"
             )
-            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton dashboard.")
             return
-        else:
-            paiements_en_attente_par_user.add(user_id)
+
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
-    pseudo=message.from_user.username or message.from_user.first_name,
-    user_id=message.from_user.id,
-    type_acces="VIP",
-    montant= 1.0,
-    contenu="Accès VIP Telegram"
-)
-
-        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
+            pseudo=message.from_user.username or message.from_user.first_name,
+            user_id=message.from_user.id,
+            type_acces="VIP",
+            montant=1.0,
+            contenu="Accès VIP Telegram"
+        )
         return
-    if message.from_user.id != ADMIN_ID:
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(
+
+    # Sinon, boutons CLIENT normaux
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(
         types.KeyboardButton("👀Je suis un voyeur"),
         types.KeyboardButton("✨Discuter en tant que VIP")
     )
-        await bot.send_message(
+
+    await bot.send_message(
         message.chat.id,
         f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
         reply_markup=keyboard
     )
-# sinon... rien du tout, pas besoin d'un message pour l'admin
-
 
 # Gestion des boutons
 
