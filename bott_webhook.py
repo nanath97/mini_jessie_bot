@@ -313,18 +313,18 @@ async def handle_start(message: types.Message):
     param = message.get_args()
 
     if message.from_user.id == ADMIN_ID:
-        # Boutons ADMIN
-        admin_buttons = InlineKeyboardMarkup(row_width=1)
-        admin_buttons.add(
-            InlineKeyboardButton("📊 Voir mes statistiques", callback_data="voir_stats"),
-            InlineKeyboardButton("❓ FAQ / Aide", callback_data="voir_faq")
-        )
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="👋 Bonjour admin ! Que veux-tu faire ?",
-            reply_markup=admin_buttons
-        )
-        return
+        keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard_admin.add(
+        types.KeyboardButton("📖 Commandes"),
+        types.KeyboardButton("📊 Statistiques")
+    )
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text="👋 Bonjour admin ! Tu peux à tout moment consulter tes stats ainsi que les commandes !",
+        reply_markup=keyboard_admin
+    )
+    return
+
 
     # Gestion des accès payants ou VIP
     if param.startswith("paid") and param[4:].isdigit():
@@ -592,33 +592,27 @@ async def relay_from_admin(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
 
-# 22TEST BOUTON ADMIN
-@dp.callback_query_handler(lambda c: c.data == "voir_stats")
-async def bouton_stats(callback_query: types.CallbackQuery):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "/stat")
-
-@dp.callback_query_handler(lambda c: c.data == "voir_faq")
-async def bouton_faq(callback_query: types.CallbackQuery):
-    await bot.answer_callback_query(callback_query.id)
-
+    # 22TEST BOUTON ADMIN
+@dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
+async def handle_faq_button_admin(message: types.Message):
     faq_text = (
         "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
-        "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende._\n\n"
+        "_Utilise cette commande en réponse à un message client avec un média._\n\n"
         "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
-        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement._\n\n"
-        "❌ */supp* – Retirer un client\n"
-        "_À utiliser en réponse à un message transféré d’un client. Il sera banni et ne pourra plus te recontacter._\n\n"
+        "_Commande à inclure dans la légende du média._\n\n"
+        "❌ */supp* – Bannir un client\n"
+        "_En réponse à un message transféré du client._\n\n"
         "✅ */unsupp* – Réintégrer un client\n"
-        "_À utiliser en réponse à un message transféré précédemment banni. Il pourra à nouveau utiliser le bot._\n\n"
-        "📊 */stat* – Voir mes statistiques\n"
-        "_Affiche tes ventes, le total encaissé, et le nombre de clients VIP._\n\n"
-        "📬 *Besoin d’aide ?* Écris-moi par mail : support@tonmail.com"
+        "_En réponse à un message d’un client banni._\n\n"
+        "📊 */stat* – Voir tes statistiques de vente\n\n"
+        "📬 *Besoin d’aide ?* support@tonmail.com"
     )
+    await message.reply(faq_text, parse_mode="Markdown")
 
-    await bot.send_message(callback_query.from_user.id, faq_text, parse_mode="Markdown")
-    # 22TEST BOUTON ADMIN
+@dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
+async def handle_stats_button_admin(message: types.Message):
+    await message.reply("/stat")
 
 
 
