@@ -312,21 +312,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 async def handle_start(message: types.Message):
     param = message.get_args()
 
-    if message.from_user.id == ADMIN_ID:
-        keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard_admin.add(
-        types.KeyboardButton("📖 Commandes"),
-        types.KeyboardButton("📊 Statistiques")
-    )
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text="👋 Bonjour admin ! Tu peux à tout moment consulter tes stats ainsi que les commandes !",
-        reply_markup=keyboard_admin
-    )
-    return
-
-
-    # Gestion des accès payants ou VIP
+    # Paiement
     if param.startswith("paid") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
@@ -355,6 +341,7 @@ async def handle_start(message: types.Message):
             )
             return
 
+    # VIP
     if param in ["vipaccess", "vipaccess123"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire...💕")
@@ -368,18 +355,32 @@ async def handle_start(message: types.Message):
         )
         return
 
-    # Sinon, boutons CLIENT normaux
+    # ADMIN → boutons admin en bas
+    if message.from_user.id == ADMIN_ID:
+        keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard_admin.add(
+            types.KeyboardButton("📖 FAQ"),
+            types.KeyboardButton("📊 Statistiques")
+        )
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="👋 Bonjour admin ! Que veux-tu faire ?",
+            reply_markup=keyboard_admin
+        )
+        return
+
+    # CLIENT → boutons normaux
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(
         types.KeyboardButton("👀Je suis un voyeur"),
         types.KeyboardButton("✨Discuter en tant que VIP")
     )
-
     await bot.send_message(
         message.chat.id,
         f"👋 Salut {message.from_user.first_name or 'toi'}, que veux-tu faire ?",
         reply_markup=keyboard
     )
+
 
 # Gestion des boutons
 
@@ -593,19 +594,19 @@ async def relay_from_admin(message: types.Message):
 
 
     # 22TEST BOUTON ADMIN
-@dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "📖 FAQ" and message.from_user.id == ADMIN_ID)
 async def handle_faq_button_admin(message: types.Message):
     faq_text = (
         "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
-        "_Utilise cette commande en réponse à un message client avec un média._\n\n"
+        "_Réponds à un message client avec cette commande et joins un média._\n\n"
         "🔒 */envoyer14* – Envoyer un contenu à 14 €\n"
         "_Commande à inclure dans la légende du média._\n\n"
-        "❌ */supp* – Bannir un client\n"
-        "_En réponse à un message transféré du client._\n\n"
+        "❌ */supp* – Retirer un client\n"
+        "_En réponse à un message transféré._\n\n"
         "✅ */unsupp* – Réintégrer un client\n"
-        "_En réponse à un message d’un client banni._\n\n"
-        "📊 */stat* – Voir tes statistiques de vente\n\n"
+        "_Réponds à un message du client banni._\n\n"
+        "📊 */stat* – Voir tes statistiques\n\n"
         "📬 *Besoin d’aide ?* support@tonmail.com"
     )
     await message.reply(faq_text, parse_mode="Markdown")
@@ -613,6 +614,7 @@ async def handle_faq_button_admin(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def handle_stats_button_admin(message: types.Message):
     await message.reply("/stat")
+
 
 
 
