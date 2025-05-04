@@ -227,7 +227,7 @@ prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 WHITELIST_LINKS = [
     "https://novapulseonline.wixsite.com/",
     "https://buy.stripe.com/",
-    "https://t.me/mini_jessie_bot?start=paid" # 22 Rajouter à la ligne en bas le lien propre de l'admin
+    "https://t.me/mini_jessie_bot?start=cdan" # 22 Rajouter à la ligne en bas le lien propre de l'admin
 ]
 
 def lien_non_autorise(text):
@@ -298,12 +298,12 @@ keyboard_admin.add(
     types.KeyboardButton("📊 Statistiques")
 )
 
-# Détecter le paiement /start=paid... et envoyer si contenu déjà prêt ===
+# Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
 
-    if param.startswith("paid") and param[4:].isdigit():
+    if param.startswith("cdan") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
 
@@ -337,7 +337,7 @@ async def handle_start(message: types.Message):
             return
         else:
             paiements_en_attente_par_user.add(user_id)
-    if param in ["vipaccess", "vipaccess123"]:
+    if param in ["vipcdan"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
@@ -409,8 +409,8 @@ async def envoyer_lien_stripe(message: types.Message):
 # 22 Mettre les liens propres à l'admin
     liens_paiement = {
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
-        "14": "https://buy.stripe.com/8wMg326L97WidYk28a",
-        "19": "https://buy.stripe.com/...",
+        "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
+        "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
         "24": "https://buy.stripe.com/...",
         "29": "https://buy.stripe.com/...",
         "34": "https://buy.stripe.com/...",
