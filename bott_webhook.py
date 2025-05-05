@@ -219,6 +219,45 @@ async def reintegrer_client(message: types.Message):
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
 
+# DEBUT DU TEST
+
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+async def bouton_bannir(message: types.Message):
+    forwarded = message.reply_to_message.forward_from
+    if not forwarded:
+        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+        return
+
+    user_id = forwarded.id
+    ban_list.setdefault(message.from_user.id, set()).add(user_id)
+    await message.reply(f"🚫 Le client {user_id} a été banni avec succès.")
+    try:
+        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
+    except Exception as e:
+        print(f"Erreur d'envoi au client banni : {e}")
+        await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
+
+
+@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+async def bouton_reintegrer(message: types.Message):
+    forwarded = message.reply_to_message.forward_from
+    if not forwarded:
+        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+        return
+
+    user_id = forwarded.id
+    if user_id in ban_list.get(message.from_user.id, set()):
+        ban_list[message.from_user.id].remove(user_id)
+        await message.reply(f"✅ Le client {user_id} a été réintégré.")
+        try:
+            await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
+        except Exception as e:
+            print(f"Erreur d'envoi au client réintégré : {e}")
+            await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
+    else:
+        await message.reply("ℹ️ Ce client n’était pas retiré.")
+# FIN DU TEST
+
 
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
@@ -583,34 +622,6 @@ async def show_stats_direct(message: types.Message):
         print(f"Erreur dans le bouton 📊 Statistiques : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
 
-# TEST debut
-@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id in ADMINS)
-async def bouton_bannir(message: types.Message):
-    forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Erreur : tu dois répondre à un message transféré du client.")
-        return
-
-    user_id = forwarded.id
-    ban_list.setdefault(message.from_user.id, set()).add(user_id)
-    await message.reply(f"🚫 Le client {user_id} a été banni avec succès.")
-
-@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id in ADMINS)
-async def bouton_reintegrer(message: types.Message):
-    forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Erreur : tu dois répondre à un message transféré du client.")
-        return
-
-    user_id = forwarded.id
-    if user_id in ban_list.get(message.from_user.id, set()):
-        ban_list[message.from_user.id].remove(user_id)
-        await message.reply(f"✅ Le client {user_id} a été réintégré.")
-    else:
-        await message.reply("ℹ️ Ce client n'était pas banni.")
-
-
-# TEST VFIN
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
