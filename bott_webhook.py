@@ -427,8 +427,8 @@ import re
 
 @dp.message_handler(
     lambda message: message.from_user.id == ADMIN_ID and (
-        (message.text and "/envoyer" in message.text) or 
-        (message.caption and "/envoyer" in message.caption)
+        (message.text and "/env" in message.text) or 
+        (message.caption and "/env" in message.caption)
     ),
     content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT]
 )
@@ -464,9 +464,9 @@ async def envoyer_lien_stripe(message: types.Message):
     }
 
     texte = message.caption or message.text or ""
-    match = re.search(r"/envoyer(\d+|vip)", texte.lower())
+    match = re.search(r"/env(\d+|vip)", texte.lower())
     if not match:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun code /envoyerXX valide détecté.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun code /envXX valide détecté.")
         return
 
     code = match.group(1)
@@ -475,7 +475,7 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
         return
 
-    nouvelle_legende = re.sub(r"/envoyer(\d+|vip)", f"{lien}", texte)
+    nouvelle_legende = re.sub(r"/env(\d+|vip)", f"{lien}", texte)
 
     if not (message.photo or message.video or message.document):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
@@ -548,14 +548,8 @@ async def show_commandes_admin(message: types.Message):
         "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
         "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende.Il sera placé en attente et se débloquera au moment où ton client aura payé._\n\n"
-        "🔒 */envoyerxx* – Envoyer un contenu payant €\n"
-        "_Tape cette commande avec le bon montant (ex. /envoyer14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
-        "❌ */supp* – Retirer un client\n"
-        "_À utiliser en réponse à un message transféré d’un client. Il sera banni et ne pourra plus te recontacter._\n\n"
-        "✅ */unsupp* – Réintégrer un client\n"
-        "_À utiliser en réponse à un message transféré précédemment banni. Il pourra à nouveau utiliser le bot._\n\n"
-        "📊 */stat* – Voir mes statistiques\n"
-        "_Affiche tes ventes, le total encaissé, et le nombre de clients VIP._\n\n"
+        "🔒 */envxx* – Envoyer un contenu payant €\n"
+        "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
         "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n"
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
