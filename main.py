@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from core import bot, dp
 import bott_webhook
+from aiogram.types import BotCommand
+
 
 
 
@@ -22,3 +24,7 @@ async def telegram_webhook(request: Request):
         print("Erreur dans webhook :", e)
         return {"ok": False, "error": str(e)}
     return {"ok": True}
+
+@app.on_event("startup")
+async def clear_commands():
+    await bot.delete_my_commands()
