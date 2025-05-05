@@ -297,6 +297,10 @@ keyboard_admin.add(
     types.KeyboardButton("📖 Commandes"),
     types.KeyboardButton("📊 Statistiques")
 )
+keyboard_admin.add(# TEST bouton admin
+    types.KeyboardButton("❌ Bannir le client"),
+    types.KeyboardButton("✅ Réintégrer le client")
+)
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -351,12 +355,11 @@ async def handle_start(message: types.Message):
 
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
-# TEST VFdebut
+# Message perso à l'admin
     if message.from_user.id == ADMIN_ID:
-        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper ainsi que tes statistiques ! Tu dois cliquer sur la réponse, lorsque tu cliques sur le bouton statistique :", reply_markup=keyboard_admin)
+        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper et consulter tes statistiques !", reply_markup=keyboard_admin)
     else:
         await bot.send_message(message.chat.id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
-# TEST VFin
 
 # Gestion des boutons
 
@@ -579,6 +582,33 @@ async def show_stats_direct(message: types.Message):
     except Exception as e:
         print(f"Erreur dans le bouton 📊 Statistiques : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
+
+# TEST debut
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id in ADMINS)
+async def bouton_bannir(message: types.Message):
+    forwarded = message.reply_to_message.forward_from
+    if not forwarded:
+        await message.reply("❌ Erreur : tu dois répondre à un message transféré du client.")
+        return
+
+    user_id = forwarded.id
+    ban_list.setdefault(message.from_user.id, set()).add(user_id)
+    await message.reply(f"🚫 Le client {user_id} a été banni avec succès.")
+
+@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id in ADMINS)
+async def bouton_reintegrer(message: types.Message):
+    forwarded = message.reply_to_message.forward_from
+    if not forwarded:
+        await message.reply("❌ Erreur : tu dois répondre à un message transféré du client.")
+        return
+
+    user_id = forwarded.id
+    if user_id in ban_list.get(message.from_user.id, set()):
+        ban_list[message.from_user.id].remove(user_id)
+        await message.reply(f"✅ Le client {user_id} a été réintégré.")
+    else:
+        await message.reply("ℹ️ Ce client n'était pas banni.")
+
 
 # TEST VFIN
 
