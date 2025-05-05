@@ -219,7 +219,7 @@ async def reintegrer_client(message: types.Message):
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
 
-# DEBUT DU TEST
+# Mise sous forme de boutons : bannissement
 
 @dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
@@ -256,8 +256,6 @@ async def bouton_reintegrer(message: types.Message):
             await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
-# FIN DU TEST
-
 
 # Liste des prix autorisés
 prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
