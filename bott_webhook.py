@@ -230,7 +230,7 @@ async def bouton_bannir(message: types.Message):
 
     user_id = forwarded.id
     ban_list.setdefault(message.from_user.id, set()).add(user_id)
-    await message.reply(f"🚫 Le client {user_id} a été banni avec succès.")
+    await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
         await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
     except Exception as e:
@@ -248,7 +248,7 @@ async def bouton_reintegrer(message: types.Message):
     user_id = forwarded.id
     if user_id in ban_list.get(message.from_user.id, set()):
         ban_list[message.from_user.id].remove(user_id)
-        await message.reply(f"✅ Le client {user_id} a été réintégré.")
+        await message.reply(f"✅ Le client a été réintégré.")
         try:
             await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
         except Exception as e:
@@ -551,7 +551,9 @@ async def show_commandes_admin(message: types.Message):
         "🔒 */envxx* – Envoyer un contenu payant €\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
+
         "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n"
+
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
     await message.reply(commandes, parse_mode="Markdown")
