@@ -297,25 +297,7 @@ async def verifier_les_liens_uniquement(message: types.Message):
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
-
-DESCRIPTION_PAR_PRIX = {
-    9: "Instantané IA",
-    14: "Style Signature",
-    19: "Portrait Détaillé",
-    24: "Légende Numérique",
-    29: "Duo Créatif",
-    34: "Portrait Premium",
-    39: "Personnage Concept",
-    44: "Scène Artistique",
-    49: "Identité Visuelle",
-    59: "Mini Pack Réseaux",
-    69: "Histoire Visuelle",
-    79: "Pack Univers Complet",
-    89: "Collection Privée",
-    99: "Expérience Sur-Mesure"
-}
-
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com", contenu_livre=None):
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com",):
     if not type_acces:
         type_acces = "Paiement"  # Par défaut pour éviter erreurs
 
@@ -338,24 +320,19 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
         "Mois": now.strftime("%Y-%m")
     }
 
-    if contenu_livre:
-        fields["Contenu livré"] = contenu_livre
-
     data = {
         "fields": fields
     }
 
     try:
-        requests.post(url, headers=headers, json=data)
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code != 200:
+            print(f"❌ Erreur Airtable : {response.text}")
+        else:
+            print("✅ Paiement ajouté dans Airtable avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi à Airtable : {e}")
 
-    print(data)  # Debug temporaire pour vérifier ce qu'on envoie
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code != 200:
-        print(f"Erreur Airtable : {response.text}")
-    else:
-        print("✅ Paiement ajouté dans Airtable avec succès !")
 
 # Création du clavier
 
@@ -407,7 +384,6 @@ async def handle_start(message: types.Message):
     parse_mode="Markdown"
 )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
-            description = DESCRIPTION_PAR_PRIX.get(montant, "Contenu inconnu") # --- TEST jusqu'a contenu livre description
 
             log_to_airtable(
     pseudo=message.from_user.username or message.from_user.first_name,
@@ -415,7 +391,6 @@ async def handle_start(message: types.Message):
     type_acces="Paiement",
     montant=float(montant),
     contenu="Paiement Contenu",
-    contenu_livre=description
 )
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
             return
