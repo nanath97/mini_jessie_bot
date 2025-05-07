@@ -296,9 +296,29 @@ async def verifier_les_liens_uniquement(message: types.Message):
         raise CancelHandler()
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"): 
+
+
+DESCRIPTION_PAR_PRIX = {
+    9: "Instantané IA",
+    14: "Style Signature",
+    19: "Portrait Détaillé",
+    24: "Légende Numérique",
+    29: "Duo Créatif",
+    34: "Portrait Premium",
+    39: "Personnage Concept",
+    44: "Scène Artistique",
+    49: "Identité Visuelle",
+    59: "Mini Pack Réseaux",
+    69: "Histoire Visuelle",
+    79: "Pack Univers Complet",
+    89: "Collection Privée",
+    99: "Expérience Sur-Mesure"
+}
+
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com", contenu_livre=None):
     if not type_acces:
-        type_acces = "Paiement"
+        type_acces = "Paiement"  # Par défaut pour éviter erreurs
+
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
@@ -307,18 +327,28 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
     now = datetime.now()
 
-    data = {
-        "fields": {
-            "Pseudo Telegram": pseudo or "-",
-            "ID Telegram": str(user_id),
-            "Type acces": str(type_acces),
-            "Montant": float(montant),
-            "Contenu": contenu,
-            "Email": email,
-            "Date": now.isoformat(),
-            "Mois": now.strftime("%Y-%m")  # ← C’est ça qui te permet de filtrer le mois
-        }
+    fields = {
+        "Pseudo Telegram": pseudo or "-",
+        "ID Telegram": str(user_id),
+        "Type acces": str(type_acces),
+        "Montant": float(montant),
+        "Contenu": contenu,
+        "Email": email,
+        "Date": now.isoformat(),
+        "Mois": now.strftime("%Y-%m")
     }
+
+    if contenu_livre:
+        fields["Contenu livré"] = contenu_livre
+
+    data = {
+        "fields": fields
+    }
+
+    try:
+        requests.post(url, headers=headers, json=data)
+    except Exception as e:
+        print(f"Erreur lors de l'envoi à Airtable : {e}")
 
     print(data)  # Debug temporaire pour vérifier ce qu'on envoie
     response = requests.post(url, json=data, headers=headers)
@@ -373,17 +403,20 @@ async def handle_start(message: types.Message):
             # --- Message automatique habituel ---
             await bot.send_message(message.chat.id,
     f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
-    f"_❗️En cas de problème avec ta commande, n'ouvre pas de litige Stripe. Contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
+    f"_❗️En cas de problème avec ta commande, contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
     parse_mode="Markdown"
 )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
+            description = DESCRIPTION_PAR_PRIX.get(montant, "Contenu inconnu") # --- TEST jusqu'a contenu livre description
+
             log_to_airtable(
-                pseudo=message.from_user.username or message.from_user.first_name,
-                user_id=message.from_user.id,
-                type_acces="Paiement",
-                montant=float(montant),
-                contenu="Paiement Contenu"
-            )
+    pseudo=message.from_user.username or message.from_user.first_name,
+    user_id=message.from_user.id,
+    type_acces="Paiement",
+    montant=float(montant),
+    contenu="Paiement Contenu",
+    contenu_livre=description
+)
             await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
             return
         else:
@@ -440,7 +473,7 @@ async def probleme_achat(message: types.Message):
         "Pas de panique ! Nous prenons très au sérieux chaque cas. "
         "Tu peux nous écrire directement à *novapulse.online@gmail.com* avec ton pseudo Telegram, "
         "et on investiguera ta situation dès maintenant !\n\n"
-        "_Ne dépose pas de litige sur Stripe : un remboursement est toujours possible en interne._"
+        "_Ne dépose pas de litige sur Stripe car nous allons nous occuper de la situtation._"
     )
     await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
 
