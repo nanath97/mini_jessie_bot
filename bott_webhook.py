@@ -332,7 +332,8 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     types.KeyboardButton("👀Je suis un voyeur"),
-    types.KeyboardButton("✨Discuter en tant que VIP")
+    types.KeyboardButton("✨Discuter en tant que VIP"),
+    types.KeyboardButton("❗ Problème achat")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard_admin.add(
@@ -370,7 +371,11 @@ async def handle_start(message: types.Message):
                 paiements_en_attente_par_user.add(user_id)
 
             # --- Message automatique habituel ---
-            await bot.send_message(message.chat.id, f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...")
+            await bot.send_message(message.chat.id,
+    f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
+    f"_❗️En cas de problème avec ta commande, n'ouvre pas de litige Stripe. Contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
+    parse_mode="Markdown"
+)
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
@@ -425,6 +430,50 @@ async def confirmer_voyeur(message: types.Message):
 @dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
     await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+
+
+ # TEST
+@dp.message_handler(lambda message: message.text == "❗ Problème achat")
+async def probleme_achat(message: types.Message):
+    texte_client = (
+        "❗ *Un souci avec ton achat ?*\n\n"
+        "Pas de panique. Nous prenons très au sérieux chaque cas. "
+        "Tu peux nous écrire directement à *support@tonmail.com* avec ton pseudo Telegram, "
+        "et on investiguera ta situation sous 24h.\n\n"
+        "_Ne dépose pas de litige sur Stripe : un remboursement est toujours possible en interne._"
+    )
+    await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
+
+    pseudo = message.from_user.username or message.from_user.first_name or "Inconnu"
+    user_id = message.from_user.id
+
+    texte_alerte_admin = (
+        f"⚠️ *ALERTE LITIGE CLIENT* :\n\n"
+        f"Le client {pseudo} (ID: {user_id}) a cliqué sur *'Problème achat'*.\n"
+        f"Pense à vérifier si tout est OK."
+    )
+
+    texte_alerte_directeur = (
+        f"🔔 *[Copie Directeur]*\n\n"
+        f"Client : {pseudo} (ID: {user_id})\n"
+        f"A signalé un problème avec son achat.\n"
+        f"👤 ADMIN_ID (vendeur concerné) : {ADMIN_ID}"
+    )
+# TEST FIN
+
+
+    # Envoi à l'admin (vendeur)
+    try:
+        await bot.send_message(ADMIN_ID, texte_alerte_admin, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Erreur envoi admin : {e}")
+
+    # Envoi au directeur (toi)
+    try:
+        await bot.send_message(DIRECTEUR_ID, texte_alerte_directeur, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Erreur envoi directeur : {e}")
+
 
 # Message avec lien
 
