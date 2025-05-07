@@ -298,12 +298,15 @@ async def verifier_les_liens_uniquement(message: types.Message):
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com"): 
     if not type_acces:
-        type_acces = "Paiement"  # Par défaut pour éviter erreurs
+        type_acces = "Paiement"
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
         "Content-Type": "application/json"
     }
+
+    now = datetime.now()
+
     data = {
         "fields": {
             "Pseudo Telegram": pseudo or "-",
@@ -312,9 +315,11 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             "Montant": float(montant),
             "Contenu": contenu,
             "Email": email,
-            "Date": datetime.now().isoformat()
+            "Date": now.isoformat(),
+            "Mois": now.strftime("%Y-%m")  # ← C’est ça qui te permet de filtrer le mois
         }
     }
+
     print(data)  # Debug temporaire pour vérifier ce qu'on envoie
     response = requests.post(url, json=data, headers=headers)
     if response.status_code != 200:
@@ -577,6 +582,8 @@ async def show_stats_direct(message: types.Message):
         emails_vip = set()
 
         today = datetime.now().date().isoformat()
+        mois_courant = datetime.now().strftime("%Y-%m")
+
 
         for record in data.get("records", []):
             fields = record.get("fields", {})
@@ -585,14 +592,14 @@ async def show_stats_direct(message: types.Message):
             montant = float(fields.get("Montant", 0))
             type_acces = fields.get("Type acces", "")
 
-            if email == SELLER_EMAIL:
+            if email == SELLER_EMAIL and fields.get("Mois") == mois_courant:
                 ventes_totales += montant
+            if email == SELLER_EMAIL and date_str.startswith(today):
+                ventes_jour += montant
+
 
                 if type_acces.lower() != "vip":
                     contenus_vendus += 1
-
-                if date_str.startswith(today):
-                    ventes_jour += montant
 
                 if type_acces.lower() == "vip":
                     emails_vip.add(email)
