@@ -437,9 +437,9 @@ async def rejoindre_vip(message: types.Message):
 async def probleme_achat(message: types.Message):
     texte_client = (
         "❗ *Un souci avec ton achat ?*\n\n"
-        "Pas de panique. Nous prenons très au sérieux chaque cas. "
-        "Tu peux nous écrire directement à *support@tonmail.com* avec ton pseudo Telegram, "
-        "et on investiguera ta situation sous 24h.\n\n"
+        "Pas de panique ! Nous prenons très au sérieux chaque cas. "
+        "Tu peux nous écrire directement à *novapulse.online@gmail.com* avec ton pseudo Telegram, "
+        "et on investiguera ta situation dès maintenant !\n\n"
         "_Ne dépose pas de litige sur Stripe : un remboursement est toujours possible en interne._"
     )
     await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
@@ -447,18 +447,24 @@ async def probleme_achat(message: types.Message):
     pseudo = message.from_user.username or message.from_user.first_name or "Inconnu"
     user_id = message.from_user.id
 
-    texte_alerte_admin = (
+    # 🔔 Alerte pour le vendeur (admin)
+    await bot.send_message(ADMIN_ID,
         f"⚠️ *ALERTE LITIGE CLIENT* :\n\n"
         f"Le client {pseudo} (ID: {user_id}) a cliqué sur *'Problème achat'*.\n"
-        f"Pense à vérifier si tout est OK."
+        f"Pense à vérifier si tout est OK.",
+        parse_mode="Markdown"
     )
 
-    texte_alerte_directeur = (
-        f"🔔 *[Copie Directeur]*\n\n"
-        f"Client : {pseudo} (ID: {user_id})\n"
-        f"A signalé un problème avec son achat.\n"
-        f"👤 ADMIN_ID (vendeur concerné) : {ADMIN_ID}"
+    # 🔔 Alerte pour le directeur
+    await bot.send_message(DIRECTEUR_ID,
+        f"🔔 *Problème achat détecté*\n\n"
+        f"👤 Client : {pseudo} (ID: {user_id})\n"
+        f"👨‍💼 Admin concerné : {ADMIN_ID}",
+        parse_mode="Markdown"
     )
+
+    print(f"✅ Alertes envoyées à ADMIN_ID ({ADMIN_ID}) et DIRECTEUR_ID ({DIRECTEUR_ID})")
+
 # TEST FIN
 
 
