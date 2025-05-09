@@ -37,10 +37,6 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
-    if not SELLER_EMAIL:
-        await bot.send_message(message.chat.id, "❌ Erreur : adresse email non configurée.")
-        return
-
     await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
 
     try:
@@ -55,30 +51,36 @@ async def handle_stat(message: types.Message):
         ventes_totales = 0
         ventes_jour = 0
         contenus_vendus = 0
-        emails_vip = set()
+        vip_ids = set()
 
         today = datetime.now().date().isoformat()
+        mois_courant = datetime.now().strftime("%Y-%m")
 
         for record in data.get("records", []):
             fields = record.get("fields", {})
-            email = fields.get("Email", "")
+            user_id = fields.get("ID Telegram", "")
+            type_acces = fields.get("Type acces", "").lower()
             date_str = fields.get("Date", "")
+            mois = fields.get("Mois", "")
             montant = float(fields.get("Montant", 0))
-            type_acces = fields.get("Type acces", "")
 
-            if email == SELLER_EMAIL:
+            
+            if type_acces == "vip":
+                vip_ids.add(user_id)
+
+        
+            if mois == mois_courant:
                 ventes_totales += montant
 
-                if type_acces.lower() != "vip":
+            if date_str.startswith(today):
+                ventes_jour += montant
+                if type_acces != "vip":
                     contenus_vendus += 1
 
-                if date_str.startswith(today):
-                    ventes_jour += montant
+            if type_acces == "vip" and user_id:
+                vip_ids.add(user_id)
 
-                if type_acces.lower() == "vip":
-                    emails_vip.add(email)
-
-        clients_vip = len(emails_vip)
+        clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
@@ -96,6 +98,7 @@ async def handle_stat(message: types.Message):
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 # Fin de la fonction des stats
 
@@ -628,7 +631,8 @@ async def show_commandes_admin(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
-    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
+    await handle_stat(message)
+
 
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
