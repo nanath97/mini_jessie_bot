@@ -634,63 +634,6 @@ async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
 
-    try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-        }
-
-        response = requests.get(url, headers=headers)
-        data = response.json()
-
-        ventes_totales = 0
-        ventes_jour = 0
-        contenus_vendus = 0
-        emails_vip = set()
-
-        today = datetime.now().date().isoformat()
-        mois_courant = datetime.now().strftime("%Y-%m")
-
-
-        for record in data.get("records", []):
-            fields = record.get("fields", {})
-            email = fields.get("Email", "")
-            date_str = fields.get("Date", "")
-            montant = float(fields.get("Montant", 0))
-            type_acces = fields.get("Type acces", "")
-
-            if email == SELLER_EMAIL and fields.get("Mois") == mois_courant:
-                ventes_totales += montant
-            if email == SELLER_EMAIL and date_str.startswith(today):
-                ventes_jour += montant
-
-
-                if type_acces.lower() != "vip":
-                    contenus_vendus += 1
-
-                if type_acces.lower() == "vip":
-                    emails_vip.add(email)
-
-        clients_vip = len(emails_vip)
-        benefice_net = round(ventes_totales * 0.94, 2)
-
-        message_final = (
-            f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales : {ventes_totales}€\n"
-            f"📦 Contenus vendus total : {contenus_vendus}\n"
-            f"🌟 Clients VIP : {clients_vip}\n"
-            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
-            f"_Le bénéfice tient compte d’une commission de 6 %._"
-        )
-
-        await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
-
-    except Exception as e:
-        print(f"Erreur dans le bouton 📊 Statistiques : {e}")
-        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
-
-
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
 # === petite partie ajouté 
