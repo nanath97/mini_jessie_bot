@@ -23,3 +23,14 @@ async def telegram_webhook(request: Request):
         print("Erreur dans webhook :", e)
         return {"ok": False, "error": str(e)}
     return {"ok": True}
+
+# === 221097 DEBUT
+@app.on_event("startup")
+async def startup_event():
+    try:
+        import bott_webhook
+        bott_webhook.initialize_authorized_users()
+        print(f"[STARTUP] Initialisation des utilisateurs VIP terminée.")
+    except Exception as e:
+        print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
+# === 221097 FIN

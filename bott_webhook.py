@@ -32,6 +32,29 @@ contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": 
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
 
+# === 221097 DEBUT
+
+from core import authorized_users  # à mettre tout en haut si ce n’est pas déjà fait
+
+def initialize_authorized_users():
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        params = {"filterByFormula": "{Type acces}='VIP'"}
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        for record in data.get("records", []):
+            telegram_id = record.get("fields", {}).get("ID Telegram")
+            if telegram_id:
+                try:
+                    authorized_users.add(int(telegram_id))
+                except ValueError:
+                    print(f"[WARN] ID Telegram invalide : {telegram_id}")
+        print(f"[INFO] {len(authorized_users)} utilisateurs VIP chargés depuis Airtable.")
+    except Exception as e:
+        print(f"[ERROR] Impossible de charger les VIP depuis Airtable : {e}")
+# === 221097 FIN
 
 # === Statistiques ===
 
