@@ -4,3 +4,4 @@ gunicorn
 uvicorn
 python-dotenv
 requests
+stripe
