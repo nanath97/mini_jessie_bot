@@ -44,4 +44,7 @@ app.include_router(stripe_router)
 async def stripe_webhook_direct(request: Request):
     print("📥 Webhook Stripe reçu directement dans main.py")
     return {"status": "ok"}
+
+print("🔥 >>> FICHIER MAIN.PY BIEN LANCÉ <<< 🔥")
+
 # === 221097 FINV1
