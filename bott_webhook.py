@@ -398,8 +398,8 @@ async def handle_start(message: types.Message):
         ]
 
         if not paiements_valides:
-            await bot.send_message(message.chat.id, "❌ Paiement non détecté. Merci de réessayer dans quelques secondes.")
-            await bot.send_message(ADMIN_ID, f"⚠️ Redirection vers /start=cdan{montant} mais aucun paiement Stripe confirmé.")
+            await bot.send_message(message.chat.id, "❌ Paiement non valide !  Stripe a refusé votre paiement car fonds insuffisants ou refus général. Vérifiez vos capacités de paiements !")
+            await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiment de ton client, soit pour fonds insuffisants ou interdit bancaire ")
             return
 
         # Consommer un seul paiement
