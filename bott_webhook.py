@@ -6,6 +6,11 @@ from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+# Paiements validés par Stripe, stockés temporairement
+paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
 
 
 # 1.=== Variables globales ===
@@ -382,46 +387,58 @@ keyboard_admin.add(# TEST bouton admin
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
-
+# TEST123456 DEBUT
     if param.startswith("cdan") and param[4:].isdigit():
         montant = int(param[4:])
-        if montant in prix_list:
+    if montant in prix_list:
+        now = datetime.now()
+        paiements_valides = [
+            t for t in paiements_recents.get(montant, [])
+            if now - t < timedelta(minutes=3)
+        ]
 
-            authorized_users.add(message.from_user.id)
-
-            # --- Envoi du média si déjà prêt ---
-            user_id = message.from_user.id
-            if user_id in contenus_en_attente:
-                contenu = contenus_en_attente[user_id]
-                if contenu["type"] == types.ContentType.PHOTO:
-                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
-                elif contenu["type"] == types.ContentType.VIDEO:
-                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
-                elif contenu["type"] == types.ContentType.DOCUMENT:
-                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
-                del contenus_en_attente[user_id]
-            else:
-                paiements_en_attente_par_user.add(user_id)
-
-            # --- Message automatique habituel ---
-            await bot.send_message(message.chat.id,
-    f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
-    f"_❗️En cas de problème avec ta commande, contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
-    parse_mode="Markdown"
-)
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
-
-            log_to_airtable(
-    pseudo=message.from_user.username or message.from_user.first_name,
-    user_id=message.from_user.id,
-    type_acces="Paiement",
-    montant=float(montant),
-    contenu="Paiement Contenu",
-)
-            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
+        if not paiements_valides:
+            await bot.send_message(message.chat.id, "❌ Paiement non détecté. Merci de réessayer dans quelques secondes.")
+            await bot.send_message(ADMIN_ID, f"⚠️ Redirection vers /start=cdan{montant} mais aucun paiement Stripe confirmé.")
             return
+
+        # Consommer un seul paiement
+        paiements_recents[montant].remove(paiements_valides[0])
+        authorized_users.add(message.from_user.id)
+
+        # --- Envoi du média si déjà prêt ---
+        user_id = message.from_user.id
+        if user_id in contenus_en_attente:
+            contenu = contenus_en_attente[user_id]
+            if contenu["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.VIDEO:
+                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+            elif contenu["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+            del contenus_en_attente[user_id]
         else:
             paiements_en_attente_par_user.add(user_id)
+
+        await bot.send_message(message.chat.id,
+            f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
+            f"_❗️En cas de problème avec ta commande, contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
+            parse_mode="Markdown"
+        )
+
+        await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
+        log_to_airtable(
+            pseudo=message.from_user.username or message.from_user.first_name,
+            user_id=message.from_user.id,
+            type_acces="Paiement",
+            montant=float(montant),
+            contenu="Paiement validé via Stripe webhook + redirection",
+        )
+        await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
+        return
+# TEST123456 FIN
+    else:
+        paiements_en_attente_par_user.add(user_id)
     if param in ["vipcdan"]:
         authorized_users.add(message.from_user.id)
         await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")

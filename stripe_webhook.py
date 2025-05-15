@@ -6,6 +6,7 @@ import os
 from core import bot
 from aiogram import types
 from bott_webhook import authorized_users, contenus_en_attente, paiements_en_attente_par_user, log_to_airtable, ADMIN_ID
+from bott_webhook import paiements_recents  # à mettre en haut du fichier
 
 router = APIRouter()
 
@@ -38,6 +39,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             return {"status": "invalid_id"}
 
         montant = int(session["amount_total"] / 100)
+        # Enregistrer l'heure du paiement dans le cache temporaire
+        paiements_recents[montant].append(datetime.now())
+        print(f"✅ Paiement webhook : {montant}€ enregistré à {datetime.now().isoformat()}")
+
+
 
         # Autoriser l'utilisateur
         authorized_users.add(user_id)
