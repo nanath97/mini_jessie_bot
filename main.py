@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from core import bot, dp
 import bott_webhook
+from stripe_webhook import router as stripe_router
+
 
 
 
@@ -24,7 +26,7 @@ async def telegram_webhook(request: Request):
         return {"ok": False, "error": str(e)}
     return {"ok": True}
 
-# === 221097 DEBUT
+
 @app.on_event("startup")
 async def startup_event():
     try:
@@ -33,4 +35,13 @@ async def startup_event():
         print(f"[STARTUP] Initialisation des utilisateurs VIP terminée.")
     except Exception as e:
         print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
+
+# === 221097 DEBUT
+app.include_router(stripe_router)
 # === 221097 FIN
+
+@app.post("/stripe/webhook")
+async def stripe_webhook_direct(request: Request):
+    print("📥 Webhook Stripe reçu directement dans main.py")
+    return {"status": "ok"}
+# === 221097 FINV1
