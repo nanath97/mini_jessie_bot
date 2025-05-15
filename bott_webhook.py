@@ -289,7 +289,7 @@ async def bouton_reintegrer(message: types.Message):
         await message.reply("ℹ️ Ce client n’était pas retiré.")
 
 # Liste des prix autorisés
-prix_list = [9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
+prix_list = [1, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 
 # Liste blanche des liens autorisés
 WHITELIST_LINKS = [
@@ -559,6 +559,7 @@ async def envoyer_lien_stripe(message: types.Message):
         return
 # 22 Mettre les liens propres à l'admin
     liens_paiement = {
+        "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
         "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
         "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
         "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
