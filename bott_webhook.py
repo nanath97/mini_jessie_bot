@@ -387,77 +387,79 @@ keyboard_admin.add(# TEST bouton admin
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
     param = message.get_args()
-# TEST123456 DEBUT
+    user_id = message.from_user.id
+
+    # Cas 1 : Paiement avec /start=cdanXX
     if param.startswith("cdan") and param[4:].isdigit():
         montant = int(param[4:])
-    if montant in prix_list:
-        now = datetime.now()
-        paiements_valides = [
-            t for t in paiements_recents.get(montant, [])
-            if now - t < timedelta(minutes=3)
-        ]
+        if montant in prix_list:
+            now = datetime.now()
+            paiements_valides = [
+                t for t in paiements_recents.get(montant, [])
+                if now - t < timedelta(minutes=3)
+            ]
 
-        if not paiements_valides:
-            await bot.send_message(message.chat.id, "❌ Paiement non valide !  Stripe a refusé votre paiement car fonds insuffisants ou refus général. Vérifiez vos capacités de paiements !")
-            await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiment de ton client, soit pour fonds insuffisants ou interdit bancaire ")
+            if not paiements_valides:
+                await bot.send_message(user_id, "❌ Paiement non valide ! Stripe a refusé votre paiement car fonds insuffisants ou refus général. Vérifie tes capacités de paiement.")
+                await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
+                return
+
+            # Paiement validé
+            paiements_recents[montant].remove(paiements_valides[0])
+            authorized_users.add(user_id)
+
+            if user_id in contenus_en_attente:
+                contenu = contenus_en_attente[user_id]
+                if contenu["type"] == types.ContentType.PHOTO:
+                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+                elif contenu["type"] == types.ContentType.VIDEO:
+                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+                elif contenu["type"] == types.ContentType.DOCUMENT:
+                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+                del contenus_en_attente[user_id]
+            else:
+                paiements_en_attente_par_user.add(user_id)
+
+            await bot.send_message(user_id,
+                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
+                f"_❗️En cas de problème avec ta commande, contacte-nous à novapulse.online@gmail.com_",
+                parse_mode="Markdown"
+            )
+
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
+            log_to_airtable(
+                pseudo=message.from_user.username or message.from_user.first_name,
+                user_id=user_id,
+                type_acces="Paiement",
+                montant=float(montant),
+                contenu="Paiement validé via Stripe webhook + redirection"
+            )
+            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
+            return
+        else:
+            await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
-        # Consommer un seul paiement
-        paiements_recents[montant].remove(paiements_valides[0])
-        authorized_users.add(message.from_user.id)
-
-        # --- Envoi du média si déjà prêt ---
-        user_id = message.from_user.id
-        if user_id in contenus_en_attente:
-            contenu = contenus_en_attente[user_id]
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
-            del contenus_en_attente[user_id]
-        else:
-            paiements_en_attente_par_user.add(user_id)
-
-        await bot.send_message(message.chat.id,
-            f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
-            f"_❗️En cas de problème avec ta commande, contacte-nous directement à novapulse.online@gmail.com pour un traitement rapide._",
-            parse_mode="Markdown"
-        )
-
-        await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}. N'oublie pas d'envoyer son média.")
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=message.from_user.id,
-            type_acces="Paiement",
-            montant=float(montant),
-            contenu="Paiement validé via Stripe webhook + redirection",
-        )
-        await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
-        return
-# TEST123456 FIN
-    else:
-        paiements_en_attente_par_user.add(user_id)
-    if param in ["vipcdan"]:
-        authorized_users.add(message.from_user.id)
-        await bot.send_message(message.chat.id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")
+    # Cas 2 : VIP avec /start=vipcdan
+    elif param == "vipcdan":
+        authorized_users.add(user_id)
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
-    pseudo=message.from_user.username or message.from_user.first_name,
-    user_id=message.from_user.id,
-    type_acces="VIP",
-    montant= 1.0,
-    contenu="Accès VIP Telegram"
-)
-
+            pseudo=message.from_user.username or message.from_user.first_name,
+            user_id=user_id,
+            type_acces="VIP",
+            montant=1.0,
+            contenu="Accès VIP Telegram"
+        )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
-# Message perso à l'admin
-    if message.from_user.id == ADMIN_ID:
-        await bot.send_message(message.chat.id, "👋 Bonjour admin ! Tu peux voir le listing des différentes commandes pour ne pas te tromper et consulter tes statistiques !", reply_markup=keyboard_admin)
+
+    # Cas 3 : Accès normal
+    if user_id == ADMIN_ID:
+        await bot.send_message(user_id, "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(message.chat.id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
+        await bot.send_message(user_id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
 
 # Gestion des boutons
 
