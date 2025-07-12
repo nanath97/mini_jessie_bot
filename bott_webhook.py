@@ -3,13 +3,13 @@ from aiogram import types
 import os
 from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
+from fsm_broadcast import *  # ← Active tous les handlers FSM
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
-from fsm_broadcast import *  # ← Active tous les handlers FSM
-from keyboards import keyboard_admin
+
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}

@@ -1,13 +1,13 @@
 # fsm_broadcast.py
 import os
-from core import bot
-from core import authorized_users
-from bott_webhook import keyboard_admin
-from aiogram import types
+import asyncio
+import requests
+from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-import requests
-import asyncio
+from core import bot, dp, authorized_users
+from keyboards import keyboard_admin
+
 
 # Configuration (reprend les valeurs que tu utilises déjà dans ton projet)
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -96,9 +96,6 @@ async def process_price_step(message: types.Message, state: FSMContext):
 @dp.message_handler(state=BroadcastContent.CONFIRM)
 async def process_confirm_step(message: types.Message, state: FSMContext):
     """Étape 4 : confirmation ou annulation, puis envoi du contenu aux VIP (étape 5)."""
-    # Import local pour éviter l'import circulaire
-    import bott_webhook  
-    keyboard_admin = bott_webhook.keyboard_admin  # clavier admin déjà défini
 
     if message.text == "✅ Confirmer":
         # L'admin confirme l’envoi du contenu à tous les VIP.
