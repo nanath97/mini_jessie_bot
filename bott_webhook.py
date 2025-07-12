@@ -690,7 +690,6 @@ class BroadcastContent(StatesGroup):
     CONFIRM = State()
 
 
-
 @dp.message_handler(Text(equals="📤 Envoyer un contenu"), user_id=ADMIN_ID)
 async def start_broadcast_content(message: types.Message, state: FSMContext):
     await message.reply("📝 Quel est le *titre* du contenu à envoyer ?", parse_mode="Markdown")
@@ -801,6 +800,13 @@ async def process_confirm_step(message: types.Message, state: FSMContext):
         await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
 
     await state.finish()
+
+@dp.message_handler(commands="testfsm")
+async def test_fsm(message: types.Message, state: FSMContext):
+    await state.set_state(BroadcastContent.TITLE)
+    await message.answer("✅ FSM actif. Tape maintenant un titre.")
+
+
 # --- Envoi de contenu aux VIP (FSM Admin) fin ---
 
 
