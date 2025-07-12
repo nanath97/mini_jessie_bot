@@ -13,4 +13,5 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 # ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
 authorized_users = set()
 # ===== Activation du middleware =====
-dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
+dp.middleware.setup(PaymentFilterMiddleware(authorized_users)) # ✅ FSM activé le 12/07 par Nathan
+
