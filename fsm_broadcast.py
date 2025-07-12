@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters import Text
 from core import bot, dp
 import requests
 import asyncio
-from keyboards import keyboard_admin  # si tu l'utilises
+from bott_webhook import keyboard_admin
 from config import ADMIN_ID, liens_paiement, BASE_ID, TABLE_NAME, AIRTABLE_API_KEY  # adapte à ton projet
 
 class BroadcastContent(StatesGroup):
