@@ -9,6 +9,7 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from fsm_broadcast import *  # ← Active tous les handlers FSM
+from keyboards import keyboard_admin
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -374,16 +375,7 @@ keyboard.add(
     types.KeyboardButton("✨Discuter en tant que VIP"),
     types.KeyboardButton("❗ Problème achat")
 )
-keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard_admin.add(
-    types.KeyboardButton("📖 Commandes"),
-    types.KeyboardButton("📊 Statistiques")
-)
-keyboard_admin.add(# TEST bouton admin
-    types.KeyboardButton("❌ Bannir le client"),
-    types.KeyboardButton("✅ Réintégrer le client")
-)
-keyboard_admin.add(types.KeyboardButton("📤 Envoyer un contenu"))
+
 
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
