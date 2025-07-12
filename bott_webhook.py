@@ -3,13 +3,11 @@ from aiogram import types
 import os
 from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
-from fsm_broadcast import *  # ← Active tous les handlers FSM
 import requests
 from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
-
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -375,8 +373,15 @@ keyboard.add(
     types.KeyboardButton("✨Discuter en tant que VIP"),
     types.KeyboardButton("❗ Problème achat")
 )
-
-
+keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard_admin.add(
+    types.KeyboardButton("📖 Commandes"),
+    types.KeyboardButton("📊 Statistiques")
+)
+keyboard_admin.add(# TEST bouton admin
+    types.KeyboardButton("❌ Bannir le client"),
+    types.KeyboardButton("✅ Réintégrer le client")
+)
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
