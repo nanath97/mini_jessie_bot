@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.dispatcher.filters import Text
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -688,16 +689,23 @@ class BroadcastContent(StatesGroup):
     PRICE = State()
     CONFIRM = State()
 
-@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
+
+
+@dp.message_handler(Text(equals="📤 Envoyer un contenu"), user_id=ADMIN_ID)
 async def start_broadcast_content(message: types.Message, state: FSMContext):
     await message.reply("📝 Quel est le *titre* du contenu à envoyer ?", parse_mode="Markdown")
     await state.set_state(BroadcastContent.TITLE)
+    print(f"[DEBUG] État courant : {await state.get_state()}")
+
+
 
 @dp.message_handler(state=BroadcastContent.TITLE, content_types=types.ContentType.TEXT)
 async def process_title_step(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text.strip())
     await message.answer("📎 Envoie maintenant le *média* (photo, vidéo, document ou audio).", parse_mode="Markdown")
     await BroadcastContent.MEDIA.set()
+    print(f"[DEBUG] État courant : {await state.get_state()}")
+
 
 @dp.message_handler(state=BroadcastContent.MEDIA, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT, types.ContentType.AUDIO, types.ContentType.VOICE])
 async def process_media_step(message: types.Message, state: FSMContext):
@@ -719,6 +727,8 @@ async def process_media_step(message: types.Message, state: FSMContext):
     await state.update_data(file_id=file_id, content_type=content_type)
     await message.answer("💶 Quel est le *prix* en euros ? (9, 19, 29, ...)", parse_mode="Markdown")
     await BroadcastContent.PRICE.set()
+    print(f"[DEBUG] État courant : {await state.get_state()}")
+
 
 @dp.message_handler(state=BroadcastContent.PRICE, content_types=types.ContentType.TEXT)
 async def process_price_step(message: types.Message, state: FSMContext):
