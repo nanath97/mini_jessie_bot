@@ -383,6 +383,8 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
+keyboard_admin.add(types.KeyboardButton("📤 Envoyer un contenu"))
+
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
