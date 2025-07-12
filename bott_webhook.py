@@ -8,6 +8,8 @@ from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -382,6 +384,8 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
+keyboard_admin.add(types.KeyboardButton("📤 Envoyer un contenu"))
+
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -675,6 +679,119 @@ async def show_commandes_admin(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
+
+# --- Envoi de contenu aux VIP (FSM Admin) debut ---
+
+class BroadcastContent(StatesGroup):
+    TITLE = State()
+    MEDIA = State()
+    PRICE = State()
+    CONFIRM = State()
+
+@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
+async def start_broadcast_content(message: types.Message):
+    await message.reply("📝 Quel est le *titre* du contenu à envoyer ?", parse_mode="Markdown")
+    await BroadcastContent.TITLE.set()
+
+@dp.message_handler(state=BroadcastContent.TITLE, content_types=types.ContentType.TEXT)
+async def process_title_step(message: types.Message, state: FSMContext):
+    await state.update_data(title=message.text.strip())
+    await message.answer("📎 Envoie maintenant le *média* (photo, vidéo, document ou audio).", parse_mode="Markdown")
+    await BroadcastContent.MEDIA.set()
+
+@dp.message_handler(state=BroadcastContent.MEDIA, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT, types.ContentType.AUDIO, types.ContentType.VOICE])
+async def process_media_step(message: types.Message, state: FSMContext):
+    content_type = message.content_type
+    if content_type == types.ContentType.PHOTO:
+        file_id = message.photo[-1].file_id
+    elif content_type == types.ContentType.VIDEO:
+        file_id = message.video.file_id
+    elif content_type == types.ContentType.DOCUMENT:
+        file_id = message.document.file_id
+    elif content_type == types.ContentType.AUDIO:
+        file_id = message.audio.file_id
+    elif content_type == types.ContentType.VOICE:
+        file_id = message.voice.file_id
+    else:
+        await message.answer("❌ Média non supporté.")
+        return
+
+    await state.update_data(file_id=file_id, content_type=content_type)
+    await message.answer("💶 Quel est le *prix* en euros ? (9, 19, 29, ...)", parse_mode="Markdown")
+    await BroadcastContent.PRICE.set()
+
+@dp.message_handler(state=BroadcastContent.PRICE, content_types=types.ContentType.TEXT)
+async def process_price_step(message: types.Message, state: FSMContext):
+    price = message.text.strip()
+    if price not in liens_paiement:
+        await message.answer("❌ Prix non reconnu. Utilise : 9, 19, 29, etc.")
+        return
+
+    await state.update_data(price=price, payment_link=liens_paiement[price])
+    data = await state.get_data()
+
+    recap = (
+        f"📦 *Récapitulatif :*\n"
+        f"🎬 Titre : {data['title']}\n"
+        f"💸 Prix : {data['price']} €\n"
+        f"🔗 Lien : {data['payment_link']}\n\n"
+        f"✅ Confirmer l'envoi à tous les VIP ?"
+    )
+
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("✅ Confirmer", "❌ Annuler")
+    await message.answer(recap, parse_mode="Markdown", reply_markup=kb)
+    await BroadcastContent.CONFIRM.set()
+
+@dp.message_handler(state=BroadcastContent.CONFIRM, content_types=types.ContentType.TEXT)
+async def process_confirm_step(message: types.Message, state: FSMContext):
+    if message.text == "✅ Confirmer":
+        data = await state.get_data()
+        titre = data['title']
+        file_id = data['file_id']
+        content_type = data['content_type']
+        lien = data['payment_link']
+
+        # ➕ Récupération des VIP dans Airtable
+        try:
+            url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+            params = {"filterByFormula": "{Type acces}='VIP'"}
+            headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            vip_ids = [int(r["fields"]["ID Telegram"]) for r in response.json().get("records", []) if r["fields"].get("ID Telegram")]
+        except Exception as e:
+            await message.answer("❌ Erreur lors de la récupération des VIP.")
+            print(f"[ERREUR Airtable] {e}")
+            await state.finish()
+            return
+
+        count = 0
+        for uid in vip_ids:
+            try:
+                await bot.send_message(uid, f"🎬 {titre}\n💸 {data['price']} €\n👉 {lien}")
+                if content_type == types.ContentType.PHOTO:
+                    await bot.send_photo(uid, file_id)
+                elif content_type == types.ContentType.VIDEO:
+                    await bot.send_video(uid, file_id)
+                elif content_type == types.ContentType.DOCUMENT:
+                    await bot.send_document(uid, file_id)
+                elif content_type == types.ContentType.AUDIO:
+                    await bot.send_audio(uid, file_id)
+                elif content_type == types.ContentType.VOICE:
+                    await bot.send_voice(uid, file_id)
+                count += 1
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"[ERREUR d’envoi à {uid}] {e}")
+                continue
+
+        await message.answer(f"✅ Contenu envoyé à {count} VIP.", reply_markup=keyboard_admin)
+    else:
+        await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
+
+    await state.finish()
+# --- Envoi de contenu aux VIP (FSM Admin) fin ---
 
 
 # --- Message relay (client -> admin & admin -> client) ---
