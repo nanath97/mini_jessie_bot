@@ -10,7 +10,7 @@ from keyboards import keyboard_admin
 
 
 # Configuration (reprend les valeurs que tu utilises déjà dans ton projet)
-ADMIN_ID = os.getenv("ADMIN_ID")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME")
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
