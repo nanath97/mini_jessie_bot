@@ -689,9 +689,9 @@ class BroadcastContent(StatesGroup):
     CONFIRM = State()
 
 @dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
-async def start_broadcast_content(message: types.Message):
+async def start_broadcast_content(message: types.Message, state: FSMContext):
     await message.reply("📝 Quel est le *titre* du contenu à envoyer ?", parse_mode="Markdown")
-    await BroadcastContent.TITLE.set()
+    await state.set_state(BroadcastContent.TITLE)
 
 @dp.message_handler(state=BroadcastContent.TITLE, content_types=types.ContentType.TEXT)
 async def process_title_step(message: types.Message, state: FSMContext):
