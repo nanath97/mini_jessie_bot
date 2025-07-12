@@ -1,13 +1,26 @@
 # fsm_broadcast.py
-
+import os
+from core import bot
+from core import authorized_users
+from bott_webhook import keyboard_admin
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.dispatcher.filters import Text
-from core import bot, dp
 import requests
 import asyncio
-from config import ADMIN_ID, liens_paiement, BASE_ID, TABLE_NAME, AIRTABLE_API_KEY
+
+# Configuration (reprend les valeurs que tu utilises déjà dans ton projet)
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+BASE_ID = os.getenv("BASE_ID")
+TABLE_NAME = os.getenv("TABLE_NAME")
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+
+liens_paiement = {
+    "9": "https://stripe.com/lien_9",
+    "19": "https://stripe.com/lien_19",
+    "29": "https://stripe.com/lien_29",
+    "39": "https://stripe.com/lien_39",
+}
 
 class BroadcastContent(StatesGroup):
     TITLE = State()
