@@ -720,7 +720,7 @@ async def reception_contenu_admin(message: types.Message):
     lien = liens_paiement[prix]
 
     # Sauvegarde temporaire
-    message.bot_data["contenu_temp"] = {
+    dp.bot_data["contenu_temp"] = {
         "texte": texte,
         "prix": prix,
         "file_id": message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
@@ -737,7 +737,7 @@ async def reception_contenu_admin(message: types.Message):
 
 @dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
 async def confirmer_ou_annuler(message: types.Message):
-    data = message.bot_data.get("contenu_temp")
+    data = dp.bot_data.get("contenu_temp")
 
     if not data:
         return await message.answer("⚠️ Aucun contenu en attente. Clique sur 📤 Envoyer un contenu d’abord.")
@@ -774,7 +774,7 @@ async def confirmer_ou_annuler(message: types.Message):
             print(f"❌ Erreur envoi à {uid} : {e}")
             continue
 
-    message.bot_data.pop("contenu_temp", None)
+    dp.bot_data.pop("contenu_temp", None)
     await message.answer(f"✅ Contenu envoyé à {count} VIP.", reply_markup=keyboard_admin)
 
 
