@@ -113,10 +113,6 @@ async def handle_stat(message: types.Message):
         clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
         
-# 💸 Animation visuelle (argent qui tombe)
-        animation = "🤑💸💰🪙💵\n" * 3
-        await bot.send_message(message.chat.id, animation)
-        
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
             f"💰 Ventes du jour : {ventes_jour}€\n"
@@ -702,7 +698,7 @@ liens_paiement = {
     "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
 }
 
-@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu groupé" and m.from_user.id == ADMIN_ID)
 async def demander_envoi_contenu(message: types.Message):
     await message.answer(
         "📎 Envoie ton contenu (photo, vidéo, document) avec une *légende* contenant le *prix* (ex : 9, 19, 29...).",
