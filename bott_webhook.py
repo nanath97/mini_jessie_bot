@@ -683,19 +683,19 @@ async def show_stats_direct(message: types.Message):
 
 liens_paiement = {
     "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
-        "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
-        "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
-        "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
-        "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
-        "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
-        "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
-        "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
-        "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
-        "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
-        "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
-        "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
-        "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
-        "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
+    "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
+    "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
+    "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
+    "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
+    "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
+    "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
+    "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
+    "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
+    "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
+    "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
+    "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
+    "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
+    "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
 }
 
 @dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
@@ -706,11 +706,9 @@ async def demander_envoi_contenu(message: types.Message):
 async def reception_contenu_admin(message: types.Message):
     print("✅ Handler reception_contenu_admin appelé")
 
-    # Vérifie s’il vient après le bouton
     if not message.caption:
         return await message.reply("❌ Ajoute une légende avec le prix (ex: Ma vidéo - 19)")
 
-    # Recherche du prix dans la légende
     texte = message.caption
     prix = next((p for p in liens_paiement if f"{p}" in texte), None)
 
@@ -719,8 +717,10 @@ async def reception_contenu_admin(message: types.Message):
 
     lien = liens_paiement[prix]
 
-    # Sauvegarde temporaire
-    dp.bot_data["contenu_temp"] = {
+    # Init du bot_data si absent
+    dp['bot_data'] = dp.get('bot_data', {})
+
+    dp['bot_data']["contenu_temp"] = {
         "texte": texte,
         "prix": prix,
         "file_id": message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
@@ -737,16 +737,15 @@ async def reception_contenu_admin(message: types.Message):
 
 @dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
 async def confirmer_ou_annuler(message: types.Message):
-    data = dp.bot_data.get("contenu_temp")
+    data = dp.get('bot_data', {}).get("contenu_temp")
 
     if not data:
         return await message.answer("⚠️ Aucun contenu en attente. Clique sur 📤 Envoyer un contenu d’abord.")
 
     if message.text == "❌ Annuler":
-        message.bot_data.pop("contenu_temp", None)
+        dp['bot_data'].pop("contenu_temp", None)
         return await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
 
-    # Récupère les VIP depuis Airtable
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
         params = {"filterByFormula": "{Type acces}='VIP'"}
@@ -774,7 +773,7 @@ async def confirmer_ou_annuler(message: types.Message):
             print(f"❌ Erreur envoi à {uid} : {e}")
             continue
 
-    dp.bot_data.pop("contenu_temp", None)
+    dp['bot_data'].pop("contenu_temp", None)
     await message.answer(f"✅ Contenu envoyé à {count} VIP.", reply_markup=keyboard_admin)
 
 
