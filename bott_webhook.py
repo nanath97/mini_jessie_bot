@@ -704,6 +704,8 @@ async def demander_envoi_contenu(message: types.Message):
 
 @dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT])
 async def reception_contenu_admin(message: types.Message):
+    print("✅ Handler reception_contenu_admin appelé")
+
     # Vérifie s’il vient après le bouton
     if not message.caption:
         return await message.reply("❌ Ajoute une légende avec le prix (ex: Ma vidéo - 19)")
