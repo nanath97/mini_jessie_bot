@@ -700,7 +700,10 @@ liens_paiement = {
 
 @dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu" and m.from_user.id == ADMIN_ID)
 async def demander_envoi_contenu(message: types.Message):
-    await message.answer("📎 Envoie ton contenu (photo, vidéo, document) avec une *légende* contenant le *prix* (ex : 9, 19, 29...).", parse_mode="Markdown")
+    await message.answer(
+        "📎 Envoie ton contenu (photo, vidéo, document) avec une *légende* contenant le *prix* (ex : 9, 19, 29...).",
+        parse_mode="Markdown"
+    )
 
 @dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT])
 async def reception_contenu_admin(message: types.Message):
@@ -710,17 +713,21 @@ async def reception_contenu_admin(message: types.Message):
         return await message.reply("❌ Ajoute une légende avec le prix (ex: Ma vidéo - 19)")
 
     texte = message.caption
-    prix = next((p for p in liens_paiement if f"{p}" in texte), None)
+
+    # Nettoyage + séparation des mots pour une détection exacte
+    mots_legende = texte.replace("€", "").replace("-", " ").replace(",", " ").split()
+    prix = next((p for p in liens_paiement if p in mots_legende), None)
 
     if not prix:
         return await message.reply("❌ Prix introuvable dans la légende. Mets par ex: 'Titre - 19'")
 
     lien = liens_paiement[prix]
 
-    # Init du bot_data si absent
-    dp['bot_data'] = dp.get('bot_data', {})
+    # Init du bot_data si nécessaire
+    if "bot_data" not in dp:
+        dp["bot_data"] = {}
 
-    dp['bot_data']["contenu_temp"] = {
+    dp["bot_data"]["contenu_temp"] = {
         "texte": texte,
         "prix": prix,
         "file_id": message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
@@ -732,18 +739,21 @@ async def reception_contenu_admin(message: types.Message):
 
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("✅ Confirmer envoi", "❌ Annuler")
-    await message.answer(f"🎬 *Prévisualisation :*\n\n{texte}\n💸 {prix} €\n🔗 {lien}",
-                         parse_mode="Markdown", reply_markup=kb)
+    await message.answer(
+        f"🎬 *Prévisualisation :*\n\n{texte}\n💸 {prix} €\n🔗 {lien}",
+        parse_mode="Markdown",
+        reply_markup=kb
+    )
 
 @dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
 async def confirmer_ou_annuler(message: types.Message):
-    data = dp.get('bot_data', {}).get("contenu_temp")
+    data = dp.get("bot_data", {}).get("contenu_temp")
 
     if not data:
         return await message.answer("⚠️ Aucun contenu en attente. Clique sur 📤 Envoyer un contenu d’abord.")
 
     if message.text == "❌ Annuler":
-        dp['bot_data'].pop("contenu_temp", None)
+        dp["bot_data"].pop("contenu_temp", None)
         return await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
 
     try:
@@ -773,8 +783,9 @@ async def confirmer_ou_annuler(message: types.Message):
             print(f"❌ Erreur envoi à {uid} : {e}")
             continue
 
-    dp['bot_data'].pop("contenu_temp", None)
+    dp["bot_data"].pop("contenu_temp", None)
     await message.answer(f"✅ Contenu envoyé à {count} VIP.", reply_markup=keyboard_admin)
+
 
 
 # --- Message relay (client -> admin & admin -> client) ---
