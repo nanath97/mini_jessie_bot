@@ -112,7 +112,11 @@ async def handle_stat(message: types.Message):
 
         clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
-
+        
+# 💸 Animation visuelle (argent qui tombe)
+        animation = "🤑💸💰🪙💵\n" * 3
+        await bot.send_message(message.chat.id, animation)
+        
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
             f"💰 Ventes du jour : {ventes_jour}€\n"
@@ -384,7 +388,7 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
-keyboard_admin.add("📤 Envoyer un contenu")
+keyboard_admin.add("📤 Envoyer un contenu groupé")
 
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
@@ -740,10 +744,15 @@ async def reception_contenu_admin(message: types.Message):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add("✅ Confirmer envoi", "❌ Annuler")
     await message.answer(
-        f"🎬 *Prévisualisation :*\n\n{texte}\n💸 {prix} €\n🔗 {lien}",
-        parse_mode="Markdown",
-        reply_markup=kb
-    )
+    f"🎬 *Prévisualisation du contenu à envoyer :*\n\n"
+    f"📝 *Titre/Légende :* {texte}\n"
+    f"💸 *Prix fixé :* {prix} €\n"
+    f"🔗 *Lien de paiement :* {lien}\n\n"
+    f"Souhaites-tu envoyer ce contenu à *tous les VIP* ?",
+    parse_mode="Markdown",
+    reply_markup=kb
+)
+
 
 @dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
 async def confirmer_ou_annuler(message: types.Message):
@@ -784,7 +793,16 @@ async def confirmer_ou_annuler(message: types.Message):
             continue
 
     dp["bot_data"].pop("contenu_temp", None)
-    await message.answer(f"✅ Contenu envoyé à {count} VIP.", reply_markup=keyboard_admin)
+    await message.answer(
+    f"✅ *Contenu envoyé avec succès à {count} VIP !*\n\n"
+    f"🧾 *Titre ou description :* {data['texte']}\n"
+    f"💰 *Prix :* {data['prix']} €\n"
+    f"📤 *Lien :* {data['lien']}",
+    parse_mode="Markdown",
+    reply_markup=keyboard_admin
+)
+# Sticker animé 🎉 (tu peux le changer si tu veux)
+    await bot.send_sticker(message.chat.id, "CAACAgQAAxkBAAELzNFlrAcL4sUEMuo2oOLTuodkuW9v7wACmQoAAnbcYVUc8hFD1tBKsC8E")
 
 
 
