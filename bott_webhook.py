@@ -749,6 +749,21 @@ async def recevoir_contenu_final(message: types.Message, state: FSMContext):
     )
     await state.finish()
 
+
+class TestState(StatesGroup):
+    attente_test = State()
+
+@dp.message_handler(commands=["testfsm"], user_id=ADMIN_ID)
+async def start_testfsm(message: types.Message):
+    await message.reply("🔧 FSM: Envoie-moi n’importe quoi maintenant.")
+    await TestState.attente_test.set()
+
+@dp.message_handler(state=TestState.attente_test, user_id=ADMIN_ID)
+async def state_received(message: types.Message, state: FSMContext):
+    await message.reply("✅ Le FSM fonctionne. Tu es bien passé à l’état suivant.")
+    await state.finish()
+
+
 # TEST de l'envoi groupé fin 
 
 
