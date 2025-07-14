@@ -9,6 +9,9 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.dispatcher import filters
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.dispatcher import FSMContext
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 
 # Paiements validés par Stripe, stockés temporairement
@@ -680,113 +683,74 @@ async def show_commandes_admin(message: types.Message):
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
-
+# TEST de l'envoi groupé début 
 liens_paiement = {
     "1": "https://buy.stripe.com/9B67sK9cV2ET4cdd9X7AI0h",
 }
 
 @dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu groupé" and m.from_user.id == ADMIN_ID)
-async def demander_envoi_contenu(message: types.Message):
-    await message.answer(
-        "📎 Envoie ton contenu (photo, vidéo, document) avec une *légende* contenant le *prix* (ex : 9, 19, 29...).",
-        parse_mode="Markdown"
-    )
+async def bouton_envoyer_group(message: types.Message):
+    await message.answer("✍️ Envoi du contenu groupé en cours...\nCommande `/envgroupe` lancée !", parse_mode="Markdown")
+    await cmd_envgroupe(message)  # appelle directement la commande
 
-@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT])
-async def reception_contenu_admin(message: types.Message):
-    print("✅ Handler reception_contenu_admin appelé")
+storage = MemoryStorage()
 
+class GroupeContent(StatesGroup):
+    attente_couverture = State()
+    attente_contenu = State()
+
+@dp.message_handler(commands=["envgroupe"], user_id=ADMIN_ID)
+async def cmd_envgroupe(message: types.Message):
+    await message.answer("📎 Envoie la *photo de couverture* avec une *légende contenant le prix* (ex : 'Nom du produit - 19')", parse_mode="Markdown")
+    await GroupeContent.attente_couverture.set()
+
+@dp.message_handler(content_types=types.ContentType.PHOTO, state=GroupeContent.attente_couverture, user_id=ADMIN_ID)
+async def recevoir_couverture(message: types.Message, state: FSMContext):
     if not message.caption:
-        return await message.reply("❌ Ajoute une légende avec le prix (ex: Ma vidéo - 19)")
+        return await message.reply("❌ Ajoute une légende avec le prix (ex: Nom - 19)")
 
-    texte = message.caption
-
-    # Nettoyage + séparation des mots pour une détection exacte
-    mots_legende = texte.replace("€", "").replace("-", " ").replace(",", " ").split()
-    prix = next((p for p in liens_paiement if p in mots_legende), None)
+    mots = message.caption.replace("€", "").replace("-", " ").replace(",", " ").split()
+    prix = next((mot for mot in mots if mot.isdigit()), None)
 
     if not prix:
-        return await message.reply("❌ Prix introuvable dans la légende. Mets par ex: 'Titre - 19'")
+        return await message.reply("❌ Prix introuvable. Exemple : 'Nom du contenu - 19'")
 
-    lien = liens_paiement[prix]
+    await state.update_data(
+        couverture_id=message.photo[-1].file_id,
+        caption=message.caption,
+        prix=prix
+    )
+    await message.answer("✅ Bien reçu ! Maintenant envoie le *vrai média à débloquer* (photo, vidéo ou document)", parse_mode="Markdown")
+    await GroupeContent.attente_contenu.set()
 
-    # Init du bot_data si nécessaire
-    if "bot_data" not in dp:
-        dp["bot_data"] = {}
+@dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT], state=GroupeContent.attente_contenu, user_id=ADMIN_ID)
+async def recevoir_contenu_final(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    prix = data["prix"]
+    file_id = (
+        message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
+        message.video.file_id if message.content_type == types.ContentType.VIDEO else
+        message.document.file_id
+    )
 
-    dp["bot_data"]["contenu_temp"] = {
-        "texte": texte,
-        "prix": prix,
-        "file_id": message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
-                   message.video.file_id if message.content_type == types.ContentType.VIDEO else
-                   message.document.file_id,
-        "type": message.content_type,
-        "lien": lien
+    # On stocke dans un dictionnaire global
+    if "contenus_groupes" not in dp:
+        dp["contenus_groupes"] = {}
+
+    dp["contenus_groupes"][prix] = {
+        "file_id": file_id,
+        "type": message.content_type
     }
 
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("✅ Confirmer envoi", "❌ Annuler")
     await message.answer(
-    f"🎬 *Prévisualisation du contenu à envoyer :*\n\n"
-    f"📝 *Titre/Légende :* {texte}\n"
-    f"💸 *Prix fixé :* {prix} €\n"
-    f"🔗 *Lien de paiement :* {lien}\n\n"
-    f"Souhaites-tu envoyer ce contenu à *tous les VIP* ?",
-    parse_mode="Markdown",
-    reply_markup=kb
-)
-
-
-@dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
-async def confirmer_ou_annuler(message: types.Message):
-    data = dp.get("bot_data", {}).get("contenu_temp")
-
-    if not data:
-        return await message.answer("⚠️ Aucun contenu en attente. Clique sur 📤 Envoyer un contenu d’abord.")
-
-    if message.text == "❌ Annuler":
-        dp["bot_data"].pop("contenu_temp", None)
-        return await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
-
-    try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        params = {"filterByFormula": "{Type acces}='VIP'"}
-        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        vip_ids = [int(r["fields"]["ID Telegram"]) for r in response.json().get("records", []) if r["fields"].get("ID Telegram")]
-    except Exception as e:
-        print(f"[ERREUR Airtable] {e}")
-        return await message.answer("❌ Erreur lors de la récupération des VIP.", reply_markup=keyboard_admin)
-
-    count = 0
-    for uid in vip_ids:
-        try:
-            await bot.send_message(uid, f"🎬 {data['texte']}\n💸 {data['prix']} €\n👉 {data['lien']}")
-            if data["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(uid, data["file_id"])
-            elif data["type"] == types.ContentType.VIDEO:
-                await bot.send_video(uid, data["file_id"])
-            elif data["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(uid, data["file_id"])
-            count += 1
-            await asyncio.sleep(0.4)
-        except Exception as e:
-            print(f"❌ Erreur envoi à {uid} : {e}")
-            continue
-
-    dp["bot_data"].pop("contenu_temp", None)
-    await message.answer(
-    f"✅ *Contenu envoyé avec succès à {count} VIP !*\n\n"
-    f"🧾 *Titre ou description :* {data['texte']}\n"
-    f"💰 *Prix :* {data['prix']} €\n"
-    f"📤 *Lien :* {data['lien']}",
-    parse_mode="Markdown",
-    reply_markup=keyboard_admin
-)
-# Sticker animé 🎉 (tu peux le changer si tu veux)
-    await bot.send_sticker(message.chat.id, "CAACAgQAAxkBAAELzNFlrAcL4sUEMuo2oOLTuodkuW9v7wACmQoAAnbcYVUc8hFD1tBKsC8E")
-
+        f"🎁 *Contenu enregistré pour le prix {prix} € !*\n\n"
+        f"Les VIP recevront la couverture + lien Stripe. Et le vrai contenu sera débloqué après paiement.",
+        parse_mode="Markdown",
+        reply_markup=keyboard_admin
+    )
+    await state.finish()
+    
+# TEST de l'envoi groupé fin 
 
 
 # --- Message relay (client -> admin & admin -> client) ---
