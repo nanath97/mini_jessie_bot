@@ -2,6 +2,10 @@ from fastapi import FastAPI, Request
 from aiogram import types
 import os
 from dotenv import load_dotenv
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+storage = MemoryStorage()
+dp.storage = storage  # force la liaison ici
+
 
 load_dotenv()
 

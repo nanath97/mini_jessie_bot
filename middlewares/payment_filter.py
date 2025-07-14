@@ -18,6 +18,9 @@ class PaymentFilterMiddleware(BaseMiddleware):
     def __init__(self, authorized_users):
         super().__init__()
         self.authorized_users = authorized_users
+    async def on_pre_process_message(self, message: types.Message, data: dict):
+
+        print(f"[DEBUG MIDDLEWARE] Reçu un message de {message.from_user.id} : {message.content_type}")
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
 
