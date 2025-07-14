@@ -12,6 +12,8 @@ bot.set_current(bot)
 
 # ✅ Ajout du MemoryStorage pour le FSM
 storage = MemoryStorage()
+
+# ✅ Dispatcher avec storage utilisé dans tout le projet
 dp = Dispatcher(bot, storage=storage)
 
 # ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
