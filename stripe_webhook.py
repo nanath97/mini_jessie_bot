@@ -5,6 +5,7 @@ import stripe
 import os
 from datetime import datetime
 from bott_webhook import paiements_recents  # nécessaire
+from bott_webhook import bot, ADMIN_ID
 
 router = APIRouter()
 
@@ -44,6 +45,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 email=session.get("customer_email", "vinteo.ac@.com")
             )
             print(f"✅ Vente groupée de {montant}€ ajoutée à Airtable")
+
+            # ✅ Notification au créateur (admin)
+            try:
+                await bot.send_message(ADMIN_ID, f"📢 Nouvelle *vente groupée* : {montant} € enregistrée 🎉")
+            except Exception as e:
+                print(f"❌ Erreur notification Telegram : {e}")
+
         else:
             paiements_recents[montant].append(datetime.now())
             print(f"✅ Paiement individuel détecté : {montant}€ enregistré")
