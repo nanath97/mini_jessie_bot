@@ -10,17 +10,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 bot.set_current(bot)
 
-...
-# ✅ Ajout du MemoryStorage pour le FSM
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# ===== AJOUT NOVA PROTECTION PAIEMENT (NE PAS TOUCHER) =====
+# Middleware
 authorized_users = set()
-
-# ===== Activation du middleware =====
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
-
-# ✅ On expose aussi `storage`
-__all__ = ["bot", "dp", "storage"]
-

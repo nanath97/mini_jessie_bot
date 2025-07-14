@@ -6,9 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from core import bot, dp, storage  # ✅ importe d’abord bot, dp, storage
-from stripe_webhook import router as stripe_router
-
 import bott_webhook  # ✅ ensuite, seulement après, on charge les handlers FSM
+from stripe_webhook import router as stripe_router
 
 app = FastAPI()
 
