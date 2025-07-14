@@ -13,6 +13,6 @@ bot.set_current(bot)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# Middleware
+# Middleware custom
 authorized_users = set()
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
