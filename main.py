@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from core import bot, dp  # ✅ Ce dp-là vient AVEC le storage déjà prêt
 from stripe_webhook import router as stripe_router
 import bott_webhook
+from core import bot, dp, storage  # ajoute `storage` ici
+
 
 app = FastAPI()
 
