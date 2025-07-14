@@ -3,9 +3,8 @@
 from fastapi import APIRouter, Request, Header
 import stripe
 import os
-from datetime import datetime
 from bott_webhook import paiements_recents  # nécessaire
-from bott_webhook import bot, ADMIN_ID
+from datetime import datetime
 
 router = APIRouter()
 
@@ -30,30 +29,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         montant = int(session["amount_total"] / 100)
-
-        # 🧠 Liste des montants utilisés uniquement pour les ventes groupées
-        PRIX_GROUPE = [1, 9, 14, 19, 24, 29, 34, 39, 49, 59, 69, 79, 89, 99]
-
-        if montant in PRIX_GROUPE:
-            from bott_webhook import log_to_airtable
-            log_to_airtable(
-                pseudo="-",
-                user_id="-",
-                type_acces="groupé",
-                montant=montant,
-                contenu="Contenu groupé",
-                email=session.get("customer_email", "vinteo.ac@.com")
-            )
-            print(f"✅ Vente groupée de {montant}€ ajoutée à Airtable")
-
-            # ✅ Notification au créateur (admin)
-            try:
-                await bot.send_message(ADMIN_ID, f"📢 Nouvelle *vente groupée* : {montant} € enregistrée 🎉")
-            except Exception as e:
-                print(f"❌ Erreur notification Telegram : {e}")
-
-        else:
-            paiements_recents[montant].append(datetime.now())
-            print(f"✅ Paiement individuel détecté : {montant}€ enregistré")
+        paiements_recents[montant].append(datetime.now())
+        print(f"✅ Paiement webhook : {montant}€ enregistré à {datetime.now().isoformat()}")
 
     return {"status": "ok"}
