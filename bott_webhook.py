@@ -12,6 +12,7 @@ from aiogram.dispatcher import filters
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from keyboards import keyboard_admin
 
 
 # Paiements validés par Stripe, stockés temporairement
@@ -749,7 +750,7 @@ async def recevoir_contenu_final(message: types.Message, state: FSMContext):
         reply_markup=keyboard_admin
     )
     await state.finish()
-    
+
 # TEST de l'envoi groupé fin 
 
 
