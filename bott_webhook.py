@@ -693,7 +693,6 @@ async def bouton_envoyer_group(message: types.Message):
     await message.answer("✍️ Envoi du contenu groupé en cours...\nCommande `/envgroupe` lancée !", parse_mode="Markdown")
     await cmd_envgroupe(message)  # appelle directement la commande
 
-storage = MemoryStorage()
 
 class GroupeContent(StatesGroup):
     attente_couverture = State()
