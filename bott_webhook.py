@@ -8,9 +8,6 @@ from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.dispatcher import FSMContext
-from airtable_utils import get_all_vip_ids 
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -385,10 +382,6 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
-keyboard_admin.add(
-    types.KeyboardButton("📤 Envoyer un contenu groupé")
-)
-
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -682,88 +675,6 @@ async def show_commandes_admin(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
-
-
-# Test 
-
-
-# 💾 Stockage temporaire des contenus groupés
-groupe_contenus = {}
-
-# FSM pour gérer l'envoi groupé
-class GroupeContent(StatesGroup):
-    attente_couverture = State()
-    attente_contenu = State()
-
-@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu groupé" and m.from_user.id == ADMIN_ID)
-async def bouton_envoyer_group(message: types.Message):
-    await cmd_envgroupe(message)
-
-@dp.message_handler(commands=["envgroupe"], user_id=ADMIN_ID)
-async def cmd_envgroupe(message: types.Message):
-    await message.answer("📎 Envoie la *photo de couverture floutée* avec une *légende contenant le prix* (ex: 'Contenu sexy - 19')", parse_mode="Markdown")
-    await GroupeContent.attente_couverture.set()
-
-@dp.message_handler(content_types=types.ContentType.PHOTO, state=GroupeContent.attente_couverture, user_id=ADMIN_ID)
-async def recevoir_couverture(message: types.Message, state: FSMContext):
-    if not message.caption:
-        return await message.reply("❌ Merci d’ajouter une légende contenant le prix (ex: Contenu - 19€)")
-
-    mots = message.caption.replace("€", "").replace("-", " ").replace(",", " ").split()
-    prix = next((mot for mot in mots if mot.isdigit()), None)
-
-    if not prix:
-        return await message.reply("❌ Aucun prix trouvé dans la légende. Ex : 'Contenu flouté - 19€'")
-
-    # Génère un groupe_id unique (ex : timestamp)
-    from datetime import datetime
-    groupe_id = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    await state.update_data(
-        couverture_id=message.photo[-1].file_id,
-        caption=message.caption,
-        prix=prix,
-        groupe_id=groupe_id
-    )
-
-    await message.answer("✅ Reçu ! Maintenant, envoie le *vrai média à débloquer* (photo, vidéo ou document)", parse_mode="Markdown")
-    await GroupeContent.attente_contenu.set()
-
-@dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT], state=GroupeContent.attente_contenu, user_id=ADMIN_ID)
-async def recevoir_contenu_final(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    couverture_id = data["couverture_id"]
-    caption = data["caption"]
-    prix = data["prix"]
-    groupe_id = data["groupe_id"]
-
-    contenu_type = message.content_type
-    file_id = (
-        message.photo[-1].file_id if contenu_type == "photo" else
-        message.video.file_id if contenu_type == "video" else
-        message.document.file_id
-    )
-
-    # ✅ Stock dans mémoire
-    groupe_contenus[groupe_id] = {
-        "prix": prix,
-        "file_id": file_id,
-        "type": contenu_type
-    }
-
-    # ➕ Envoie maintenant la couverture à TOUS les VIPS avec le lien Stripe
-    from airtable_utils import get_all_vip_ids
-    vip_ids = get_all_vip_ids()
-
-    for vip_id in vip_ids:
-        stripe_link = f"https://tonsite.com/stripe?amount={prix}&groupe_id={groupe_id}&user_id={vip_id}"
-        try:
-            await bot.send_photo(vip_id, couverture_id, caption=f"{caption}\n\n🔓 Débloque ici : {stripe_link}")
-        except Exception as e:
-            print(f"❌ Erreur envoi couverture à {vip_id} : {e}")
-
-    await message.answer("✅ Tous les VIP ont reçu la couverture + lien de paiement.")
-    await state.finish()
 
 
 # --- Message relay (client -> admin & admin -> client) ---
