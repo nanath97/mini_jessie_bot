@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
 import os
 from dotenv import load_dotenv
-from core import bot, dp
+from core import bot, dp , storage
 import bott_webhook
 from stripe_webhook import router as stripe_router
 
