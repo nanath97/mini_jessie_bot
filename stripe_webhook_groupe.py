@@ -14,7 +14,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=BOT_TOKEN)
 router = APIRouter()
-stripe.api_key = STRIPE_SECRET
 
 # Ton mapping des montants vers les contenus groupés
 CONTENUS_PAR_MONTANT = {

@@ -1,21 +1,19 @@
-from core import bot, dp
+from fastapi import APIRouter, Request, HTTPException
 from aiogram import types
 import os
-from datetime import datetime
-from aiogram.dispatcher.handler import CancelHandler
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+import stripe
 import requests
-from core import authorized_users
+from core import bot, dp, authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
-from datetime import datetime, timedelta
-from fastapi import Request, APIRouter, HTTPException
-import stripe
-from dotenv import load_dotenv
 
 load_dotenv()
 STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY")
 stripe.api_key = STRIPE_SECRET
 
+router = APIRouter()
 
 
 # Paiements validés par Stripe, stockés temporairement
