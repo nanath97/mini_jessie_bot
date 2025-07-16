@@ -70,6 +70,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     fields = data["records"][0]["fields"]
                     id_field = fields.get("ID Telegram")
                     pseudo = fields.get("Pseudo Telegram", "-")
+                    print("🔎 Champs trouvés dans Airtable :", fields.keys())
+
 
                     if id_field and str(id_field).isdigit():
                         user_id = int(id_field)
