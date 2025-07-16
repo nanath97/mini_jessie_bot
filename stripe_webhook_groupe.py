@@ -1,6 +1,8 @@
 
 from dotenv import load_dotenv
+print("✅ load_dotenv() a été exécuté depuis stripe_webhook_groupe.py")
 load_dotenv()
+
 
 from fastapi import APIRouter, Request, HTTPException
 import stripe
