@@ -67,9 +67,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 data = r.json()
 
                 if data["records"]:
-                    user_id = int(data["records"][0]["fields"].get("ID Telegram"))
+                    id_field = data["records"][0]["fields"].get("ID Telegram")
                     pseudo = data["records"][0]["fields"].get("Pseudo Telegram", "-")
-                    print(f"✅ Email trouvé dans Airtable : {email_client} → ID = {user_id}")
+
+                    if id_field is not None:
+                        user_id = int(id_field)
+                        print(f"✅ Email trouvé dans Airtable : {email_client} → ID = {user_id}")
+                    else:
+                        user_id = None
+                        print(f"⚠️ Email trouvé dans Airtable mais ID Telegram manquant : {email_client}")
                 else:
                     user_id = None
                     pseudo = "-"
