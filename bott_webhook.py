@@ -9,6 +9,7 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.dispatcher import filters
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 # Paiements validés par Stripe, stockés temporairement
@@ -330,7 +331,7 @@ async def verifier_les_liens_uniquement(message: types.Message):
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com",):
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com", email_client=None):
     if not type_acces:
         type_acces = "Paiement"  # Par défaut pour éviter erreurs
 
@@ -342,16 +343,21 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
     now = datetime.now()
 
+    # Champs communs
     fields = {
         "Pseudo Telegram": pseudo or "-",
         "ID Telegram": str(user_id),
         "Type acces": str(type_acces),
         "Montant": float(montant),
         "Contenu": contenu,
-        "Email": email,
+        "Email": email,  # Email admin
         "Date": now.isoformat(),
         "Mois": now.strftime("%Y-%m")
     }
+
+    # Ajoute "Email Client" seulement si fourni
+    if email_client:
+        fields["Email Client"] = email_client
 
     data = {
         "fields": fields
@@ -365,6 +371,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             print("✅ Paiement ajouté dans Airtable avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi à Airtable : {e}")
+
 
 
 # Création du clavier
@@ -682,7 +689,7 @@ async def show_stats_direct(message: types.Message):
 
 
 liens_paiement = {
-    "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
+    "1": "https://buy.stripe.com/9B67sK9cV2ET4cdd9X7AI0h",
     "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
     "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
     "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
@@ -800,6 +807,23 @@ async def confirmer_ou_annuler(message: types.Message):
 # Sticker animé 🎉 (tu peux le changer si tu veux)
     await bot.send_sticker(message.chat.id, "CAACAgQAAxkBAAELzNFlrAcL4sUEMuo2oOLTuodkuW9v7wACmQoAAnbcYVUc8hFD1tBKsC8E")
 
+
+@dp.callback_query_handler(lambda c: c.data == "recevoir_contenu_groupe")
+async def handle_contenu_groupe(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(
+        callback_query.from_user.id,
+        "✅ Reçu ! Tu vas bientôt recevoir ton contenu. Merci pour ton achat !"
+    )
+
+    # 🛎️ Envoie un message à l’admin (en tant que client)
+    admin_id = 7334072965  # <-- remplace ici par ton vrai ID admin
+    user = callback_query.from_user
+
+    await bot.send_message(
+        admin_id,
+        f"📬 {user.full_name} (@{user.username}) a cliqué sur « 📥 Recevoir mon contenu » après avoir payé. Tu peux maintenant lui envoyer le fichier.",
+    )
 
 
 # --- Message relay (client -> admin & admin -> client) ---
