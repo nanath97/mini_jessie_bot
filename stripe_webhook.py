@@ -7,7 +7,7 @@ from bott_webhook import paiements_recents  # nécessaire
 from datetime import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from core import bot
-from utils.airtable_log import log_to_airtable
+from bott_webhook import log_to_airtable
 import requests
 
 router = APIRouter()
