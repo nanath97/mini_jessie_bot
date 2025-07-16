@@ -8,6 +8,9 @@ from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
+from fastapi import Request, APIRouter, HTTPException
+import stripe
+
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -36,6 +39,103 @@ DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
+
+
+# DEBUT TEST DU AIRTABLE POUR LES EMAILS CLIENTS : nouvelle route fastAPI
+
+router = APIRouter()
+
+stripe.api_key = STRIPE_SECRET
+CONTENUS_PAR_MONTANT = {
+    9: "Contenu groupé 9 €",
+    14: "Contenu groupé 14 €",
+    19: "Contenu groupé 19 €"
+    # Ajoute les autres niveaux ici
+}
+
+@router.post("/webhook-groupe")
+async def stripe_webhook_groupe(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET_GROUPE
+        )
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Signature invalide Stripe")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        payment_status = session.get("payment_status")
+        email_client = session.get("customer_details", {}).get("email", "").lower()
+        montant = session.get("amount_total", 0) / 100  # Stripe en centimes
+
+        if payment_status != "paid":
+            print("❌ Paiement refusé ou incomplet")
+            return {"status": "ignored"}
+
+        print(f"✅ Paiement groupé reçu : {email_client} - {montant}€")
+
+        # Chercher le VIP dans Airtable via l'email client
+        user_id, pseudo = chercher_vip_par_email(email_client)
+
+        if not user_id:
+            print("❌ Email client introuvable dans Airtable")
+            return {"status": "email_not_found"}
+
+        contenu = CONTENUS_PAR_MONTANT.get(int(montant), "Contenu groupé")
+
+        # Envoyer le contenu au VIP
+        try:
+            await bot.send_message(
+                chat_id=int(user_id),
+                text=f"✅ Merci pour ton paiement ! Voici ton contenu débloqué :\n\n{contenu}"
+            )
+        except Exception as e:
+            print(f"❌ Erreur Telegram : {e}")
+
+        # Enregistrer la vente dans Airtable
+        log_to_airtable(
+            pseudo=pseudo,
+            user_id=user_id,
+            type_acces="groupé",
+            montant=montant,
+            contenu=contenu,
+            email_client=email_client
+        )
+
+    return {"status": "success"}
+
+#FIN TEST DU AIRTABLE POUR LES EMAILS CLIENTS : nouvelle route fastAPI
+
+# DEBUT TEST DU AIRTABLE POUR LES EMAILS CLIENTS : chercher par email client dans airtable
+
+def chercher_vip_par_email(email_client):
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+    }
+
+    params = {
+        "filterByFormula": f"LOWER({{Email Client}}) = '{email_client.lower()}'"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            records = response.json().get("records", [])
+            if records:
+                fields = records[0]["fields"]
+                return fields.get("ID Telegram"), fields.get("Pseudo Telegram")
+    except Exception as e:
+        print(f"❌ Erreur Airtable recherche email client : {e}")
+
+    return None, None
+# FIN TEST AIRTABLE EMAIL CLIENT
+
 
 # === 221097 DEBUT
 
@@ -328,9 +428,17 @@ async def verifier_les_liens_uniquement(message: types.Message):
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
-def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com",):
+def log_to_airtable(
+    pseudo,
+    user_id,
+    type_acces,
+    montant,
+    contenu="Paiement Telegram",
+    email="vinteo.ac@gmail.com",
+    email_client=""
+):
     if not type_acces:
-        type_acces = "Paiement"  # Par défaut pour éviter erreurs
+        type_acces = "Paiement"  # Par sécurité
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
@@ -346,7 +454,8 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
         "Type acces": str(type_acces),
         "Montant": float(montant),
         "Contenu": contenu,
-        "Email": email,
+        "Email": email,  # l'admin par défaut
+        "Email Client": email_client,  # vide sauf si on le renseigne
         "Date": now.isoformat(),
         "Mois": now.strftime("%Y-%m")
     }
@@ -363,6 +472,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
             print("✅ Paiement ajouté dans Airtable avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi à Airtable : {e}")
+
 
 
 # Création du clavier

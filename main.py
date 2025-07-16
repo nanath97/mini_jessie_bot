@@ -5,6 +5,11 @@ from dotenv import load_dotenv
 from core import bot, dp
 import bott_webhook
 from stripe_webhook import router as stripe_router
+from bott_webhook import router as bot_router
+
+
+app.include_router(bot_router)
+
 
 
 
