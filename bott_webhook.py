@@ -1,19 +1,14 @@
-from fastapi import APIRouter, Request, HTTPException
+from core import bot, dp
 from aiogram import types
 import os
-from dotenv import load_dotenv
-from datetime import datetime, timedelta
-import stripe
+from datetime import datetime
+from aiogram.dispatcher.handler import CancelHandler
 import requests
-from core import bot, dp, authorized_users
+from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
-
-load_dotenv()
-STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY")
-stripe.api_key = STRIPE_SECRET
-
-router = APIRouter()
+from datetime import datetime, timedelta
+from aiogram.dispatcher import filters
 
 
 # Paiements validés par Stripe, stockés temporairement
@@ -43,103 +38,6 @@ DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
-
-
-# DEBUT TEST DU AIRTABLE POUR LES EMAILS CLIENTS : nouvelle route fastAPI
-
-router = APIRouter()
-
-stripe.api_key = STRIPE_SECRET
-CONTENUS_PAR_MONTANT = {
-    9: "Contenu groupé 9 €",
-    14: "Contenu groupé 14 €",
-    19: "Contenu groupé 19 €"
-    # Ajoute les autres niveaux ici
-}
-
-@router.post("/webhook-groupe")
-async def stripe_webhook_groupe(request: Request):
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET_GROUPE
-        )
-    except stripe.error.SignatureVerificationError:
-        raise HTTPException(status_code=400, detail="Signature invalide Stripe")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        payment_status = session.get("payment_status")
-        email_client = session.get("customer_details", {}).get("email", "").lower()
-        montant = session.get("amount_total", 0) / 100  # Stripe en centimes
-
-        if payment_status != "paid":
-            print("❌ Paiement refusé ou incomplet")
-            return {"status": "ignored"}
-
-        print(f"✅ Paiement groupé reçu : {email_client} - {montant}€")
-
-        # Chercher le VIP dans Airtable via l'email client
-        user_id, pseudo = chercher_vip_par_email(email_client)
-
-        if not user_id:
-            print("❌ Email client introuvable dans Airtable")
-            return {"status": "email_not_found"}
-
-        contenu = CONTENUS_PAR_MONTANT.get(int(montant), "Contenu groupé")
-
-        # Envoyer le contenu au VIP
-        try:
-            await bot.send_message(
-                chat_id=int(user_id),
-                text=f"✅ Merci pour ton paiement ! Voici ton contenu débloqué :\n\n{contenu}"
-            )
-        except Exception as e:
-            print(f"❌ Erreur Telegram : {e}")
-
-        # Enregistrer la vente dans Airtable
-        log_to_airtable(
-            pseudo=pseudo,
-            user_id=user_id,
-            type_acces="groupé",
-            montant=montant,
-            contenu=contenu,
-            email_client=email_client
-        )
-
-    return {"status": "success"}
-
-#FIN TEST DU AIRTABLE POUR LES EMAILS CLIENTS : nouvelle route fastAPI
-
-# DEBUT TEST DU AIRTABLE POUR LES EMAILS CLIENTS : chercher par email client dans airtable
-
-def chercher_vip_par_email(email_client):
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-    }
-
-    params = {
-        "filterByFormula": f"LOWER({{Email Client}}) = '{email_client.lower()}'"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, params=params)
-        if response.status_code == 200:
-            records = response.json().get("records", [])
-            if records:
-                fields = records[0]["fields"]
-                return fields.get("ID Telegram"), fields.get("Pseudo Telegram")
-    except Exception as e:
-        print(f"❌ Erreur Airtable recherche email client : {e}")
-
-    return None, None
-# FIN TEST AIRTABLE EMAIL CLIENT
-
 
 # === 221097 DEBUT
 
@@ -214,7 +112,7 @@ async def handle_stat(message: types.Message):
 
         clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
-
+        
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
             f"💰 Ventes du jour : {ventes_jour}€\n"
@@ -432,17 +330,9 @@ async def verifier_les_liens_uniquement(message: types.Message):
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
-def log_to_airtable(
-    pseudo,
-    user_id,
-    type_acces,
-    montant,
-    contenu="Paiement Telegram",
-    email="vinteo.ac@gmail.com",
-    email_client=""
-):
+def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Telegram", email="vinteo.ac@gmail.com",):
     if not type_acces:
-        type_acces = "Paiement"  # Par sécurité
+        type_acces = "Paiement"  # Par défaut pour éviter erreurs
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {
@@ -458,8 +348,7 @@ def log_to_airtable(
         "Type acces": str(type_acces),
         "Montant": float(montant),
         "Contenu": contenu,
-        "Email": email,  # l'admin par défaut
-        "Email Client": email_client,  # vide sauf si on le renseigne
+        "Email": email,
         "Date": now.isoformat(),
         "Mois": now.strftime("%Y-%m")
     }
@@ -476,7 +365,6 @@ def log_to_airtable(
             print("✅ Paiement ajouté dans Airtable avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi à Airtable : {e}")
-
 
 
 # Création du clavier
@@ -496,6 +384,8 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
+keyboard_admin.add("📤 Envoyer un contenu groupé")
+
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -789,6 +679,127 @@ async def show_commandes_admin(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
+
+
+liens_paiement = {
+    "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
+    "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
+    "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
+    "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
+    "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
+    "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
+    "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
+    "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
+    "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
+    "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
+    "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
+    "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
+    "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
+    "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
+}
+
+@dp.message_handler(lambda m: m.text == "📤 Envoyer un contenu groupé" and m.from_user.id == ADMIN_ID)
+async def demander_envoi_contenu(message: types.Message):
+    await message.answer(
+        "📎 Envoie ton contenu (photo, vidéo, document) avec une *légende* contenant le *prix* (ex : 9, 19, 29...).",
+        parse_mode="Markdown"
+    )
+
+@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT])
+async def reception_contenu_admin(message: types.Message):
+    print("✅ Handler reception_contenu_admin appelé")
+
+    if not message.caption:
+        return await message.reply("❌ Ajoute une légende avec le prix (ex: Ma vidéo - 19)")
+
+    texte = message.caption
+
+    # Nettoyage + séparation des mots pour une détection exacte
+    mots_legende = texte.replace("€", "").replace("-", " ").replace(",", " ").split()
+    prix = next((p for p in liens_paiement if p in mots_legende), None)
+
+    if not prix:
+        return await message.reply("❌ Prix introuvable dans la légende. Mets par ex: 'Titre - 19'")
+
+    lien = liens_paiement[prix]
+
+    # Init du bot_data si nécessaire
+    if "bot_data" not in dp:
+        dp["bot_data"] = {}
+
+    dp["bot_data"]["contenu_temp"] = {
+        "texte": texte,
+        "prix": prix,
+        "file_id": message.photo[-1].file_id if message.content_type == types.ContentType.PHOTO else
+                   message.video.file_id if message.content_type == types.ContentType.VIDEO else
+                   message.document.file_id,
+        "type": message.content_type,
+        "lien": lien
+    }
+
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("✅ Confirmer envoi", "❌ Annuler")
+    await message.answer(
+    f"🎬 *Prévisualisation du contenu à envoyer :*\n\n"
+    f"📝 *Titre/Légende :* {texte}\n"
+    f"💸 *Prix fixé :* {prix} €\n"
+    f"🔗 *Lien de paiement :* {lien}\n\n"
+    f"Souhaites-tu envoyer ce contenu à *tous les VIP* ?",
+    parse_mode="Markdown",
+    reply_markup=kb
+)
+
+
+@dp.message_handler(lambda m: m.text in ["✅ Confirmer envoi", "❌ Annuler"] and m.from_user.id == ADMIN_ID)
+async def confirmer_ou_annuler(message: types.Message):
+    data = dp.get("bot_data", {}).get("contenu_temp")
+
+    if not data:
+        return await message.answer("⚠️ Aucun contenu en attente. Clique sur 📤 Envoyer un contenu d’abord.")
+
+    if message.text == "❌ Annuler":
+        dp["bot_data"].pop("contenu_temp", None)
+        return await message.answer("❌ Envoi annulé.", reply_markup=keyboard_admin)
+
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        params = {"filterByFormula": "{Type acces}='VIP'"}
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        vip_ids = [int(r["fields"]["ID Telegram"]) for r in response.json().get("records", []) if r["fields"].get("ID Telegram")]
+    except Exception as e:
+        print(f"[ERREUR Airtable] {e}")
+        return await message.answer("❌ Erreur lors de la récupération des VIP.", reply_markup=keyboard_admin)
+
+    count = 0
+    for uid in vip_ids:
+        try:
+            await bot.send_message(uid, f"🎬 {data['texte']}\n💸 {data['prix']} €\n👉 {data['lien']}")
+            if data["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(uid, data["file_id"])
+            elif data["type"] == types.ContentType.VIDEO:
+                await bot.send_video(uid, data["file_id"])
+            elif data["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(uid, data["file_id"])
+            count += 1
+            await asyncio.sleep(0.4)
+        except Exception as e:
+            print(f"❌ Erreur envoi à {uid} : {e}")
+            continue
+
+    dp["bot_data"].pop("contenu_temp", None)
+    await message.answer(
+    f"✅ *Contenu envoyé avec succès à {count} VIP !*\n\n"
+    f"🧾 *Titre ou description :* {data['texte']}\n"
+    f"💰 *Prix :* {data['prix']} €\n"
+    f"📤 *Lien :* {data['lien']}",
+    parse_mode="Markdown",
+    reply_markup=keyboard_admin
+)
+# Sticker animé 🎉 (tu peux le changer si tu veux)
+    await bot.send_sticker(message.chat.id, "CAACAgQAAxkBAAELzNFlrAcL4sUEMuo2oOLTuodkuW9v7wACmQoAAnbcYVUc8hFD1tBKsC8E")
+
 
 
 # --- Message relay (client -> admin & admin -> client) ---

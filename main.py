@@ -1,16 +1,10 @@
-from fastapi import FastAPI
-from bott_webhook import router as bot_router  # pour Telegram et ventes individuelles
-from stripe_webhook_groupe import router as groupe_router  # pour les ventes groupées Stripe
-
-app = FastAPI()
-
-# On relie les routes du bot Telegram
-app.include_router(bot_router)
-
-# On relie les routes Stripe pour paiements groupés
-app.include_router(groupe_router)
-
-
+from fastapi import FastAPI, Request
+from aiogram import Bot, Dispatcher, types
+import os
+from dotenv import load_dotenv
+from core import bot, dp
+import bott_webhook
+from stripe_webhook import router as stripe_router
 
 
 
