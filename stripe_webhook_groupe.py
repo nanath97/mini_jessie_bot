@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-STRIPE_SECRET = os.getenv("STRIPE_SECRET")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_GROUPE")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
