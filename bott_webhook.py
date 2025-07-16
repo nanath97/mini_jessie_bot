@@ -10,6 +10,12 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from fastapi import Request, APIRouter, HTTPException
 import stripe
+from dotenv import load_dotenv
+
+load_dotenv()
+STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY")
+stripe.api_key = STRIPE_SECRET
+
 
 
 # Paiements validés par Stripe, stockés temporairement
