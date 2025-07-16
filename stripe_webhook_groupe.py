@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 import stripe
 import os
 from datetime import datetime
-from utils.airtable_log import log_to_airtable  # Assure-toi que ce chemin est bon
+from bott_webhook import log_to_airtable  # Assure-toi que ce chemin est bon
 from aiogram import Bot
 from dotenv import load_dotenv
 
