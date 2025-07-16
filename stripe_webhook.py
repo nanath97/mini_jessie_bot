@@ -3,12 +3,11 @@
 from fastapi import APIRouter, Request, Header
 import stripe
 import os
-from bott_webhook import paiements_recents  # nécessaire
+import requests
 from datetime import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from core import bot
-from bott_webhook import log_to_airtable
-import requests
+from bott_webhook import log_to_airtable, paiements_recents
 
 router = APIRouter()
 
@@ -29,6 +28,7 @@ async def test_stripe_route():
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
+
     try:
         event = stripe.Webhook.construct_event(
             payload, stripe_signature, STRIPE_WEBHOOK_SECRET
@@ -39,7 +39,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        montant = int(session["amount_total"] / 100)
+
+        amount_raw = session.get("amount_total")
+        if amount_raw is None:
+            print("❌ Montant non trouvé dans la session Stripe.")
+            return {"status": "missing_amount"}
+
+        montant = int(amount_raw / 100)
         email_client = session.get("customer_details", {}).get("email", "inconnu")
 
         url_check = session.get("metadata", {}).get("payment_link", "")
@@ -48,7 +54,6 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         print(f"🔍 Vérification du lien de paiement : {url_check}")
 
-        # Paiement groupé
         if LIEN_GROUPE_TEST in url_check:
             print("🎯 Paiement groupé détecté")
 
@@ -79,20 +84,25 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     email=email_client
                 )
 
-                # Envoi du bouton si user ID trouvé
                 if user_id:
                     bouton = InlineKeyboardMarkup().add(
                         InlineKeyboardButton("📥 Recevoir mon contenu", callback_data="recevoir_contenu_groupe")
                     )
-                    await bot.send_message(user_id, "Merci pour ton paiement ! Clique ici pour recevoir ton contenu 👇", reply_markup=bouton)
+                    await bot.send_message(
+                        user_id,
+                        "Merci pour ton paiement ! Clique ici pour recevoir ton contenu 👇",
+                        reply_markup=bouton
+                    )
                 else:
-                    await bot.send_message(ADMIN_ID, f"⚠️ Un client a payé {montant}€ (groupé) mais son email n’a pas été trouvé dans Airtable : {email_client}")
+                    await bot.send_message(
+                        ADMIN_ID,
+                        f"⚠️ Un client a payé {montant}€ (groupé) mais son email n’a pas été trouvé dans Airtable : {email_client}"
+                    )
 
             except Exception as e:
                 print(f"❌ Erreur Airtable lors de la recherche email client : {e}")
-
         else:
-            # Paiement individuel classique
+            # Paiement individuel
             paiements_recents[montant].append(datetime.now())
             print(f"✅ Paiement individuel : {montant}€ enregistré à {datetime.now().isoformat()}")
 
