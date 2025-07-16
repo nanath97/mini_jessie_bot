@@ -76,12 +76,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     id_field = fields.get("ID Telegram")
                     pseudo = fields.get("Pseudo Telegram", "-")
 
-                    try:
+                    if id_field is not None and str(id_field).isdigit():
                         user_id = int(id_field)
                         print(f"✅ Email trouvé dans Airtable : {email_client} → ID = {user_id}")
-                    except (ValueError, TypeError):
-                        user_id = None
-                        print(f"⚠️ Email trouvé mais ID Telegram invalide ou vide : {email_client}")
+                    else:
+                        print(f"⚠️ Email trouvé mais ID Telegram invalide ou vide : {email_client} (valeur = {id_field})")
                 else:
                     print(f"⚠️ Email non trouvé dans Airtable : {email_client}")
 
@@ -111,6 +110,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
             except Exception as e:
                 print(f"❌ Erreur Airtable lors de la recherche email client : {e}")
+
         else:
             # Paiement individuel
             paiements_recents[montant].append(datetime.now())
