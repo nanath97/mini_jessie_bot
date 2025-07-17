@@ -399,15 +399,23 @@ keyboard.add(
 #Envoi du bouton du contenu du jour
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
-    # Message de confirmation pour le client
-    await message.reply("✅ J'ai bien reçu ta demande ! Je t'envoie ça dans quelques instants...💕")
+    # 1. Le client reçoit une confirmation
+    await message.reply("✅ J'ai bien reçu ta demande ! Je t'envoie ça dans quelques instants 💕.")
 
-    # Message automatique envoyé à l’admin
-    pseudo = message.from_user.username or "Aucun pseudo"
-    await bot.send_message(
+    # 2. Le bot transfère le message d’origine à l’admin
+    notif = await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📥 Nouvelle demande de contenu du jour ! A envoyer à : {pseudo} (ID: {message.from_user.id})"
+        text=f"📥 Demande de contenu du jour reçue :"
     )
+    forwarded = await bot.forward_message(
+        chat_id=ADMIN_ID,
+        from_chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    # 3. On enregistre cette conversation dans pending_replies pour permettre la réponse
+    pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
+
 #fin de l'envoi du bouton du contenu du jour
 
 
