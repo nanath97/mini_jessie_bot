@@ -405,7 +405,7 @@ async def demande_contenu_jour(message: types.Message):
     # 2. Le bot transfère le message d’origine à l’admin
     notif = await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📥 Demande de contenu du jour reçue :"
+        text=f"📥 Nouvelle demande de contenu du jour reçue :"
     )
     forwarded = await bot.forward_message(
         chat_id=ADMIN_ID,
