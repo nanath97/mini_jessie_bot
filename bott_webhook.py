@@ -392,6 +392,25 @@ keyboard_admin.add(# TEST bouton admin
 keyboard_admin.add(
     types.KeyboardButton("✉️ Message à tous les VIPs")  # 👉 Nouveau bouton ici
 )
+keyboard.add(
+    types.KeyboardButton("🔞 Voir le contenu du jour")
+)
+
+#Envoi du bouton du contenu du jour
+@dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
+async def demande_contenu_jour(message: types.Message):
+    # Message de confirmation pour le client
+    await message.reply("✅ J'ai bien reçu ta demande ! Je t'envoie ça dans quelques instants...💕")
+
+    # Message automatique envoyé à l’admin
+    pseudo = message.from_user.username or "Aucun pseudo"
+    await bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"📥 Nouvelle demande de contenu du jour ! A envoyer à : {pseudo} (ID: {message.from_user.id})"
+    )
+#fin de l'envoi du bouton du contenu du jour
+
+
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])

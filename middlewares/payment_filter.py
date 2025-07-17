@@ -6,7 +6,7 @@ from aiogram.dispatcher.handler import CancelHandler
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
-    "🔞Voir la vidéo du jour",
+    "🔞 Voir le contenu du jour",
     "✨Discuter en tant que VIP",
     "👀Je suis un voyeur",
     "❌ Oui je confirme (bannir)",
