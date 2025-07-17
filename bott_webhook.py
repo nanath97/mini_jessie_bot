@@ -9,7 +9,6 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from core import get_all_vip_ids
 
 
 
@@ -28,7 +27,7 @@ DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rj
 # Fonction de détection de lien non autorisé
 ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
-# --- CONFIGURATION AIRTABLE TEST ---
+# --- CONFIGURATION AIRTABLE ---
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME")
@@ -712,31 +711,29 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
 
     try:
-        # Récupération du texte
+        # Récupération du texte du message
         texte = call.data.split("|", 1)[1]
-
         await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
 
-        from core import get_all_vip_ids  # Assure-toi que cette fonction existe bien dans core.py
-
-        vip_ids = get_all_vip_ids()
-
-        envoyés = 0
+        envoyes = 0
         erreurs = 0
 
-        for vip_id in vip_ids:
+        for vip_id in authorized_users:
             try:
-                vip_id = int(vip_id)
-                await bot.send_message(chat_id=vip_id, text=texte)
-                envoyés += 1
+                await bot.send_message(chat_id=int(vip_id), text=texte)
+                envoyes += 1
             except Exception as e:
                 print(f"❌ Erreur envoi à {vip_id} : {e}")
                 erreurs += 1
 
-        await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Message envoyé à {envoyés} VIP(s).\n⚠️ Erreurs : {erreurs}")
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"✅ Message envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}"
+        )
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors de l’envoi groupé : {e}")
+
 
 # --- FIN 16 JUILLET ---
 
