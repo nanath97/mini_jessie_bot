@@ -8,6 +8,12 @@ from core import authorized_users
 from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
+
+
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -382,6 +388,9 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
+keyboard_admin.add(
+    types.KeyboardButton("✉️ Message à tous les VIPs")  # 👉 Nouveau bouton ici
+)
 
 # Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
@@ -676,6 +685,57 @@ async def show_commandes_admin(message: types.Message):
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
+# --- DEBUT 16 JUILLET
+
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) == "en_attente_message", content_types=types.ContentType.TEXT)
+async def reception_message_groupé(message: types.Message):
+    texte_groupé = message.text
+    admin_modes[ADMIN_ID] = None  # Reset du mode
+
+    confirmation = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data=f"confirmer_envoi_groupé|{texte_groupé}")
+    )
+    await message.reply(f"Voici le message que tu vas envoyer à tous les VIPs :\n\n« {texte_groupé} »", reply_markup=confirmation)
+
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("confirmer_envoi_groupé"))
+async def confirmer_envoi_groupé(call: types.CallbackQuery):
+    await call.answer()
+
+    try:
+        # Récupération du texte
+        texte = call.data.split("|", 1)[1]
+
+        await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
+
+        from core import get_all_vip_ids  # Assure-toi que cette fonction existe bien dans core.py
+
+        vip_ids = get_all_vip_ids()
+
+        envoyés = 0
+        erreurs = 0
+
+        for vip_id in vip_ids:
+            try:
+                vip_id = int(vip_id)
+                await bot.send_message(chat_id=vip_id, text=texte)
+                envoyés += 1
+            except Exception as e:
+                print(f"❌ Erreur envoi à {vip_id} : {e}")
+                erreurs += 1
+
+        await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Message envoyé à {envoyés} VIP(s).\n⚠️ Erreurs : {erreurs}")
+
+    except Exception as e:
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors de l’envoi groupé : {e}")
+
+# --- FIN 16 JUILLET ---
+
+
+
+
+
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
@@ -712,6 +772,7 @@ async def relay_from_client(message: types.Message):
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
+
     if not message.reply_to_message:
         return
 
@@ -724,7 +785,7 @@ async def relay_from_admin(message: types.Message):
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
         return
-
+    
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
@@ -744,6 +805,9 @@ async def relay_from_admin(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
 
-
+    if message.text == "✉️ Message à tous les VIPs":
+        await message.reply("Quel message veux-tu envoyer à tous les VIPs ? (texte uniquement)")
+    admin_modes[message.from_user.id] = "en_attente_message"
+    return
 
 
