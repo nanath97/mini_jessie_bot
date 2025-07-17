@@ -80,14 +80,14 @@ async def handle_stat(message: types.Message):
 
     try:
         # === 🔥 FAUSSES STATISTIQUES pour démo YouTube
-        ventes_jour = 289
-        ventes_totales = 89
-        contenus_vendus = 4794
-        clients_vip = 74
+        ventes_jour = 105
+        ventes_totales = 4794
+        contenus_vendus = 91
+        clients_vip = 52
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
-            f"📊 *Tes statistiques de vente (démo)* :\n\n"
+            f"📊 *Tes statistiques de vente* :\n\n"
             f"💰 *Ventes du jour* : {ventes_jour}€\n"
             f"💶 *Ventes totales* : {ventes_totales}€\n"
             f"📦 *Contenus vendus* : {contenus_vendus}\n"
