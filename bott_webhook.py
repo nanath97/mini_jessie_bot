@@ -72,67 +72,36 @@ def initialize_authorized_users():
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await bot.send_message(message.chat.id, "❌ Tu n’as pas l’autorisation pour voir les statistiques.")
+        return
+
     await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
 
     try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-        }
-
-        response = requests.get(url, headers=headers)
-        data = response.json()
-
-        ventes_totales = 0
-        ventes_jour = 0
-        contenus_vendus = 0
-        vip_ids = set()
-
-        today = datetime.now().date().isoformat()
-        mois_courant = datetime.now().strftime("%Y-%m")
-
-        for record in data.get("records", []):
-            fields = record.get("fields", {})
-            user_id = fields.get("ID Telegram", "")
-            type_acces = fields.get("Type acces", "").lower()
-            date_str = fields.get("Date", "")
-            mois = fields.get("Mois", "")
-            montant = float(fields.get("Montant", 0))
-
-            
-            if type_acces == "vip":
-                vip_ids.add(user_id)
-
-        
-            if mois == mois_courant:
-                ventes_totales += montant
-
-            if date_str.startswith(today):
-                ventes_jour += montant
-                if type_acces != "vip":
-                    contenus_vendus += 1
-
-            if type_acces == "vip" and user_id:
-                vip_ids.add(user_id)
-
-        clients_vip = len(vip_ids)
+        # === 🔥 FAUSSES STATISTIQUES pour démo YouTube
+        ventes_jour = 289
+        ventes_totales = 89
+        contenus_vendus = 4794
+        clients_vip = 74
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
-            f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales : {ventes_totales}€\n"
-            f"📦 Contenus vendus total : {contenus_vendus}\n"
-            f"🌟 Clients VIP : {clients_vip}\n"
-            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
-            f"_Le bénéfice tient compte d’une commission de 6 %._"
+            f"📊 *Tes statistiques de vente (démo)* :\n\n"
+            f"💰 *Ventes du jour* : {ventes_jour}€\n"
+            f"💶 *Ventes totales* : {ventes_totales}€\n"
+            f"📦 *Contenus vendus* : {contenus_vendus}\n"
+            f"🌟 *Clients VIP* : {clients_vip}\n"
+            f"📈 *Bénéfice estimé net* : {benefice_net}€\n\n"
+            f"_Ces chiffres sont issus d’une démonstration pour la vidéo de présentation._"
         )
 
         await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
 
     except Exception as e:
-        print(f"Erreur dans /stat : {e}")
+        print(f"Erreur dans /stat (démo) : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 # Fin de la fonction des stats
@@ -405,7 +374,7 @@ async def demande_contenu_jour(message: types.Message):
     # 2. Le bot transfère le message d’origine à l’admin
     notif = await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📥 Nouvelle demande de contenu du jour reçue :"
+        text=f"📥 Nouvelle d emande de contenu du jour reçue :"
     )
     forwarded = await bot.forward_message(
         chat_id=ADMIN_ID,
