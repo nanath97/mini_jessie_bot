@@ -9,6 +9,8 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from core import get_all_vip_ids
+
 
 
 admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
