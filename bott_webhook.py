@@ -771,7 +771,15 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
 # === petite partie ajouté 
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=[
+    types.ContentType.TEXT,
+    types.ContentType.PHOTO,
+    types.ContentType.VIDEO,
+    types.ContentType.DOCUMENT,
+    types.ContentType.VOICE,
+    types.ContentType.AUDIO
+])
+
 async def relay_from_client(message: types.Message):
     if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
         print(f"❌ Message bloqué de {message.from_user.id} (banni)")
