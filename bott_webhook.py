@@ -93,7 +93,7 @@ async def handle_stat(message: types.Message):
             f"📦 *Contenus vendus* : {contenus_vendus}\n"
             f"🌟 *Clients VIP* : {clients_vip}\n"
             f"📈 *Bénéfice estimé net* : {benefice_net}€\n\n"
-            f"_Ces chiffres sont issus d’une démonstration pour la vidéo de présentation._"
+            f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
 
         await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
