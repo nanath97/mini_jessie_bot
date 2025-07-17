@@ -686,6 +686,12 @@ async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
 # --- DEBUT 16 JUILLET
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
+async def ask_mass_message(message: types.Message):
+    print("🟢 Bouton détecté !")  # Pour les logs
+    await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ?")
+    admin_modes[ADMIN_ID] = "en_attente_message"
+
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) == "en_attente_message", content_types=types.ContentType.TEXT)
 async def reception_message_groupé(message: types.Message):
