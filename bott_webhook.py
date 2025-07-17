@@ -694,15 +694,35 @@ async def ask_mass_message(message: types.Message):
     admin_modes[ADMIN_ID] = "en_attente_message"
 
 
-@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) == "en_attente_message", content_types=types.ContentType.TEXT)
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) == "en_attente_message", content_types=types.ContentType.ANY)
 async def reception_message_groupé(message: types.Message):
-    texte_groupé = message.text
     admin_modes[ADMIN_ID] = None  # Reset du mode
 
+    if message.text:
+        media_type = "text"
+        payload = message.text.replace("|", "")
+    elif message.photo:
+        media_type = "photo"
+        payload = message.photo[-1].file_id
+    elif message.video:
+        media_type = "video"
+        payload = message.video.file_id
+    else:
+        await message.reply("❌ Seuls les messages texte, photos ou vidéos sont supportés.")
+        return
+
+    caption = message.caption.replace("|", "") if message.caption else ""
+
     confirmation = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data=f"confirmer_envoi_groupé|{texte_groupé}")
+        InlineKeyboardButton(
+            "✅ Confirmer l’envoi",
+            callback_data=f"confirmer_envoi_groupé|{media_type}|{payload}|{caption}"
+        )
     )
-    await message.reply(f"Voici le message que tu vas envoyer à tous les VIPs :\n\n« {texte_groupé} »", reply_markup=confirmation)
+
+    preview = message.text or caption or "[Prévisualisation média]"
+    await message.reply(f"Prévisualisation du message groupé :\n\n« {preview} »", reply_markup=confirmation)
+
 
 
 
@@ -711,16 +731,21 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
 
     try:
-        # Récupération du texte du message
-        texte = call.data.split("|", 1)[1]
-        await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
+        _, media_type, payload, caption = call.data.split("|", 3)
 
         envoyes = 0
         erreurs = 0
 
+        await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
+
         for vip_id in authorized_users:
             try:
-                await bot.send_message(chat_id=int(vip_id), text=texte)
+                if media_type == "text":
+                    await bot.send_message(chat_id=int(vip_id), text=payload)
+                elif media_type == "photo":
+                    await bot.send_photo(chat_id=int(vip_id), photo=payload, caption=caption)
+                elif media_type == "video":
+                    await bot.send_video(chat_id=int(vip_id), video=payload, caption=caption)
                 envoyes += 1
             except Exception as e:
                 print(f"❌ Erreur envoi à {vip_id} : {e}")
@@ -733,6 +758,7 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors de l’envoi groupé : {e}")
+
 
 
 # --- FIN 16 JUILLET ---
