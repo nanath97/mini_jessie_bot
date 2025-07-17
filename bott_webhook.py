@@ -687,65 +687,75 @@ async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
 # --- DEBUT 16 JUILLET
+pending_mass_message = {}
+
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
 async def ask_mass_message(message: types.Message):
-    print("🟢 Bouton détecté !")  # Pour les logs
-    await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ?")
+    print("🟢 Bouton détecté !")
+    await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ? (texte, photo ou vidéo)")
     admin_modes[ADMIN_ID] = "en_attente_message"
 
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) == "en_attente_message", content_types=types.ContentType.ANY)
 async def reception_message_groupé(message: types.Message):
-    admin_modes[ADMIN_ID] = None  # Reset du mode
+    admin_modes[ADMIN_ID] = None  # Reset mode
 
     if message.text:
-        media_type = "text"
-        payload = message.text.replace("|", "")
+        pending_mass_message[ADMIN_ID] = {
+            "type": "text",
+            "content": message.text
+        }
+        preview = message.text
+
     elif message.photo:
-        media_type = "photo"
-        payload = message.photo[-1].file_id
+        pending_mass_message[ADMIN_ID] = {
+            "type": "photo",
+            "content": message.photo[-1].file_id,
+            "caption": message.caption or ""
+        }
+        preview = f"[Photo] {message.caption or ''}"
+
     elif message.video:
-        media_type = "video"
-        payload = message.video.file_id
+        pending_mass_message[ADMIN_ID] = {
+            "type": "video",
+            "content": message.video.file_id,
+            "caption": message.caption or ""
+        }
+        preview = f"[Vidéo] {message.caption or ''}"
+
     else:
         await message.reply("❌ Seuls les messages texte, photos ou vidéos sont supportés.")
         return
 
-    caption = message.caption.replace("|", "") if message.caption else ""
-
     confirmation = InlineKeyboardMarkup().add(
-        InlineKeyboardButton(
-            "✅ Confirmer l’envoi",
-            callback_data=f"confirmer_envoi_groupé|{media_type}|{payload}|{caption}"
-        )
+        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé")
     )
 
-    preview = message.text or caption or "[Prévisualisation média]"
-    await message.reply(f"Prévisualisation du message groupé :\n\n« {preview} »", reply_markup=confirmation)
+    await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
 
-
-
-
-@dp.callback_query_handler(lambda call: call.data.startswith("confirmer_envoi_groupé"))
+@dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
 
     try:
-        _, media_type, payload, caption = call.data.split("|", 3)
+        message_data = pending_mass_message.get(ADMIN_ID)
+        if not message_data:
+            await call.message.edit_text("❌ Aucun message en attente à envoyer.")
+            return
+
+        await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
 
         envoyes = 0
         erreurs = 0
 
-        await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
-
         for vip_id in authorized_users:
             try:
-                if media_type == "text":
-                    await bot.send_message(chat_id=int(vip_id), text=payload)
-                elif media_type == "photo":
-                    await bot.send_photo(chat_id=int(vip_id), photo=payload, caption=caption)
-                elif media_type == "video":
-                    await bot.send_video(chat_id=int(vip_id), video=payload, caption=caption)
+                if message_data["type"] == "text":
+                    await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
+                elif message_data["type"] == "photo":
+                    await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data["caption"])
+                elif message_data["type"] == "video":
+                    await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data["caption"])
                 envoyes += 1
             except Exception as e:
                 print(f"❌ Erreur envoi à {vip_id} : {e}")
@@ -756,12 +766,14 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             text=f"✅ Message envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}"
         )
 
+        # Nettoyage après envoi
+        pending_mass_message.pop(ADMIN_ID, None)
+
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors de l’envoi groupé : {e}")
 
 
-
-# --- FIN 16 JUILLET ---
+# --- Fin
 
 
 
