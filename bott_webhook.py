@@ -827,10 +827,9 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
     }
 
-    # ✅ URL avec TABLE_ID exact (et non nom)
     url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
     params = {
-        "filterByFormula": f"{{Email}} = '{email}'"
+        "filterByFormula": f"AND({{Email}} = '{email}', {{Type acces}} = 'VIP')"
     }
 
     response = requests.get(url, headers=headers, params=params)
@@ -843,13 +842,17 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, "📭 Aucun VIP enregistré pour toi pour le moment.")
         return
 
-    message = "📋 Voici tes VIPs :\n\n"
+    pseudos_affiches = set()
+    message = "📋 Voici tes clients VIP :\n\n"
     for r in records:
         f = r.get("fields", {})
         pseudo = f.get("Pseudo Telegram", "inconnu")
-        message += f"👤 @{pseudo}\n" if pseudo else "👤 Pseudo inconnu\n"
+        if pseudo and pseudo not in pseudos_affiches:
+            pseudos_affiches.add(pseudo)
+            message += f"👤 @{pseudo}\n"
 
     await bot.send_message(telegram_id, message)
+
 
 
 
