@@ -14,6 +14,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
 
+# Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 debut
+ADMIN_EMAILS = {
+    7334072965: "vinteo.ac@gmail.com",
+}
+# Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 fin
 
 
 # Paiements validés par Stripe, stockés temporairement
@@ -366,24 +371,33 @@ keyboard.add(
 )
 
 #Envoi du bouton du contenu du jour
+
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
     # 1. Le client reçoit une confirmation
-    await message.reply("✅ J'ai bien reçu ta demande ! \n\n 🚨 Mais le contenu du jour est réservé aux membres VIP \n\n Pour y accéder, il te suffit de rejoindre le groupe privé VIP pour seulement 1 € !\n\n 👇 Clique ici pour débloquer ton accès immédiat : https://buy.stripe.com/4gwg32fhF4K62fCdQR 💕.")
-
-    # 2. Le bot transfère le message d’origine à l’admin
-    notif = await bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"📥 Nouvelle demande de contenu du jour reçue de ⬇️ \n\n verifie bien qu'il soit un membre VIP avant d'envoyer ton contenu"
+    await message.reply(
+        "✅ J'ai bien reçu ta demande ! \n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, rejoins le groupe privé VIP pour seulement 1 € !\n👇 https://buy.stripe.com/4gwg32fhF4K62fCdQR 💕"
     )
+
+    # 2. Le bot envoie une notif à l'admin avec le bouton "📋 Voir mes VIPs"
+    vip_button = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
+    )
+
+    await bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"📥 Nouvelle demande de contenu du jour reçue de ⬇️\n\nVérifie bien qu'il soit VIP avant d'envoyer le contenu.",
+        reply_markup=vip_button
+    )
+
     forwarded = await bot.forward_message(
         chat_id=ADMIN_ID,
         from_chat_id=message.chat.id,
         message_id=message.message_id
     )
 
-    # 3. On enregistre cette conversation dans pending_replies pour permettre la réponse
     pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
+
 
 #fin de l'envoi du bouton du contenu du jour
 
@@ -794,12 +808,49 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ L’envoi du message groupé a été annulé.")
 
-
-
-
 # --- Fin
 
 
+#debut du 19 juillet 2025 mettre le tableau de vips
+@dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
+async def voir_mes_vips(callback_query: types.CallbackQuery):
+    telegram_id = callback_query.from_user.id
+    email = ADMIN_EMAILS.get(telegram_id)
+
+    if not email:
+        await bot.send_message(telegram_id, "❌ Ton e-mail admin n’est pas reconnu.")
+        return
+
+    await callback_query.answer("Chargement de tes VIPs...")
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
+    }
+    url = f"https://api.airtable.com/v0/{os.getenv('AIRTABLE_BASE_ID')}/VIPs"
+    params = {
+        "filterByFormula": f"{{Email}} = '{email}'"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code != 200:
+        await bot.send_message(telegram_id, "❌ Erreur lors de la récupération des données.")
+        return
+
+    records = response.json().get('records', [])
+    if not records:
+        await bot.send_message(telegram_id, "📭 Aucun VIP enregistré pour toi pour le moment.")
+        return
+
+    message = "📋 Voici tes VIPs :\n\n"
+    for r in records:
+        f = r.get("fields", {})
+        pseudo = f.get("Pseudo Telegram", "inconnu")
+        message += f"👤 @{pseudo}\n" if pseudo else "👤 Pseudo inconnu\n"
+
+    await bot.send_message(telegram_id, message)
+
+
+#fin du 19 juillet 2025 mettre le tableau de vips
 
 
 
