@@ -826,14 +826,14 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     headers = {
         "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
     }
-    url = f"https://api.airtable.com/v0/{os.getenv('AIRTABLE_BASE_ID')}/VIPs"
+    url = f"https://api.airtable.com/v0/{os.getenv('AIRTABLE_BASE_ID')}/Client%20Telegram"
     params = {
         "filterByFormula": f"{{Email}} = '{email}'"
     }
 
     response = requests.get(url, headers=headers, params=params)
     if response.status_code != 200:
-        await bot.send_message(telegram_id, "❌ Erreur lors de la récupération des données.")
+        await bot.send_message(telegram_id, f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}")
         return
 
     records = response.json().get('records', [])
@@ -848,6 +848,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         message += f"👤 @{pseudo}\n" if pseudo else "👤 Pseudo inconnu\n"
 
     await bot.send_message(telegram_id, message)
+
 
 
 #fin du 19 juillet 2025 mettre le tableau de vips
