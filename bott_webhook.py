@@ -393,7 +393,7 @@ async def demande_contenu_jour(message: types.Message):
 
     await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📥 Nouvelle demande de contenu du jour reçue de ⬇️\n\nVérifie bien qu'il soit VIP avant d'envoyer le contenu.",
+        text=f"📥 Nouvelle demande de contenu du jour reçue ! \n\nVérifie bien qu'il soit VIP avant d'envoyer le contenu.",
         reply_markup=vip_button
     )
 
@@ -831,7 +831,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     await callback_query.answer("Chargement de tes VIPs...")
 
     headers = {
-        "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
+        "Authorization": f"Bearer " + os.getenv("AIRTABLE_API_KEY")
     }
 
     url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
@@ -844,7 +844,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}")
         return
 
-    records = response.json().get('records', [])
+    records = response.json().get("records", [])
     if not records:
         await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
@@ -854,8 +854,8 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     for r in records:
         f = r.get("fields", {})
         pseudo = f.get("Pseudo Telegram", "").strip()
-        type_acces = f.get("Type acces", "").strip()
-        if pseudo and type_acces.lower() == "vip":
+        type_acces = f.get("Type acces", "").strip().lower()
+        if pseudo and type_acces == "vip":
             pseudos_vip.add(pseudo)
 
     # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
@@ -877,15 +877,15 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             montants_par_pseudo[pseudo] = 0.0
 
         montants_par_pseudo[pseudo] += montant_float
-        
-        # Construction du message final avec top 3
+
+    # Construction du message final avec tri et top 3
     message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
     sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
 
     for pseudo, total in sorted_vips:
         message += f"👤 @{pseudo} — {round(total)} €\n"
 
-    # 🏆 Ajoute top 3 à la fin
+    # 🏆 Top 3
     top3 = sorted_vips[:3]
     if top3:
         message += "\n🏆 *Top 3 clients :*\n"
@@ -894,6 +894,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             message += f"{place} @{pseudo} — {round(total)} €\n"
 
     await bot.send_message(telegram_id, message, parse_mode="Markdown")
+
 
 
 
