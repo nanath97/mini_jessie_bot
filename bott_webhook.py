@@ -844,7 +844,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}")
         return
 
-    records = response.json().get('records', [])
+    records = response.json().get("records", [])
     if not records:
         await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
@@ -854,8 +854,8 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     for r in records:
         f = r.get("fields", {})
         pseudo = f.get("Pseudo Telegram", "").strip()
-        type_acces = f.get("Type acces", "").strip()
-        if pseudo and type_acces.lower() == "vip":
+        type_acces = f.get("Type acces", "").strip().lower()
+        if pseudo and type_acces == "vip":
             pseudos_vip.add(pseudo)
 
     # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
@@ -878,12 +878,29 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
         montants_par_pseudo[pseudo] += montant_float
 
-    # Construction du message final
-    message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
-    for pseudo, total in montants_par_pseudo.items():
-        message += f"👤 @{pseudo} — {round(total)} €\n"
+    try:
+        # Construction du message final avec tri et top 3
+        message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
+        sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
 
-    await bot.send_message(telegram_id, message)
+        for pseudo, total in sorted_vips:
+            message += f"👤 @{pseudo} — {round(total)} €\n"
+
+        # 🏆 Top 3
+        top3 = sorted_vips[:3]
+        if top3:
+            message += "\n🏆 *Top 3 clients :*\n"
+            for i, (pseudo, total) in enumerate(top3):
+                place = ["🥇", "🥈", "🥉"]
+                emoji = place[i] if i < len(place) else f"#{i+1}"
+                message += f"{emoji} @{pseudo} — {round(total)} €\n"
+
+        await bot.send_message(telegram_id, message, parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"❌ ERREUR DANS VIPS + TOP 3 : {e}")
+        await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
+
 
 
 
