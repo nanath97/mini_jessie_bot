@@ -75,6 +75,8 @@ def initialize_authorized_users():
 
 # === Statistiques ===
 
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
     if message.from_user.id != ADMIN_ID:
@@ -101,11 +103,16 @@ async def handle_stat(message: types.Message):
             f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
 
-        await bot.send_message(message.chat.id, message_final, parse_mode="Markdown")
+        vip_button = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
+        )
+
+        await bot.send_message(message.chat.id, message_final, parse_mode="Markdown", reply_markup=vip_button)
 
     except Exception as e:
         print(f"Erreur dans /stat (démo) : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 
@@ -852,10 +859,6 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             message += f"👤 @{pseudo}\n"
 
     await bot.send_message(telegram_id, message)
-
-
-
-
 
 #fin du 19 juillet 2025 mettre le tableau de vips
 
