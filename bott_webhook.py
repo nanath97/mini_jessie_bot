@@ -408,10 +408,20 @@ keyboard.add(
 
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
-    # 1. Le client reçoit une confirmation
-    await message.reply(
-        "✅ J'ai bien reçu ta demande ! \n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, rejoins le groupe privé VIP pour seulement 1 € !\n👇 https://buy.stripe.com/4gwg32fhF4K62fCdQR 💕"
+    # 1. Création du bouton avec le lien Stripe
+    bouton_vip = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="🔥 Rejoindre le groupe VIP pour 1€",
+            url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+        )
     )
+
+    # 2. Envoi du message avec bouton intégré
+    await message.reply(
+        "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇",
+        reply_markup=bouton_vip
+    )
+
 
     # 2. Le bot envoie une notif à l'admin avec le bouton "📋 Voir mes VIPs"
     vip_button = InlineKeyboardMarkup().add(
