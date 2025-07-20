@@ -836,7 +836,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
     url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
     params = {
-        "filterByFormula": f"AND({{Email}} = '{email}', {{Type acces}} = 'VIP')"
+        "filterByFormula": f"{{Email}} = '{email}'"
     }
 
     response = requests.get(url, headers=headers, params=params)
@@ -846,17 +846,26 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
     records = response.json().get('records', [])
     if not records:
-        await bot.send_message(telegram_id, "📭 Aucun VIP enregistré pour toi pour le moment.")
+        await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
 
-    montants_par_pseudo = {}
+    # Étape 1 : repérer les pseudos ayant AU MOINS une ligne Type acces = VIP
+    pseudos_vip = set()
+    for r in records:
+        f = r.get("fields", {})
+        pseudo = f.get("Pseudo Telegram", "").strip()
+        type_acces = f.get("Type acces", "").strip()
+        if pseudo and type_acces.lower() == "vip":
+            pseudos_vip.add(pseudo)
 
+    # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
+    montants_par_pseudo = {}
     for r in records:
         f = r.get("fields", {})
         pseudo = f.get("Pseudo Telegram", "").strip()
         montant = f.get("Montant")
 
-        if not pseudo:
+        if not pseudo or pseudo not in pseudos_vip:
             continue
 
         try:
@@ -869,11 +878,13 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
         montants_par_pseudo[pseudo] += montant_float
 
-    message = "📋 Voici tes clients VIP :\n\n"
+    # Construction du message final
+    message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
     for pseudo, total in montants_par_pseudo.items():
         message += f"👤 @{pseudo} — {round(total)} €\n"
 
     await bot.send_message(telegram_id, message)
+
 
 
 #fin du 19 juillet 2025 mettre le tableau de vips
