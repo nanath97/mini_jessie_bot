@@ -898,8 +898,12 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, message, parse_mode="Markdown")
 
     except Exception as e:
-        print(f"❌ ERREUR DANS VIPS + TOP 3 : {e}")
+        import traceback
+        error_text = traceback.format_exc()
+        print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
         await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
+
+
 
 
 
