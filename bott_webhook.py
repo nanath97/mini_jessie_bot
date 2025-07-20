@@ -895,7 +895,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
                 emoji = place[i] if i < len(place) else f"#{i+1}"
                 message += f"{emoji} @{pseudo} — {round(total)} €\n"
 
-        await bot.send_message(telegram_id, message, parse_mode="Markdown")
+        await bot.send_message(telegram_id, message)
 
     except Exception as e:
         import traceback
