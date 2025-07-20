@@ -369,7 +369,7 @@ keyboard.add(
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
     # 1. Le client reçoit une confirmation
-    await message.reply("✅ J'ai bien reçu ta demande ! Je t'envoie ça dans quelques instants 💕.")
+    await message.reply("✅ J'ai bien reçu ta demande ! \n\n 🚨 Mais le contenu du jour est réservé aux membres VIP \n\n Pour y accéder, il te suffit de rejoindre le groupe privé VIP pour seulement 1 € ! 👇 Clique ici pour débloquer ton accès immédiat : https://buy.stripe.com/4gwg32fhF4K62fCdQR 💕.")
 
     # 2. Le bot transfère le message d’origine à l’admin
     notif = await bot.send_message(
