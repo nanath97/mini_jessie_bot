@@ -826,7 +826,9 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     headers = {
         "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
     }
-    url = f"https://api.airtable.com/v0/{os.getenv('AIRTABLE_BASE_ID')}/Client%20Telegram"
+
+    # ✅ URL avec TABLE_ID exact (et non nom)
+    url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
     params = {
         "filterByFormula": f"{{Email}} = '{email}'"
     }
@@ -848,6 +850,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         message += f"👤 @{pseudo}\n" if pseudo else "👤 Pseudo inconnu\n"
 
     await bot.send_message(telegram_id, message)
+
 
 
 
