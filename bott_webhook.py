@@ -955,7 +955,8 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
-# === petite partie ajouté 
+
+# === CLIENT ➝ ADMIN
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
     if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
@@ -982,23 +983,31 @@ async def relay_from_client(message: types.Message):
 
         if sent_msg:
             pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
+            print(f"[DEBUG] pending_replies ajouté : ({sent_msg.chat.id}, {sent_msg.message_id}) -> {message.chat.id}")
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais client -> admin.\n{e}")
+        print(f"[DEBUG] Erreur client -> admin : {e}")
 
+# === ADMIN ➝ CLIENT
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
     if not message.reply_to_message:
+        print("[DEBUG] Aucun reply_to_message détecté")
         return
 
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
+        print(f"[DEBUG] forward_from détecté : {user_id}")
     else:
-        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+        key = (message.chat.id, message.reply_to_message.message_id)
+        user_id = pending_replies.get(key)
+        print(f"[DEBUG] Recherche dans pending_replies avec clé {key} ➝ {user_id}")
 
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
+        print("[DEBUG] ❌ Destinataire introuvable")
         return
 
     try:
@@ -1016,8 +1025,11 @@ async def relay_from_admin(message: types.Message):
             await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
         else:
             await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté pour le relais.")
+        print(f"[DEBUG] ✅ Message relayé à {user_id}")
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
+        print(f"[DEBUG] ❌ Erreur admin -> client : {e}")
+
 
 
