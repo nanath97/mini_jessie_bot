@@ -3,7 +3,6 @@ from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram import Bot
 
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
