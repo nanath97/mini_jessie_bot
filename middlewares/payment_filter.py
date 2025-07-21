@@ -46,5 +46,17 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 await message.delete()
             except Exception as e:
                 print(f"Erreur suppression message non autorisé : {e}")
-            await message.answer("🚫 Pour discuter librement avec moi, il faudra être un VIP ! \n\n 👇 Clique ici pour débloquer ton accès immédiat : https://buy.stripe.com/4gwg32fhF4K62fCdQR  \n\n Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭")
-            raise CancelHandler()
+                await message.answer(
+    "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
+    "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
+    "Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭",
+    reply_markup=InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="💎 Devenir VIP pour 1€",
+            url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+        )
+    )
+)
+raise CancelHandler()
+
+

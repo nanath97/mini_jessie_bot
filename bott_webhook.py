@@ -529,7 +529,18 @@ async def handle_start(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
 async def discuter_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "🚀 Deviens VIP ici : https://buy.stripe.com/4gwg32fhF4K62fCdQR")
+    bouton_vip = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="💬 Devenir VIP pour 1€",
+            url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+        )
+    )
+
+    await bot.send_message(
+        message.chat.id,
+        "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇",
+        reply_markup=bouton_vip
+    )
 
 @dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
 async def je_suis_voyeur(message: types.Message):
