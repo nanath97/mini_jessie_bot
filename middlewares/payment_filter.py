@@ -15,16 +15,15 @@ BOUTONS_AUTORISES = [
 ]
 
 class PaymentFilterMiddleware(BaseMiddleware):
-    def __init__(self, authorized_users, bot: Bot):
+    def __init__(self, authorized_users):
         super(PaymentFilterMiddleware, self).__init__()
         self.authorized_users = authorized_users
-        self.bot = bot
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
         if message.content_type != types.ContentType.TEXT:
             return
 
-        # ➡️ SI c'est l'ADMIN, vérifier uniquement les liens
+        # ➡️ Si c'est l'admin, on vérifie seulement les liens
         if message.from_user.id == ADMIN_ID:
             if lien_non_autorise(message.text):
                 try:
@@ -33,13 +32,13 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 except Exception as e:
                     print(f"Erreur suppression lien admin : {e}")
                 raise CancelHandler()
-            return  # Sinon laisser passer normal
+            return
 
         if message.text and message.text.startswith("/start"):
-            return  # Laisser passer /start
+            return
 
         if message.text.strip() in BOUTONS_AUTORISES:
-            return  # Laisser passer les boutons autorisés
+            return
 
         if message.from_user.id not in self.authorized_users:
             try:
@@ -47,8 +46,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             except Exception as e:
                 print(f"Erreur suppression message non autorisé : {e}")
 
-            await self.bot.send_message(
-                message.chat.id,
+            await message.answer(
                 "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
                 "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
                 "Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭",
