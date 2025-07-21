@@ -974,80 +974,53 @@ try:
 except:
     pending_replies = {}
 
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
-async def relay_from_client(message: types.Message):
-    if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
-        print(f"❌ Message bloqué de {message.from_user.id} (banni)")
-        return
-
-    try:
-        sent_msg = None
-        if message.text:
-            sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
-        elif message.photo:
-            sent_msg = await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
-        elif message.video:
-            sent_msg = await bot.send_video(chat_id=ADMIN_ID, video=message.video.file_id, caption=message.caption or "")
-        elif message.document:
-            sent_msg = await bot.send_document(chat_id=ADMIN_ID, document=message.document.file_id, caption=message.caption or "")
-        elif message.voice:
-            sent_msg = await bot.send_voice(chat_id=ADMIN_ID, voice=message.voice.file_id)
-        elif message.audio:
-            sent_msg = await bot.send_audio(chat_id=ADMIN_ID, audio=message.audio.file_id, caption=message.caption or "")
-        else:
-            await bot.send_message(chat_id=ADMIN_ID, text="📂 Un type de fichier non supporté a été reçu.")
-            return
-
-        if sent_msg:
-            pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
-            with open("pending_replies.json", "w") as f:
-                json.dump({f"{k[0]}_{k[1]}": v for k, v in pending_replies.items()}, f)
-            print(f"[DEBUG] pending_replies ajouté : ({sent_msg.chat.id}, {sent_msg.message_id}) -> {message.chat.id}")
-
-    except Exception as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais client -> admin.\n{e}")
-        print(f"[DEBUG] Erreur client -> admin : {e}")
-
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
+    print("🔁 Nouveau message reçu de l'admin")
+
     if not message.reply_to_message:
-        print("[DEBUG] Aucun reply_to_message détecté")
+        print("❌ Pas de message reply détecté")
         return
 
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
-        print(f"[DEBUG] forward_from détecté : {user_id}")
+        print(f"✅ Utilisateur identifié via forward_from : {user_id}")
     else:
-        key = (message.chat.id, message.reply_to_message.message_id)
-        user_id = pending_replies.get(key)
-        print(f"[DEBUG] Recherche dans pending_replies avec clé {key} ➔ {user_id}")
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+        print(f"✅ Utilisateur identifié via pending_replies : {user_id}")
 
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
-        print("[DEBUG] ❌ Destinataire introuvable")
+        print("❌ Échec : Aucun user_id détecté")
         return
 
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
+            print(f"📨 Message texte envoyé à {user_id}")
         elif message.photo:
             await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
+            print(f"📷 Photo envoyée à {user_id}")
         elif message.video:
             await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
+            print(f"📹 Vidéo envoyée à {user_id}")
         elif message.document:
             await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
+            print(f"📄 Document envoyé à {user_id}")
         elif message.voice:
             await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
+            print(f"🎤 Voice envoyé à {user_id}")
         elif message.audio:
             await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
+            print(f"🎵 Audio envoyé à {user_id}")
         else:
             await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté pour le relais.")
-        print(f"[DEBUG] ✅ Message relayé à {user_id}")
-
+            print(f"❌ Type de message non supporté")
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-        print(f"[DEBUG] ❌ Erreur admin -> client : {e}")
+        print(f"❌ Erreur lors de l'envoi à {user_id} : {e}")
+
 
 
 
