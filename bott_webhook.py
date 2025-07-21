@@ -954,13 +954,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 #fin du 19 juillet 2025 mettre le tableau de vips
 
 # --- Message relay (client -> admin & admin -> client) ---
-pending_replies = {}
-
-# === CLIENT ➝ ADMIN
-
 import json
-
-# --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
 
 # === Au démarrage, on recharge les correspondances depuis le fichier local
@@ -974,6 +968,50 @@ try:
 except:
     pending_replies = {}
 
+# === CLIENT ➝ ADMIN
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
+async def relay_from_client(message: types.Message):
+    print(f"📩 Nouveau message reçu d’un client ({message.from_user.id})")
+
+    if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
+        print(f"❌ Client {message.from_user.id} bloqué (ban_list)")
+        return
+
+    try:
+        sent_msg = None
+        if message.text:
+            sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
+        elif message.photo:
+            sent_msg = await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
+        elif message.video:
+            sent_msg = await bot.send_video(chat_id=ADMIN_ID, video=message.video.file_id, caption=message.caption or "")
+        elif message.document:
+            sent_msg = await bot.send_document(chat_id=ADMIN_ID, document=message.document.file_id, caption=message.caption or "")
+        elif message.voice:
+            sent_msg = await bot.send_voice(chat_id=ADMIN_ID, voice=message.voice.file_id)
+        elif message.audio:
+            sent_msg = await bot.send_audio(chat_id=ADMIN_ID, audio=message.audio.file_id, caption=message.caption or "")
+        else:
+            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté reçu.")
+            print("❌ Type de message client non supporté")
+            return
+
+        if sent_msg:
+            pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
+            print(f"[DEBUG] pending_replies ajouté : ({sent_msg.chat.id}, {sent_msg.message_id}) -> {message.chat.id}")
+            # Sauvegarde dans le JSON
+            with open("pending_replies.json", "w") as f:
+                json.dump(
+                    {f"{k[0]}_{k[1]}": v for k, v in pending_replies.items()},
+                    f
+                )
+                print("[DEBUG] pending_replies sauvegardé")
+    except Exception as e:
+        print(f"❌ Erreur lors du relais client -> admin : {e}")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur client -> admin :\n{e}")
+
+
+# === ADMIN ➝ CLIENT
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
     print("🔁 Nouveau message reçu de l'admin")
@@ -1020,6 +1058,7 @@ async def relay_from_admin(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
         print(f"❌ Erreur lors de l'envoi à {user_id} : {e}")
+
 
 
 
