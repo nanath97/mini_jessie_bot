@@ -753,28 +753,32 @@ async def show_commandes_admin(message: types.Message):
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
-# --- Message relay (client -> admin & admin -> client) ---
-import json
-pending_replies = {}
+# début de la fusion des messages groupé et privés 
 
-# === Au démarrage, on recharge les correspondances depuis le fichier local
+# ========================
+# === REQUIS IMPORTS ===
+# ========================
+import json
+
+# --- VARIABLES ---
+pending_replies = {}
+pending_mass_message = {}
+admin_modes = {}  # Pour savoir si l'admin est en mode envoi groupé
+
+# --- Chargement du fichier pending_replies ---
 try:
     with open("pending_replies.json", "r") as f:
         data = json.load(f)
-        pending_replies = {
-            (int(k.split("_")[0]), int(k.split("_")[1])): v for k, v in data.items()
-        }
-        print(f"[DEBUG] pending_replies restaurés : {pending_replies}")
+        pending_replies = {(int(k.split("_")[0]), int(k.split("_")[1])): v for k, v in data.items()}
 except:
     pending_replies = {}
 
-# === CLIENT ➝ ADMIN
-@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) != "en_attente_message", content_types=types.ContentType.ANY)
+# ========================
+# === CLIENT -> ADMIN ===
+# ========================
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
-    print(f"📩 Nouveau message reçu d’un client ({message.from_user.id})")
-
     if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
-        print(f"❌ Client {message.from_user.id} bloqué (ban_list)")
         return
 
     try:
@@ -792,93 +796,71 @@ async def relay_from_client(message: types.Message):
         elif message.audio:
             sent_msg = await bot.send_audio(chat_id=ADMIN_ID, audio=message.audio.file_id, caption=message.caption or "")
         else:
-            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté reçu.")
-            print("❌ Type de message client non supporté")
+            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté.")
             return
 
         if sent_msg:
             pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
-            print(f"[DEBUG] pending_replies ajouté : ({sent_msg.chat.id}, {sent_msg.message_id}) -> {message.chat.id}")
-            # Sauvegarde dans le JSON
             with open("pending_replies.json", "w") as f:
-                json.dump(
-                    {f"{k[0]}_{k[1]}": v for k, v in pending_replies.items()},
-                    f
-                )
-                print("[DEBUG] pending_replies sauvegardé")
+                json.dump({f"{k[0]}_{k[1]}": v for k, v in pending_replies.items()}, f)
+
     except Exception as e:
-        print(f"❌ Erreur lors du relais client -> admin : {e}")
-        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur client -> admin :\n{e}")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur client -> admin : {e}")
 
-
-# === ADMIN ➝ CLIENT
+# =============================
+# === ADMIN : réponse privée OU message groupé ===
+# =============================
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
-async def relay_from_admin(message: types.Message):
-    print("🔁 Nouveau message reçu de l'admin")
+async def handle_admin_message(message: types.Message):
+    mode = admin_modes.get(ADMIN_ID)
 
+    # === Si en mode message groupé ===
+    if mode == "en_attente_message":
+        admin_modes[ADMIN_ID] = None
+        await traiter_message_groupé(message)
+        return
+
+    # === Sinon : c’est une réponse privée ===
     if not message.reply_to_message:
-        print("❌ Pas de message reply détecté")
         return
 
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
-        print(f"✅ Utilisateur identifié via forward_from : {user_id}")
     else:
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
-        print(f"✅ Utilisateur identifié via pending_replies : {user_id}")
 
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
-        print("❌ Échec : Aucun user_id détecté")
         return
 
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
-            print(f"📨 Message texte envoyé à {user_id}")
         elif message.photo:
             await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
-            print(f"📷 Photo envoyée à {user_id}")
         elif message.video:
             await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
-            print(f"📹 Vidéo envoyée à {user_id}")
         elif message.document:
             await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
-            print(f"📄 Document envoyé à {user_id}")
         elif message.voice:
             await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
-            print(f"🎤 Voice envoyé à {user_id}")
         elif message.audio:
             await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
-            print(f"🎵 Audio envoyé à {user_id}")
         else:
-            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté pour le relais.")
-            print(f"❌ Type de message non supporté")
+            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté.")
     except Exception as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-        print(f"❌ Erreur lors de l'envoi à {user_id} : {e}")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
 
-
-
-
-# --- DEBUT FONCTION MESSAGES AUX VIPS
-pending_mass_message = {}
-
+# ===========================
+# === Message groupé VIPs ===
+# ===========================
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
 async def ask_mass_message(message: types.Message):
-    print("🟢 Bouton détecté !")
     admin_modes[ADMIN_ID] = "en_attente_message"
     await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ? (texte, photo, vidéo, audio ou vocal)")
 
-
-@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
-async def reception_message_groupé(message: types.Message):
-    if admin_modes.get(ADMIN_ID) != "en_attente_message":
-        return
-
-    admin_modes[ADMIN_ID] = None  # Reset
-
+async def traiter_message_groupé(message: types.Message):
     if message.text:
         pending_mass_message[ADMIN_ID] = {
             "type": "text",
@@ -929,7 +911,6 @@ async def reception_message_groupé(message: types.Message):
 
     await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
 
-
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
@@ -939,7 +920,6 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         return
 
     await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
-
     envoyes = 0
     erreurs = 0
 
@@ -960,13 +940,8 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             print(f"❌ Erreur envoi à {vip_id} : {e}")
             erreurs += 1
 
-    await bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"✅ Message envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}"
-    )
-
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Message envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(ADMIN_ID, None)
-
 
 @dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
 async def annuler_envoi_groupé(call: types.CallbackQuery):
@@ -974,7 +949,7 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ L’envoi du message groupé a été annulé.")
 
-# --- Fin
+# fin de la fonction de la fusion du message groupé et privé 
 
 
 
