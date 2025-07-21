@@ -951,30 +951,12 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
         await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
 
-
-
-
-
-
-
-
 #fin du 19 juillet 2025 mettre le tableau de vips
-
-
-
 
 # --- Message relay (client -> admin & admin -> client) ---
 pending_replies = {}
 # === petite partie ajouté 
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=[
-    types.ContentType.TEXT,
-    types.ContentType.PHOTO,
-    types.ContentType.VIDEO,
-    types.ContentType.DOCUMENT,
-    types.ContentType.VOICE,
-    types.ContentType.AUDIO
-])
-
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
     if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
         print(f"❌ Message bloqué de {message.from_user.id} (banni)")
@@ -1006,7 +988,6 @@ async def relay_from_client(message: types.Message):
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_admin(message: types.Message):
-
     if not message.reply_to_message:
         return
 
@@ -1019,7 +1000,7 @@ async def relay_from_admin(message: types.Message):
     if not user_id:
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
         return
-    
+
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
@@ -1038,10 +1019,5 @@ async def relay_from_admin(message: types.Message):
 
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur lors du relais admin -> client.\n{e}")
-
-    if message.text == "✉️ Message à tous les VIPs":
-        await message.reply("Quel message veux-tu envoyer à tous les VIPs ? (texte uniquement)")
-    admin_modes[message.from_user.id] = "en_attente_message"
-    return
 
 
