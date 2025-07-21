@@ -769,7 +769,7 @@ except:
     pending_replies = {}
 
 # === CLIENT ➝ ADMIN
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and admin_modes.get(ADMIN_ID) != "en_attente_message", content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
     print(f"📩 Nouveau message reçu d’un client ({message.from_user.id})")
 
@@ -862,7 +862,7 @@ async def relay_from_admin(message: types.Message):
 
 
 
-# --- DEBUT 16 JUILLET
+# --- DEBUT FONCTION MESSAGES AUX VIPS
 pending_mass_message = {}
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
