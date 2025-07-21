@@ -57,6 +57,6 @@ class PaymentFilterMiddleware(BaseMiddleware):
         )
     )
 )
-raise CancelHandler()
+            raise CancelHandler()
 
 
