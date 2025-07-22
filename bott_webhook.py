@@ -756,6 +756,32 @@ async def show_stats_direct(message: types.Message):
 
 # ======================== IMPORTS & VARIABLES ========================
 
+# ========== IMPORTS ESSENTIELS ==========
+from aiogram import types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# Assure-toi que ces variables existent dans ton fichier :
+# - bot
+# - dp
+# - ADMIN_ID
+# - authorized_users (liste d'ID Telegram des VIPs)
+# - pending_replies = {}
+# - admin_modes = {}
+# - pending_mass_message = {}
+
+# ========== HANDLER CLIENT : transfert vers admin ==========
+
+@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
+async def relay_from_client(message: types.Message):
+    try:
+        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
+        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
+        print(f"✅ Message reçu de {message.chat.id} et transféré à l'admin")
+    except Exception as e:
+        print(f"❌ Erreur transfert message client : {e}")
+
+# ========== HANDLER ADMIN : réponses privées + messages groupés ==========
+
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def handle_admin_message(message: types.Message):
     mode = admin_modes.get(ADMIN_ID)
@@ -777,7 +803,7 @@ async def handle_admin_message(message: types.Message):
         print("❌ Pas de reply détecté (et pas en mode groupé)")
         return
 
-    # 🔍 Identification de l'utilisateur à qui répondre
+    # 🔍 Identification du destinataire
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
@@ -788,7 +814,7 @@ async def handle_admin_message(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire.")
         return
 
-    # ✅ Réponse classique en privé
+    # ✅ Envoi de la réponse
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
@@ -806,6 +832,77 @@ async def handle_admin_message(message: types.Message):
             await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté.")
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
+
+# ========== TRAITEMENT MESSAGE GROUPÉ VIPs ==========
+
+async def traiter_message_groupé(message: types.Message):
+    if message.text:
+        pending_mass_message[ADMIN_ID] = {"type": "text", "content": message.text}
+        preview = message.text
+    elif message.photo:
+        pending_mass_message[ADMIN_ID] = {"type": "photo", "content": message.photo[-1].file_id, "caption": message.caption or ""}
+        preview = f"[Photo] {message.caption or ''}"
+    elif message.video:
+        pending_mass_message[ADMIN_ID] = {"type": "video", "content": message.video.file_id, "caption": message.caption or ""}
+        preview = f"[Vidéo] {message.caption or ''}"
+    elif message.audio:
+        pending_mass_message[ADMIN_ID] = {"type": "audio", "content": message.audio.file_id, "caption": message.caption or ""}
+        preview = f"[Audio] {message.caption or ''}"
+    elif message.voice:
+        pending_mass_message[ADMIN_ID] = {"type": "voice", "content": message.voice.file_id}
+        preview = "[Note vocale]"
+    else:
+        await message.reply("❌ Message non supporté.")
+        return
+
+    confirmation = InlineKeyboardMarkup(row_width=2)
+    confirmation.add(
+        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
+        InlineKeyboardButton("❌ Annuler l’envoi", callback_data="annuler_envoi_groupé")
+    )
+
+    await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
+
+# ========== CALLBACKS ENVOI / ANNULATION GROUPÉ ==========
+
+@dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
+async def confirmer_envoi_groupé(call: types.CallbackQuery):
+    await call.answer()
+    message_data = pending_mass_message.get(ADMIN_ID)
+    if not message_data:
+        await call.message.edit_text("❌ Aucun message en attente à envoyer.")
+        return
+
+    await call.message.edit_text("⏳ Envoi du message à tous les VIPs...")
+    envoyes = 0
+    erreurs = 0
+
+    for vip_id in authorized_users:
+        try:
+            if message_data["type"] == "text":
+                await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
+            elif message_data["type"] == "photo":
+                await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data.get("caption", ""))
+            elif message_data["type"] == "video":
+                await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data.get("caption", ""))
+            elif message_data["type"] == "audio":
+                await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data.get("caption", ""))
+            elif message_data["type"] == "voice":
+                await bot.send_voice(chat_id=int(vip_id), voice=message_data["content"])
+            envoyes += 1
+        except Exception as e:
+            print(f"❌ Erreur envoi à {vip_id} : {e}")
+            erreurs += 1
+
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
+    pending_mass_message.pop(ADMIN_ID, None)
+
+@dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
+async def annuler_envoi_groupé(call: types.CallbackQuery):
+    await call.answer("❌ Envoi annulé.")
+    pending_mass_message.pop(ADMIN_ID, None)
+    await call.message.edit_text("❌ Envoi annulé.")
+
 
 
 
