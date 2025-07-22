@@ -399,9 +399,8 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
-keyboard_admin.add(
-    types.KeyboardButton("✉️ Message à tous les VIPs")  # 👉 Nouveau bouton ici
-)
+InlineKeyboardButton("✉️ Message à tous les VIPs", callback_data="demander_message_groupé") # 👉 Nouveau bouton ici
+
 keyboard.add(
     types.KeyboardButton("🔞 Voir le contenu du jour")
 )
@@ -866,12 +865,14 @@ async def handle_admin_message(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
         print(f"❌ Erreur lors de l'envoi à {user_id} : {e}")
 
+# =========================== 
+# === Message groupé VIPs === 
 # ===========================
-# === Message groupé VIPs ===
-# ===========================
-@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
-async def ask_mass_message(message: types.Message):
+
+@dp.callback_query_handler(lambda call: call.data == "demander_message_groupé")
+async def ask_mass_message(call: types.CallbackQuery):
     admin_modes[ADMIN_ID] = "en_attente_message"
+    await call.answer()
     await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ? (texte, photo, vidéo, audio ou vocal)")
 
 async def traiter_message_groupé(message: types.Message):
@@ -962,6 +963,7 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ L’envoi du message groupé a été annulé.")
+
 
 
 # fin de la fonction de la fusion du message groupé et privé 
