@@ -754,19 +754,17 @@ async def show_commandes_admin(message: types.Message):
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
-# début de la fusion des messages groupé et privés 
+# ======================== IMPORTS & VARIABLES ========================
 
-# ========================
-# === REQUIS IMPORTS ===
-# ========================
 import json
+from aiogram import types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# --- VARIABLES ---
 pending_replies = {}
 pending_mass_message = {}
-admin_modes = {}  # Pour savoir si l'admin est en mode envoi groupé
+admin_modes = {}
 
-# --- Chargement du fichier pending_replies ---
+# Chargement du fichier pending_replies
 try:
     with open("pending_replies.json", "r") as f:
         data = json.load(f)
@@ -774,9 +772,8 @@ try:
 except:
     pending_replies = {}
 
-# ========================
-# === CLIENT -> ADMIN ===
-# ========================
+# ======================== CLIENT → ADMIN ========================
+
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
     if ADMIN_ID in ban_list and message.from_user.id in ban_list[ADMIN_ID]:
@@ -808,115 +805,78 @@ async def relay_from_client(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur client -> admin : {e}")
 
-# ================================
-# === ADMIN : réponse privée OU message groupé (fusion propre) ===
-# ================================
+# ======================== ADMIN HANDLER (fusion) ========================
+
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def handle_admin_message(message: types.Message):
     mode = admin_modes.get(ADMIN_ID)
 
-    # === Envoi groupé prioritaire
+    # === En mode message groupé ===
     if mode == "en_attente_message":
         admin_modes[ADMIN_ID] = None
-        print("📢 Mode groupé activé : traitement du message pour tous les VIPs")
         await traiter_message_groupé(message)
         return
 
-    # === Sinon, tentative de réponse privée (nécessite un reply)
+    # === Sinon message privé (reply attendu) ===
     if not message.reply_to_message:
         print("❌ Pas de reply détecté (et pas en mode groupé)")
         return
 
-    # === Identification du destinataire
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
-        print(f"✅ Utilisateur détecté via forward_from : {user_id}")
     else:
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
-        print(f"🔄 Utilisateur détecté via pending_replies : {user_id}")
 
     if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire de la réponse.")
-        print("❌ Échec : Aucun user_id trouvé")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire.")
         return
 
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
-            print(f"📨 Message texte envoyé à {user_id}")
         elif message.photo:
             await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
-            print(f"📷 Photo envoyée à {user_id}")
         elif message.video:
             await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
-            print(f"📹 Vidéo envoyée à {user_id}")
         elif message.document:
             await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
-            print(f"📄 Document envoyé à {user_id}")
         elif message.voice:
             await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
-            print(f"🎤 Voice envoyée à {user_id}")
         elif message.audio:
             await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
-            print(f"🎵 Audio envoyée à {user_id}")
         else:
             await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté.")
-            print("❌ Type de message non supporté")
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
-        print(f"❌ Erreur lors de l'envoi à {user_id} : {e}")
 
-# =========================== 
-# === Message groupé VIPs === 
-# ===========================
+# ======================== BOUTON Message à tous les VIPs ========================
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
 async def ask_mass_message(message: types.Message):
     admin_modes[ADMIN_ID] = "en_attente_message"
     await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ? (texte, photo, vidéo, audio ou vocal)")
 
+# ======================== TRAITEMENT message groupé ========================
+
 async def traiter_message_groupé(message: types.Message):
     if message.text:
-        pending_mass_message[ADMIN_ID] = {
-            "type": "text",
-            "content": message.text
-        }
+        pending_mass_message[ADMIN_ID] = {"type": "text", "content": message.text}
         preview = message.text
-
     elif message.photo:
-        pending_mass_message[ADMIN_ID] = {
-            "type": "photo",
-            "content": message.photo[-1].file_id,
-            "caption": message.caption or ""
-        }
+        pending_mass_message[ADMIN_ID] = {"type": "photo", "content": message.photo[-1].file_id, "caption": message.caption or ""}
         preview = f"[Photo] {message.caption or ''}"
-
     elif message.video:
-        pending_mass_message[ADMIN_ID] = {
-            "type": "video",
-            "content": message.video.file_id,
-            "caption": message.caption or ""
-        }
+        pending_mass_message[ADMIN_ID] = {"type": "video", "content": message.video.file_id, "caption": message.caption or ""}
         preview = f"[Vidéo] {message.caption or ''}"
-
     elif message.audio:
-        pending_mass_message[ADMIN_ID] = {
-            "type": "audio",
-            "content": message.audio.file_id,
-            "caption": message.caption or ""
-        }
+        pending_mass_message[ADMIN_ID] = {"type": "audio", "content": message.audio.file_id, "caption": message.caption or ""}
         preview = f"[Audio] {message.caption or ''}"
-
     elif message.voice:
-        pending_mass_message[ADMIN_ID] = {
-            "type": "voice",
-            "content": message.voice.file_id
-        }
+        pending_mass_message[ADMIN_ID] = {"type": "voice", "content": message.voice.file_id}
         preview = "[Note vocale]"
-
     else:
-        await message.reply("❌ Seuls les messages texte, photo, vidéo, audio ou vocal sont supportés.")
+        await message.reply("❌ Message non supporté.")
         return
 
     confirmation = InlineKeyboardMarkup(row_width=2)
@@ -927,6 +887,8 @@ async def traiter_message_groupé(message: types.Message):
 
     await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
 
+# ======================== CALLBACKS CONFIRMATION / ANNULATION ========================
+
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
@@ -935,7 +897,7 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    await call.message.edit_text("⏳ Envoi du message à tous les VIPs en cours...")
+    await call.message.edit_text("⏳ Envoi du message à tous les VIPs...")
     envoyes = 0
     erreurs = 0
 
@@ -944,11 +906,11 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             if message_data["type"] == "text":
                 await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
             elif message_data["type"] == "photo":
-                await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data["caption"])
+                await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data.get("caption", ""))
             elif message_data["type"] == "video":
-                await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data["caption"])
+                await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data.get("caption", ""))
             elif message_data["type"] == "audio":
-                await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data["caption"])
+                await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data.get("caption", ""))
             elif message_data["type"] == "voice":
                 await bot.send_voice(chat_id=int(vip_id), voice=message_data["content"])
             envoyes += 1
@@ -956,18 +918,15 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             print(f"❌ Erreur envoi à {vip_id} : {e}")
             erreurs += 1
 
-    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Message envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(ADMIN_ID, None)
 
 @dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
 async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
-    await call.message.edit_text("❌ L’envoi du message groupé a été annulé.")
-
-
-
-# fin de la fonction de la fusion du message groupé et privé 
+    await call.message.edit_text("❌ Envoi annulé.")
+ 
 
 
 
