@@ -399,7 +399,9 @@ keyboard_admin.add(# TEST bouton admin
     types.KeyboardButton("❌ Bannir le client"),
     types.KeyboardButton("✅ Réintégrer le client")
 )
-InlineKeyboardButton("✉️ Message à tous les VIPs", callback_data="demander_message_groupé") # 👉 Nouveau bouton ici
+keyboard_admin.add(
+    types.KeyboardButton("✉️ Message à tous les VIPs")
+)
 
 keyboard.add(
     types.KeyboardButton("🔞 Voir le contenu du jour")
@@ -869,10 +871,9 @@ async def handle_admin_message(message: types.Message):
 # === Message groupé VIPs === 
 # ===========================
 
-@dp.callback_query_handler(lambda call: call.data == "demander_message_groupé")
-async def ask_mass_message(call: types.CallbackQuery):
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID and message.text == "✉️ Message à tous les VIPs")
+async def ask_mass_message(message: types.Message):
     admin_modes[ADMIN_ID] = "en_attente_message"
-    await call.answer()
     await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ? (texte, photo, vidéo, audio ou vocal)")
 
 async def traiter_message_groupé(message: types.Message):
