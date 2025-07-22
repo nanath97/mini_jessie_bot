@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-
+pending_mass_message = {}
 admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
 
 # Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 debut
