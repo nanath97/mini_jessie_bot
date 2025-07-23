@@ -174,8 +174,26 @@ async def handle_nath_global_stats(message: types.Message):
 # FIN de la fonction du propriétaire 
 
 # Mise sous forme de boutons : bannissement
+import json
 
-@dp.message_handler(lambda message: "bannir" in message.text.lower() and message.reply_to_message and message.from_user.id == ADMIN_ID)
+# === Chargement de la ban_list depuis le fichier JSON ===
+BAN_FILE = "bannis.json"
+
+def load_ban_list():
+    if os.path.exists(BAN_FILE):
+        with open(BAN_FILE, "r") as f:
+            data = json.load(f)
+            return {int(k): set(v) for k, v in data.items()}
+    return {}
+
+def save_ban_list():
+    with open(BAN_FILE, "w") as f:
+        json.dump({str(k): list(v) for k, v in ban_list.items()}, f)
+
+# Initialisation de la variable globale
+ban_list = load_ban_list()
+
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
     forwarded = message.reply_to_message.forward_from
     if not forwarded:
@@ -183,10 +201,10 @@ async def bouton_bannir(message: types.Message):
         return
 
     user_id = forwarded.id
-    ban_list.setdefault(ADMIN_ID, set()).add(user_id)
-    print(f"🚫 Client {user_id} ajouté à la ban_list")
+    ban_list.setdefault(message.from_user.id, set()).add(user_id)
+    save_ban_list()  # ✅ Enregistre la liste dans bannis.json
+    await message.reply("🚫 Le client a été banni avec succès.")
 
-    await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
         await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
     except Exception as e:
@@ -194,8 +212,7 @@ async def bouton_bannir(message: types.Message):
         await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
 
 
-
-@dp.message_handler(lambda message: "réintégrer" in message.text.lower() and message.reply_to_message and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_reintegrer(message: types.Message):
     forwarded = message.reply_to_message.forward_from
     if not forwarded:
@@ -203,11 +220,11 @@ async def bouton_reintegrer(message: types.Message):
         return
 
     user_id = forwarded.id
-    if user_id in ban_list.get(ADMIN_ID, set()):
-        ban_list[ADMIN_ID].remove(user_id)
-        print(f"✅ Client {user_id} retiré de la ban_list")
+    if user_id in ban_list.get(message.from_user.id, set()):
+        ban_list[message.from_user.id].remove(user_id)
+        save_ban_list()  # ✅ Enregistre la mise à jour
+        await message.reply("✅ Le client a été réintégré.")
 
-        await message.reply(f"✅ Le client a été réintégré.")
         try:
             await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
         except Exception as e:
@@ -215,6 +232,7 @@ async def bouton_reintegrer(message: types.Message):
             await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
     else:
         await message.reply("ℹ️ Ce client n’était pas retiré.")
+
 
 
 # Liste des prix autorisés
