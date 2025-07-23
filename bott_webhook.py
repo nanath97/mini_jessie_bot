@@ -13,6 +13,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
+authorized_admin_ids = [ADMIN_ID]
+
 
 pending_mass_message = {}
 admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
@@ -743,7 +745,7 @@ async def handle_admin_message(message: types.Message):
     )
 
     await bot.send_message(ADMIN_ID, response, parse_mode="Markdown")
-    
+
 # fin du resume du dernire message reçu
 
 
