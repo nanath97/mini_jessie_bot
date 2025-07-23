@@ -744,9 +744,13 @@ async def handle_admin_message(message: types.Message):
     new_msg = escape_html(message.text)
     old_msg = escape_html(last_messages.get(user_id, "Aucun message précédent"))
 
-    # Met à jour le dictionnaire
+    # Mise à jour du dernier message
     last_messages[user_id] = message.text or "[Message vide]"
 
+    # Forward du vrai message du client (pour pouvoir répondre)
+    await bot.forward_message(ADMIN_ID, user_id, message.message_id)
+
+    # Résumé contextuel à part
     response = (
         f"📩 <b>Nouveau message de @{username}</b>\n\n"
         f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
@@ -754,6 +758,7 @@ async def handle_admin_message(message: types.Message):
     )
 
     await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+
 
 
 
