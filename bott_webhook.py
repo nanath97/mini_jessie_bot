@@ -730,7 +730,12 @@ async def show_stats_direct(message: types.Message):
 @dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
-    username = message.from_user.username or f"id_{user_id}"
+
+    # Si l'utilisateur a un @username, on l'affiche. Sinon, on met son ID.
+    if message.from_user.username:
+        username = f"@{message.from_user.username}"
+    else:
+        username = f"Utilisateur sans pseudo (ID: {user_id})"
 
     def escape_html(text):
         if not text:
@@ -752,12 +757,13 @@ async def handle_admin_message(message: types.Message):
 
     # Résumé contextuel à part
     response = (
-        f"📩 <b>Nouveau message de @{username}</b>\n\n"
+        f"📩 <b>Nouveau message de {username}</b>\n\n"
         f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
         f"🆕 <b>Nouveau :</b>\n{new_msg}"
     )
 
     await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+
 
 
 
