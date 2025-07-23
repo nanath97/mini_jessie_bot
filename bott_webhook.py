@@ -11,6 +11,9 @@ from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+# Dictionnaire temporaire pour stocker les derniers messages de chaque client
+last_messages = {}
+
 pending_mass_message = {}
 admin_modes = {}  # Clé = admin_id, Valeur = "en_attente_message"
 
@@ -718,6 +721,39 @@ async def show_commandes_admin(message: types.Message):
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
+
+# test du résume du dernier message recu 
+@dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
+async def handle_admin_message(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username or f"id_{user_id}"
+    new_msg = message.text or "[Message sans texte]"
+    
+    # Récupérer le dernier message du client (ou indiquer aucun)
+    old_msg = last_messages.get(user_id, "Aucun message précédent")
+
+    # Met à jour le dictionnaire
+    last_messages[user_id] = new_msg
+
+    # Construction du message à l’admin
+    response = (
+        f"📩 Nouveau message de @{username} :\n\n"
+        f"🗨️ *Dernier message :*\n_{old_msg}_\n\n"
+        f"🆕 *Nouveau :*\n{new_msg}"
+    )
+
+    await bot.send_message(ADMIN_ID, response, parse_mode="Markdown")
+    
+# fin du resume du dernire message reçu
+
+
+
+
+
+
+
+
+
 
 # ======================== IMPORTS & VARIABLES ========================
 
