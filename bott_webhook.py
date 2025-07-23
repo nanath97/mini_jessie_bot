@@ -731,11 +731,6 @@ async def show_stats_direct(message: types.Message):
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
 
-    if message.from_user.username:
-        username = f"@{message.from_user.username}"
-    else:
-        username = f"Utilisateur sans pseudo (ID: {user_id})"
-
     def escape_html(text):
         if not text:
             return "[Message vide]"
@@ -746,18 +741,19 @@ async def handle_admin_message(message: types.Message):
         )
 
     new_msg = escape_html(message.text)
-    old_msg = escape_html(last_messages.get(user_id, "Aucun message précédent"))
+    old_msg = escape_html(last_messages.get(user_id, "Aucun message"))
 
     last_messages[user_id] = message.text or "[Message vide]"
 
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
     response = (
-        f"🗨️ <b>Dernier message de {username} :</b>\n{old_msg}\n\n"
+        f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
         f"🆕 <b>Nouveau :</b>\n{new_msg}"
     )
 
     await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+
 
 # fin du resume du dernier message recu 
 
