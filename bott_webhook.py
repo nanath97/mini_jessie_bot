@@ -207,38 +207,54 @@ async def handle_nath_global_stats(message: types.Message):
 # Mise sous forme de boutons : bannissement
 
 
-@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" 
+                    and message.reply_to_message 
+                    and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
+    # 🔍 Récupération de l'ID du client à bannir
     forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+    if forwarded:
+        user_id = forwarded.id
+    else:
+        key = (message.chat.id, message.reply_to_message.message_id)
+        user_id = pending_replies.get(key)
+
+    if not user_id:
+        await message.reply("❌ Impossible d'identifier le client à bannir.")
         return
 
-    user_id = forwarded.id
     add_ban(user_id)
-    await message.reply(f"🚫 Le client a été banni avec succès.")
+    await message.reply("🚫 Le client a été banni avec succès.")
     try:
-        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
-    except Exception as e:
-        print(f"Erreur d'envoi au client banni : {e}")
-        await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
+        await bot.send_message(chat_id=user_id, text="🚫 Tu as été banni. Tu ne peux plus envoyer de messages.")
+    except:
+        pass
 
 
-@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+
+@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" 
+                    and message.reply_to_message 
+                    and message.from_user.id == ADMIN_ID)
 async def bouton_reintegrer(message: types.Message):
+    # 🔍 Récupération de l'ID du client à débannir
     forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+    if forwarded:
+        user_id = forwarded.id
+    else:
+        key = (message.chat.id, message.reply_to_message.message_id)
+        user_id = pending_replies.get(key)
+
+    if not user_id:
+        await message.reply("❌ Impossible d'identifier le client à réintégrer.")
         return
 
-    user_id = forwarded.id
     remove_ban(user_id)
-    await message.reply("✅ Le client a été réintégré.")
+    await message.reply("✅ Le client a été réintégré avec succès.")
     try:
-        await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
-    except Exception as e:
-        print(f"Erreur d'envoi au client réintégré : {e}")
-        await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
+        await bot.send_message(chat_id=user_id, text="✅ Tu as été réintégré. Tu peux à nouveau discuter.")
+    except:
+        pass
+
 
 
 
