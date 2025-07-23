@@ -9,9 +9,13 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import types
 from ban_manager import is_banned, add_ban, remove_ban
-from ban_manager import ban_list
-from core import ADMIN_ID
+from core import authorized_admin_ids
+
+ADMIN_ID = authorized_admin_ids[0]
+
+
 
 
 
