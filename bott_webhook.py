@@ -768,21 +768,30 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ========== HANDLER CLIENT : transfert vers admin ==========
 
-@dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
-async def relay_from_client(message: types.Message):
-    user_id = message.from_user.id
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+async def bouton_bannir(message: types.Message):
+    print(f"✅ Fonction bouton_bannir appelée")
+    print(f"📌 ADMIN_ID déclaré : {ADMIN_ID}")
+    print(f"📩 ID de l'expéditeur du message (admin ?) : {message.from_user.id}")
 
-    # ✅ Vérifie si le client est banni
-    if user_id in ban_list.get(ADMIN_ID, set()):
-        print(f"⛔ Message bloqué de {user_id} (banni)")
-        return  # Le message ne sera pas transféré
+    forwarded = message.reply_to_message.forward_from
+    if not forwarded:
+        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+        return
 
+    user_id = forwarded.id
+    print(f"🚫 Client à bannir : {user_id}")
+
+    ban_list.setdefault(ADMIN_ID, set()).add(user_id)
+    print(f"📛 Ban list actuelle : {ban_list}")
+
+    await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
-        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=message.message_id)
-        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = user_id
-        print(f"✅ Message reçu de {user_id} et transféré à l'admin")
+        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
     except Exception as e:
-        print(f"❌ Erreur transfert message client : {e}")
+        print(f"Erreur d'envoi au client banni : {e}")
+        await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
+
 
 
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
