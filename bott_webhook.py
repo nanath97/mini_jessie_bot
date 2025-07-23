@@ -9,16 +9,6 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram import types
-from ban_manager import is_banned, add_ban, remove_ban
-from core import authorized_admin_ids
-
-ADMIN_ID = authorized_admin_ids[0]
-
-
-
-
-
 
 
 #banlist
@@ -40,35 +30,6 @@ ADMIN_EMAILS = {
 }
 # Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 fin
 
-
-#test du bouton bannir ou reintégré
-import json, os
-from aiogram import types
-
-BAN_FILE = "bannis.json"
-
-# === Charger la ban list depuis le fichier ===
-def load_ban_list():
-    if os.path.exists(BAN_FILE):
-        with open(BAN_FILE, "r") as f:
-            try:
-                data = json.load(f)
-                return set(int(i) for i in data)
-            except:
-                print("⚠️ Erreur lecture bannis.json, on vide.")
-                return set()
-    return set()
-
-# === Sauvegarder la ban list dans le fichier ===
-def save_ban_list():
-    with open(BAN_FILE, "w") as f:
-        json.dump(list(ban_list), f)
-
-# === Initialiser la liste ===
-ban_list = load_ban_list()
-
-
-#fin du bouton bannir ou reintégré
 
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
@@ -212,8 +173,76 @@ async def handle_nath_global_stats(message: types.Message):
 
 # FIN de la fonction du propriétaire 
 
-# Mise sous forme de boutons : bannissement
 
+
+# Liste des clients bannis par admin
+ban_list = {}
+@dp.message_handler(commands=['supp'])
+async def bannir_client(message: types.Message):
+    if not message.reply_to_message:
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à retirer.")
+        return
+
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
+        return
+
+    admin_id = message.from_user.id
+
+    if admin_id not in ban_list:
+        ban_list[admin_id] = []
+
+    if user_id not in ban_list[admin_id]:
+        ban_list[admin_id].append(user_id)
+
+        await message.reply("✅ Le client a été retiré avec succès.")
+        try:
+            await bot.send_message(user_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du message au client banni : {e}")
+            await message.reply("ℹ️ Le client est bien banni, mais je n’ai pas pu lui envoyer le message (permissions Telegram).")
+    else:
+        await message.reply("ℹ️ Ce client est déjà retiré.")
+
+
+@dp.message_handler(commands=['unsupp'])
+async def reintegrer_client(message: types.Message):
+    if not message.reply_to_message:
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à réintégrer.")
+        return
+
+    user_id = None
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
+    else:
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+    if not user_id:
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
+        return
+
+    admin_id = message.from_user.id
+
+    if admin_id in ban_list and user_id in ban_list[admin_id]:
+        ban_list[admin_id].remove(user_id)
+
+        await message.reply("✅ Le client a été réintégré avec succès.")
+        try:
+            await bot.send_message(user_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
+        except Exception as e:
+            print(f"Erreur lors de l'envoi du message au client réintégré : {e}")
+            await message.reply("ℹ️ Réintégré, mais le message n’a pas pu être envoyé (permissions Telegram).")
+
+    else:
+        await message.reply("ℹ️ Ce client n’était pas retiré.")
+
+# Mise sous forme de boutons : bannissement
 
 @dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
@@ -223,9 +252,8 @@ async def bouton_bannir(message: types.Message):
         return
 
     user_id = forwarded.id
-    add_ban(user_id)
-    await message.reply("🚫 Le client a été banni avec succès.")
-
+    ban_list.setdefault(message.from_user.id, set()).add(user_id)
+    await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
         await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
     except Exception as e:
@@ -241,20 +269,16 @@ async def bouton_reintegrer(message: types.Message):
         return
 
     user_id = forwarded.id
-    remove_ban(user_id)
-    await message.reply("✅ Le client a été réintégré.")
-
-    try:
-        await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
-    except Exception as e:
-        print(f"Erreur d'envoi au client réintégré : {e}")
-        await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
-
-
-
-
-
-
+    if user_id in ban_list.get(message.from_user.id, set()):
+        ban_list[message.from_user.id].remove(user_id)
+        await message.reply(f"✅ Le client a été réintégré.")
+        try:
+            await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
+        except Exception as e:
+            print(f"Erreur d'envoi au client réintégré : {e}")
+            await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
+    else:
+        await message.reply("ℹ️ Ce client n’était pas retiré.")
 
 # Liste des prix autorisés
 prix_list = [1, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
@@ -746,26 +770,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
-    user_id = message.from_user.id
-
-    print(f"🚨 Nouveau message reçu de {user_id}")
-
-    if is_banned(user_id):
-        print(f"⛔ Message BLOQUÉ car {user_id} est banni.")
-        return
-
-    print(f"✅ Message AUTORISÉ de {user_id}, transfert à l’admin")
-
     try:
-        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=message.message_id)
-        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = user_id
+        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
+        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
+        print(f"✅ Message reçu de {message.chat.id} et transféré à l'admin")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
-
-
-
-
-
 
 
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
