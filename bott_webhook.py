@@ -33,26 +33,30 @@ ADMIN_EMAILS = {
 
 #test du bouton bannir ou reintégré
 import json, os
+from aiogram import types
 
 BAN_FILE = "bannis.json"
 
+# === Charger la ban list depuis le fichier ===
 def load_ban_list():
     if os.path.exists(BAN_FILE):
         with open(BAN_FILE, "r") as f:
             try:
                 data = json.load(f)
-                return {int(k): set(v) for k, v in data.items()}
-            except json.JSONDecodeError:
-                print("⚠️ Fichier bannis.json vide ou invalide, on le réinitialise")
-                return {}
-    return {}
+                return set(int(i) for i in data)
+            except:
+                print("⚠️ Erreur lecture bannis.json, on vide.")
+                return set()
+    return set()
 
+# === Sauvegarder la ban list dans le fichier ===
 def save_ban_list():
     with open(BAN_FILE, "w") as f:
-        json.dump({str(k): list(v) for k, v in ban_list.items()}, f)
+        json.dump(list(ban_list), f)
 
-# Chargement initial
+# === Initialiser la liste ===
 ban_list = load_ban_list()
+
 
 #fin du bouton bannir ou reintégré
 
@@ -201,48 +205,40 @@ async def handle_nath_global_stats(message: types.Message):
 # Mise sous forme de boutons : bannissement
 
 
-# Initialisation de la variable globale
-ban_list = load_ban_list()
-
 @dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
-    forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+    if not message.reply_to_message.forward_from:
+        await message.reply("❌ Tu dois répondre à un message transféré.")
         return
 
-    user_id = forwarded.id
-    ban_list.setdefault(message.from_user.id, set()).add(user_id)
-    save_ban_list()  # ✅ Enregistre la liste dans bannis.json
-    await message.reply("🚫 Le client a été banni avec succès.")
+    user_id = message.reply_to_message.forward_from.id
+    ban_list.add(user_id)
+    save_ban_list()
 
+    await message.reply("🚫 Client banni.")
     try:
-        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
-    except Exception as e:
-        print(f"Erreur d'envoi au client banni : {e}")
-        await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
-
+        await bot.send_message(user_id, "❌ Tu as été banni. Tu ne peux plus me contacter.")
+    except:
+        pass
 
 @dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_reintegrer(message: types.Message):
-    forwarded = message.reply_to_message.forward_from
-    if not forwarded:
-        await message.reply("❌ Tu dois répondre à un message transféré du client.")
+    if not message.reply_to_message.forward_from:
+        await message.reply("❌ Tu dois répondre à un message transféré.")
         return
 
-    user_id = forwarded.id
-    if user_id in ban_list.get(message.from_user.id, set()):
-        ban_list[message.from_user.id].remove(user_id)
-        save_ban_list()  # ✅ Enregistre la mise à jour
-        await message.reply("✅ Le client a été réintégré.")
-
+    user_id = message.reply_to_message.forward_from.id
+    if user_id in ban_list:
+        ban_list.remove(user_id)
+        save_ban_list()
+        await message.reply("✅ Client réintégré.")
         try:
-            await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
-        except Exception as e:
-            print(f"Erreur d'envoi au client réintégré : {e}")
-            await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
+            await bot.send_message(user_id, "✅ Tu as été réintégré. Tu peux me reparler.")
+        except:
+            pass
     else:
-        await message.reply("ℹ️ Ce client n’était pas retiré.")
+        await message.reply("ℹ️ Ce client n’était pas banni.")
+
 
 
 
@@ -738,17 +734,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def relay_from_client(message: types.Message):
     user_id = message.from_user.id
 
-    # BLOQUER SI BANNI
-    if user_id in ban_list.get(ADMIN_ID, set()):
-        print(f"⛔ Client banni {user_id} - message bloqué.")
+    if user_id in ban_list:
+        print(f"⛔ {user_id} est banni. Message bloqué.")
         return
 
     try:
         sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=message.message_id)
         pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = user_id
-        print(f"✅ Message reçu de {user_id} et transféré à l'admin")
+        print(f"✅ Message reçu de {user_id} et transféré à l'admin.")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
+
 
 
 
