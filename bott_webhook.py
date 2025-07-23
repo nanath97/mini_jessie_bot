@@ -31,6 +31,31 @@ ADMIN_EMAILS = {
 # Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 fin
 
 
+#test du bouton bannir ou reintégré
+import json, os
+
+BAN_FILE = "bannis.json"
+
+def load_ban_list():
+    if os.path.exists(BAN_FILE):
+        with open(BAN_FILE, "r") as f:
+            try:
+                data = json.load(f)
+                return {int(k): set(v) for k, v in data.items()}
+            except json.JSONDecodeError:
+                print("⚠️ Fichier bannis.json vide ou invalide, on le réinitialise")
+                return {}
+    return {}
+
+def save_ban_list():
+    with open(BAN_FILE, "w") as f:
+        json.dump({str(k): list(v) for k, v in ban_list.items()}, f)
+
+# Chargement initial
+ban_list = load_ban_list()
+
+#fin du bouton bannir ou reintégré
+
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
 
@@ -174,21 +199,7 @@ async def handle_nath_global_stats(message: types.Message):
 # FIN de la fonction du propriétaire 
 
 # Mise sous forme de boutons : bannissement
-import json
 
-# === Chargement de la ban_list depuis le fichier JSON ===
-BAN_FILE = "bannis.json"
-
-def load_ban_list():
-    if os.path.exists(BAN_FILE):
-        with open(BAN_FILE, "r") as f:
-            data = json.load(f)
-            return {int(k): set(v) for k, v in data.items()}
-    return {}
-
-def save_ban_list():
-    with open(BAN_FILE, "w") as f:
-        json.dump({str(k): list(v) for k, v in ban_list.items()}, f)
 
 # Initialisation de la variable globale
 ban_list = load_ban_list()
@@ -727,8 +738,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def relay_from_client(message: types.Message):
     user_id = message.from_user.id
 
+    # BLOQUER SI BANNI
     if user_id in ban_list.get(ADMIN_ID, set()):
-        print(f"⛔ Message bloqué de {user_id} (banni)")
+        print(f"⛔ Client banni {user_id} - message bloqué.")
         return
 
     try:
@@ -737,6 +749,7 @@ async def relay_from_client(message: types.Message):
         print(f"✅ Message reçu de {user_id} et transféré à l'admin")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
+
 
 
 
