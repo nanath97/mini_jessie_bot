@@ -13,7 +13,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
+ADMIN_ID = 7334072965
 authorized_admin_ids = [ADMIN_ID]
+
 
 
 pending_mass_message = {}
