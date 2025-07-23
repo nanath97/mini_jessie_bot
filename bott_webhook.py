@@ -9,7 +9,8 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from ban_manager import is_banned, add_ban, remove_ban
+from ban_manager import is_banned, add_ban, remove_ban, ban_list
+
 
 
 
@@ -752,17 +753,20 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def relay_from_client(message: types.Message):
     user_id = message.from_user.id
 
-    # ✅ Vérifie le bannissement PERSISTANT
+    print(f"🚨 Nouveau message reçu de {user_id}")
+
     if is_banned(user_id):
-        print(f"⛔ Message bloqué de {user_id} (banni)")
+        print(f"⛔ Message BLOQUÉ car {user_id} est banni.")
         return
+
+    print(f"✅ Message AUTORISÉ de {user_id}, transfert à l’admin")
 
     try:
         sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=message.message_id)
         pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = user_id
-        print(f"✅ Message reçu de {user_id} et transféré à l'admin")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
+
 
 
 

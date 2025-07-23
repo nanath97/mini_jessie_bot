@@ -19,7 +19,8 @@ def save_ban_list(ban_set):
         json.dump(list(ban_set), f)
 
 def is_banned(user_id):
-    return user_id in load_ban_list()
+    return user_id in ban_list.get(ADMIN_ID, set())
+
 
 def add_ban(user_id):
     ban_set = load_ban_list()
