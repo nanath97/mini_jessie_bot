@@ -11,6 +11,9 @@ from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+#banlist
+ban_list = {}
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -767,12 +770,20 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
+    user_id = message.from_user.id
+
+    # ✅ Vérifie si le client est banni
+    if user_id in ban_list.get(ADMIN_ID, set()):
+        print(f"⛔ Message bloqué de {user_id} (banni)")
+        return  # Le message ne sera pas transféré
+
     try:
-        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
-        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
-        print(f"✅ Message reçu de {message.chat.id} et transféré à l'admin")
+        sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=message.message_id)
+        pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = user_id
+        print(f"✅ Message reçu de {user_id} et transféré à l'admin")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
+
 
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
 
