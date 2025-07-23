@@ -731,13 +731,25 @@ async def show_stats_direct(message: types.Message):
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"id_{user_id}"
-    new_msg = message.text or "[Message sans texte]"
-    
-    # Récupérer le dernier message du client (ou indiquer aucun)
-    old_msg = last_messages.get(user_id, "Aucun message précédent")
+
+    def escape_md(text):
+        if not text:
+            return "[Message vide]"
+        return (
+            text.replace("_", "\\_")
+                .replace("*", "\\*")
+                .replace("`", "\\`")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("(", "\\(")
+                .replace(")", "\\)")
+        )
+
+    new_msg = escape_md(message.text)
+    old_msg = escape_md(last_messages.get(user_id, "Aucun message précédent"))
 
     # Met à jour le dictionnaire
-    last_messages[user_id] = new_msg
+    last_messages[user_id] = message.text or "[Message vide]"
 
     # Construction du message à l’admin
     response = (
@@ -746,9 +758,10 @@ async def handle_admin_message(message: types.Message):
         f"🆕 *Nouveau :*\n{new_msg}"
     )
 
-    await bot.send_message(ADMIN_ID, response, parse_mode="Markdown")
+    await bot.send_message(ADMIN_ID, response, parse_mode="MarkdownV2")
 
-# fin du resume du dernire message reçu
+
+# fin du resume du dernier message recu 
 
 
 
