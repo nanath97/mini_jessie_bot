@@ -731,7 +731,6 @@ async def show_stats_direct(message: types.Message):
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
 
-    # Si l'utilisateur a un @username, on l'affiche. Sinon, on met son ID.
     if message.from_user.username:
         username = f"@{message.from_user.username}"
     else:
@@ -749,35 +748,18 @@ async def handle_admin_message(message: types.Message):
     new_msg = escape_html(message.text)
     old_msg = escape_html(last_messages.get(user_id, "Aucun message précédent"))
 
-    # Mise à jour du dernier message
     last_messages[user_id] = message.text or "[Message vide]"
 
-    # Forward du vrai message du client (pour pouvoir répondre)
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
-    # Résumé contextuel à part
     response = (
-        f"📩 <b>Nouveau message de {username}</b>\n\n"
-        f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
+        f"🗨️ <b>Dernier message de {username} :</b>\n{old_msg}\n\n"
         f"🆕 <b>Nouveau :</b>\n{new_msg}"
     )
 
     await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
 
-
-
-
-
 # fin du resume du dernier message recu 
-
-
-
-
-
-
-
-
-
 
 # ======================== IMPORTS & VARIABLES ========================
 
