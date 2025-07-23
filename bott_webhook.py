@@ -732,33 +732,29 @@ async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"id_{user_id}"
 
-    def escape_md(text):
+    def escape_html(text):
         if not text:
             return "[Message vide]"
         return (
-            text.replace("_", "\\_")
-                .replace("*", "\\*")
-                .replace("`", "\\`")
-                .replace("[", "\\[")
-                .replace("]", "\\]")
-                .replace("(", "\\(")
-                .replace(")", "\\)")
+            text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
         )
 
-    new_msg = escape_md(message.text)
-    old_msg = escape_md(last_messages.get(user_id, "Aucun message précédent"))
+    new_msg = escape_html(message.text)
+    old_msg = escape_html(last_messages.get(user_id, "Aucun message précédent"))
 
     # Met à jour le dictionnaire
     last_messages[user_id] = message.text or "[Message vide]"
 
-    # Construction du message à l’admin
     response = (
-        f"📩 Nouveau message de @{username} :\n\n"
-        f"🗨️ *Dernier message :*\n_{old_msg}_\n\n"
-        f"🆕 *Nouveau :*\n{new_msg}"
+        f"📩 <b>Nouveau message de @{username}</b>\n\n"
+        f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
+        f"🆕 <b>Nouveau :</b>\n{new_msg}"
     )
 
-    await bot.send_message(ADMIN_ID, response, parse_mode="MarkdownV2")
+    await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+
 
 
 # fin du resume du dernier message recu 
