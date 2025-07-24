@@ -23,7 +23,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
         if message.content_type != types.ContentType.TEXT:
             return
 
-        # ➡️ Si c'est l'admin, on vérifie seulement les liens
+        # ✅ Autoriser l'admin (vérifie juste les liens)
         if message.from_user.id == ADMIN_ID:
             if lien_non_autorise(message.text):
                 try:
@@ -34,12 +34,15 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 raise CancelHandler()
             return
 
+        # ✅ Autoriser les /start
         if message.text and message.text.startswith("/start"):
             return
 
+        # ✅ Autoriser les boutons prédéfinis
         if message.text.strip() in BOUTONS_AUTORISES:
             return
 
+        # ❌ Si utilisateur non VIP → suppression + message + bouton Stripe
         if message.from_user.id not in self.authorized_users:
             try:
                 await message.delete()
@@ -47,17 +50,16 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 print(f"Erreur suppression message non autorisé : {e}")
 
             await message.answer(
-    "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
-    "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-    "Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭\n\n"
-    "<i>🔐 Paiement sécurisé par Stripe</i>",
-    reply_markup=InlineKeyboardMarkup().add(
-        InlineKeyboardButton(
-            text="💎 Devenir VIP pour 1€",
-            url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
-        )
-    ),
-    parse_mode="HTML"
-)
-raise CancelHandler()
-
+                "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
+                "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
+                "Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭\n\n"
+                "<i>🔐 Paiement sécurisé par Stripe</i>",
+                reply_markup=InlineKeyboardMarkup().add(
+                    InlineKeyboardButton(
+                        text="💎 Devenir VIP pour 1€",
+                        url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+                    )
+                ),
+                parse_mode="HTML"
+            )
+            raise CancelHandler()
