@@ -393,11 +393,11 @@ async def demande_contenu_jour(message: types.Message):
         )
 
         await message.reply(
-    "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
-    reply_markup=bouton_vip,
-    parse_mode="HTML"
-)
-
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
+            reply_markup=bouton_vip,
+            parse_mode="HTML"
+        )
+        return  # 🛑 Très important ! Stoppe ici si ce n’est pas un VIP
 
     # ✅ Si c'est un vrai VIP
     await bot.send_message(
@@ -412,6 +412,7 @@ async def demande_contenu_jour(message: types.Message):
     )
 
     pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
+
 
 
 
