@@ -397,9 +397,12 @@ async def demande_contenu_jour(message: types.Message):
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
-        return  # 🛑 Très important ! Stoppe ici si ce n’est pas un VIP
+        return  # Stop ici si ce n’est pas un VIP
 
-    # ✅ Si c'est un vrai VIP
+    # ✅ Réponse automatique au VIP
+    await message.reply("👀 Coucou, je t’envoie le contenu du jour dans un instant… 🔞")
+
+    # ✅ Notification pour l’admin
     await bot.send_message(
         chat_id=ADMIN_ID,
         text=f"📥 Nouvelle demande de contenu du jour reçue de la part d’un VIP !"
@@ -412,6 +415,7 @@ async def demande_contenu_jour(message: types.Message):
     )
 
     pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
+
 
 
 
