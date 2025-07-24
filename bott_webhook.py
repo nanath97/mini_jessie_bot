@@ -384,32 +384,34 @@ keyboard.add(
 async def demande_contenu_jour(message: types.Message):
     user_id = message.from_user.id
 
-    if user_id in authorized_users:
-        # Réponse pour les VIPs
-        await message.reply("✅ Merci, ton accès VIP est validé ! Tu recevras le contenu du jour dans quelques instants.")
-
-        # Notification admin
-        vip_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
-        )
-        await bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"📥 [VIP] {message.from_user.first_name or 'Un utilisateur'} a demandé le contenu du jour.",
-            reply_markup=vip_button
-        )
-
-    else:
-        # Réponse pour les non-VIPs avec bouton Stripe
+    if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
                 text="🔥 Rejoindre le groupe VIP pour 1€",
                 url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
             )
         )
+
         await message.reply(
             "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇",
             reply_markup=bouton_vip
         )
+        return
+
+    # ✅ Si c'est un vrai VIP
+    await bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"📥 Nouvelle demande de contenu du jour reçue de la part d’un VIP !"
+    )
+
+    forwarded = await bot.forward_message(
+        chat_id=ADMIN_ID,
+        from_chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
+
 
 
 
