@@ -393,10 +393,11 @@ async def demande_contenu_jour(message: types.Message):
         )
 
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇",
-            reply_markup=bouton_vip
-        )
-        return
+    "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
+    reply_markup=bouton_vip,
+    parse_mode="HTML"
+)
+
 
     # ✅ Si c'est un vrai VIP
     await bot.send_message(
@@ -479,7 +480,7 @@ async def handle_start(message: types.Message):
     # Cas 2 : VIP avec /start=vipcdan
     elif param == "vipcdan":
         authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire ici...💕")
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire, ou même voir le contenu du jour...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
@@ -509,10 +510,12 @@ async def discuter_vip(message: types.Message):
     )
 
     await bot.send_message(
-        message.chat.id,
-        "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇",
-        reply_markup=bouton_vip
-    )
+    message.chat.id,
+    "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
+    reply_markup=bouton_vip,
+    parse_mode="HTML"
+)
+
 
 @dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
 async def je_suis_voyeur(message: types.Message):
