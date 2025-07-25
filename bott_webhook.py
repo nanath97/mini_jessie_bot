@@ -732,6 +732,8 @@ async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
 # test du résume du dernier message recu 
+import asyncio
+
 @dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
@@ -753,11 +755,22 @@ async def handle_admin_message(message: types.Message):
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
     response = (
-        f"🗨️ <b>Dernier message :</b>\n{old_msg}\n\n"
-        f"🆕 <b>Nouveau :</b>\n{new_msg}"
+        "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
+        f"📌 Ancien : {old_msg}\n"
+        f"➡️ Nouveau : {new_msg}\n"
+        "╰──────────────────────────\n"
+        "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
 
-    await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+    sent_msg = await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+
+    await asyncio.sleep(10)
+    try:
+        await bot.delete_message(chat_id=ADMIN_ID, message_id=sent_msg.message_id)
+    except Exception as e:
+        print(f"❌ Erreur suppression message : {e}")
+
+
 
 
 # fin du resume du dernier message recu 
