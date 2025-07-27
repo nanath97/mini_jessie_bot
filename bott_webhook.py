@@ -9,10 +9,9 @@ from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from ban_storage import ban_list
 
 
-#banlist
-ban_list = {}
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
@@ -174,7 +173,6 @@ async def handle_nath_global_stats(message: types.Message):
 
 
 # Liste des clients bannis par admin
-ban_list = {}
 @dp.message_handler(commands=['supp'])
 async def bannir_client(message: types.Message):
     if not message.reply_to_message:
@@ -783,14 +781,33 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ========== HANDLER CLIENT : transfert vers admin ==========
 
+from ban_storage import ban_list  # à ajouter tout en haut si pas déjà fait
+
 @dp.message_handler(lambda message: message.from_user.id != ADMIN_ID, content_types=types.ContentType.ANY)
 async def relay_from_client(message: types.Message):
+    user_id = message.from_user.id
+
+    # 🔒 Vérifier si le client est banni par un admin
+    for admin_id, clients_bannis in ban_list.items():
+        if user_id in clients_bannis:
+            try:
+                await message.delete()
+            except:
+                pass
+            try:
+                await bot.send_message(user_id, "🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
+            except:
+                pass
+            return  # ⛔ STOP : on n'envoie rien à l'admin
+
+    # ✅ Si pas banni → transfert normal
     try:
         sent_msg = await bot.forward_message(chat_id=ADMIN_ID, from_chat_id=message.chat.id, message_id=message.message_id)
         pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
         print(f"✅ Message reçu de {message.chat.id} et transféré à l'admin")
     except Exception as e:
         print(f"❌ Erreur transfert message client : {e}")
+
 
 
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
