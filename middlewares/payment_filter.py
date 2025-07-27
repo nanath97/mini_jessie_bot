@@ -3,7 +3,7 @@ from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from bott_webhook import ban_list  # Import de la ban_list
+from ban_storage import ban_list # Import de la ban_list
 
 
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
