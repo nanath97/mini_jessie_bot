@@ -3,6 +3,8 @@ from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from bott_webhook import ban_list  # Import de la ban_list
+
 
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
@@ -20,11 +22,26 @@ class PaymentFilterMiddleware(BaseMiddleware):
         self.authorized_users = authorized_users
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
+        user_id = message.from_user.id
+
+        # 🔒 Vérifier si ce client est banni par un admin
+        for admin_id, clients_bannis in ban_list.items():
+            if user_id in clients_bannis:
+                try:
+                    await message.delete()
+                except Exception as e:
+                    print(f"Erreur suppression message banni : {e}")
+                try:
+                    await message.answer("🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
+                except Exception as e:
+                    print(f"Erreur envoi message banni : {e}")
+                raise CancelHandler()
+
         if message.content_type != types.ContentType.TEXT:
             return
 
         # ✅ Autoriser l'admin (vérifie juste les liens)
-        if message.from_user.id == ADMIN_ID:
+        if user_id == ADMIN_ID:
             if lien_non_autorise(message.text):
                 try:
                     await message.delete()
@@ -43,7 +60,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             return
 
         # ❌ Si utilisateur non VIP → suppression + message + bouton Stripe
-        if message.from_user.id not in self.authorized_users:
+        if user_id not in self.authorized_users:
             try:
                 await message.delete()
             except Exception as e:
