@@ -13,6 +13,12 @@ from ban_storage import ban_list
 
 
 
+@dp.message_handler(content_types=['voice', 'audio'])
+async def get_file_id(message: types.Message):
+    file_id = message.voice.file_id if message.voice else message.audio.file_id
+    await message.answer(f"📂 File ID : `{file_id}`", parse_mode="Markdown")
+
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -495,21 +501,12 @@ async def handle_start(message: types.Message):
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
     
+
     # Cas 3 : Accès normal
-
-    # Ton file_id audio (change-le pour chaque instance client)
-    WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAIxHWiI0k97YEeJ8gPnoPlVLfQIHqGgAAKSGAACyR9IUKIxsXF0UkYhNgQ"
-
     if user_id == ADMIN_ID:
         await bot.send_message(user_id, "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(user_id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)   
-
-    # 🔊 Audio juste après le message d’accueil
-    await bot.send_voice(
-        user_id,
-        voice=WELCOME_AUDIO_FILE_ID
-    )
+        await bot.send_message(user_id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)
 
 # Gestion des boutons…
 
