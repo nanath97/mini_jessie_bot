@@ -9,11 +9,11 @@ from ban_storage import ban_list # Import de la ban_list
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
-    "🔞 Voir le contenu du jour",
-    "✨Discuter en tant que VIP",
-    "👀Je suis un voyeur",
-    "❌ Oui je confirme (bannir)",
-    "✅ Non, je veux rejoindre le VIP"
+    "🔞 Ver el contenido del día",
+    "✨Chatear como VIP",
+    "👀Soy un mirón",
+    "❌ Sí, lo confirmo (prohibir)",
+    "✅ No, quiero unirme al VIP"
 ]
 
 class PaymentFilterMiddleware(BaseMiddleware):
@@ -32,7 +32,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 except Exception as e:
                     print(f"Erreur suppression message banni : {e}")
                 try:
-                    await message.answer("🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
+                    await message.answer("🚫 Has sido expulsado. Ya no puedes enviar mensajes.")
                 except Exception as e:
                     print(f"Erreur envoi message banni : {e}")
                 raise CancelHandler()
@@ -45,7 +45,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             if lien_non_autorise(message.text):
                 try:
                     await message.delete()
-                    await message.answer("🚫 Seuls les liens autorisés sont acceptés.")
+                    await message.answer("🚫 Solo se aceptan enlaces autorizados.")
                 except Exception as e:
                     print(f"Erreur suppression lien admin : {e}")
                 raise CancelHandler()
@@ -67,13 +67,13 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 print(f"Erreur suppression message non autorisé : {e}")
 
             await message.answer(
-                "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
-                "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-                "Cela coûte 1€ en paiement unique ! 🎁 Je t'attends...🤭\n\n"
+                "🚫 Para poder conversar libremente conmigo, tendrás que ser un VIP !\n\n"
+                "👇 Haz clic a continuación para desbloquear tu acceso inmediato :\n\n"
+                "El costo es de 1 € en un solo pago ! 🎁 Te espero...🤭\n\n"
                 "<i>🔐 Paiement sécurisé par Stripe</i>",
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
-                        text="💎 Devenir VIP pour 1€",
+                        text="💎 Conviértete en VIP por 1 €",
                         url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
                     )
                 ),
