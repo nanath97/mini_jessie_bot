@@ -12,15 +12,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
 
 
-@dp.message_handler(content_types=['voice', 'audio'])
-async def get_file_id(message: types.Message):
-    file_id = message.voice.file_id if message.voice else message.audio.file_id
-    await message.answer(f"📂 File ID : `{file_id}`", parse_mode="Markdown")
-
-
-
-
-
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -504,7 +495,7 @@ async def handle_start(message: types.Message):
         return
 
 # Ton file_id audio (change-le pour chaque instance client)
-WELCOME_AUDIO_FILE_ID = "AwADBAADbXXXXXXXXX1"
+WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAIxHWiI0k97YEeJ8gPnoPlVLfQIHqGgAAKSGAACyR9IUKIxsXF0UkYhNgQ"
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
