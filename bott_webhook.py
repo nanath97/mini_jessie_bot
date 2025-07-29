@@ -12,6 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
 
 
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -493,33 +494,22 @@ async def handle_start(message: types.Message):
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
-
-# Ton file_id audio (change-le pour chaque instance client)
-WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAIxHWiI0k97YEeJ8gPnoPlVLfQIHqGgAAKSGAACyR9IUKIxsXF0UkYhNgQ"
-
-@dp.message_handler(commands=['start'])
-async def start_command(message: types.Message):
-    user_id = message.from_user.id
-
+    
     # Cas 3 : Accès normal
+
+    # Ton file_id audio (change-le pour chaque instance client)
+    WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAIxHWiI0k97YEeJ8gPnoPlVLfQIHqGgAAKSGAACyR9IUKIxsXF0UkYhNgQ"
+
     if user_id == ADMIN_ID:
-        await bot.send_message(
-            user_id,
-            "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
-            reply_markup=keyboard_admin
-        )
+        await bot.send_message(user_id, "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(
-            user_id,
-            f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?",
-            reply_markup=keyboard
-        )
-        
-        # 🔊 Audio juste après le message d’accueil
-        await bot.send_voice(
-            user_id,
-            voice=WELCOME_AUDIO_FILE_ID
-        )
+        await bot.send_message(user_id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)   
+
+    # 🔊 Audio juste après le message d’accueil
+    await bot.send_voice(
+        user_id,
+        voice=WELCOME_AUDIO_FILE_ID
+    )
 
 # Gestion des boutons…
 
