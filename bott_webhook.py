@@ -85,7 +85,7 @@ def initialize_authorized_users():
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
-    await bot.send_message(message.chat.id, "📥 Procesamiento de tus estadísticas de ventas actuales...")
+    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
 
     try:
         # --- FAUX CHIFFRES POUR DÉMO VIDÉO ---
@@ -96,24 +96,24 @@ async def handle_stat(message: types.Message):
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
-            f"📊 Tus estadísticas de ventas :\n\n"
-            f"💰 Ventas del día : {ventes_jour}€\n"
-            f"💶 Ventas totales : {ventes_totales}€\n"
-            f"📦 Total de contenidos vendidos : {contenus_vendus}\n"
-            f"🌟 Clientes VIP : {clients_vip}\n"
-            f"📈 Beneficio neto estimado : {benefice_net}€\n\n"
-            f"_La ganancia incluye una comisión del 6 %._"
+            f"📊 Tes statistiques de vente :\n\n"
+            f"💰 Ventes du jour : {ventes_jour}€\n"
+            f"💶 Ventes totales : {ventes_totales}€\n"
+            f"📦 Contenus vendus total : {contenus_vendus}\n"
+            f"🌟 Clients VIP : {clients_vip}\n"
+            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
+            f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
 
         vip_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("📋 Ver mis VIP", callback_data="ver_mis_vips")
+            InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
 
         await bot.send_message(message.chat.id, message_final, parse_mode="Markdown", reply_markup=vip_button)
 
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
-        await bot.send_message(message.chat.id, "❌ Se ha producido un error al recuperar las estadísticas.")
+        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
 
 
 # Fin de la fonction des stats
@@ -177,7 +177,7 @@ async def handle_nath_global_stats(message: types.Message):
 @dp.message_handler(commands=['supp'])
 async def bannir_client(message: types.Message):
     if not message.reply_to_message:
-        await message.reply("❌ Utilice este comando en respuesta al mensaje del cliente para retirar.")
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à retirer.")
         return
 
     user_id = None
@@ -187,7 +187,7 @@ async def bannir_client(message: types.Message):
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await message.reply("❌ No se puede identificar al cliente. Responde correctamente a un mensaje reenviado por el bot.")
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
         return
 
     admin_id = message.from_user.id
@@ -198,20 +198,20 @@ async def bannir_client(message: types.Message):
     if user_id not in ban_list[admin_id]:
         ban_list[admin_id].append(user_id)
 
-        await message.reply("✅ El cliente se ha eliminado correctamente.")
+        await message.reply("✅ Le client a été retiré avec succès.")
         try:
-            await bot.send_message(user_id, "❌ Lo sentimos, pero ha sido eliminado del grupo VIP.")
+            await bot.send_message(user_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client banni : {e}")
             await message.reply("ℹ️ Le client est bien banni, mais je n’ai pas pu lui envoyer le message (permissions Telegram).")
     else:
-        await message.reply("ℹ️ Este cliente ya se ha retirado.")
+        await message.reply("ℹ️ Ce client est déjà retiré.")
 
 
 @dp.message_handler(commands=['unsupp'])
 async def reintegrer_client(message: types.Message):
     if not message.reply_to_message:
-        await message.reply("❌ Utilice este comando en respuesta al mensaje del cliente que desea reintegrar.")
+        await message.reply("❌ Utilisez cette commande en réponse au message du client à réintégrer.")
         return
 
     user_id = None
@@ -221,7 +221,7 @@ async def reintegrer_client(message: types.Message):
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await message.reply("❌ No se puede identificar al cliente. Responde correctamente a un mensaje reenviado por el bot.")
+        await message.reply("❌ Impossible d’identifier le client. Réponds bien à un message transféré par le bot.")
         return
 
     admin_id = message.from_user.id
@@ -229,9 +229,9 @@ async def reintegrer_client(message: types.Message):
     if admin_id in ban_list and user_id in ban_list[admin_id]:
         ban_list[admin_id].remove(user_id)
 
-        await message.reply("✅ El cliente ha sido reintegrado con éxito.")
+        await message.reply("✅ Le client a été réintégré avec succès.")
         try:
-            await bot.send_message(user_id, "✅ Ha sido readmitido en el grupo VIP !")
+            await bot.send_message(user_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client réintégré : {e}")
             await message.reply("ℹ️ Réintégré, mais le message n’a pas pu être envoyé (permissions Telegram).")
@@ -241,36 +241,36 @@ async def reintegrer_client(message: types.Message):
 
 # Mise sous forme de boutons : bannissement
 
-@dp.message_handler(lambda message: message.text == "❌ Expulsar al cliente" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "❌ Bannir le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_bannir(message: types.Message):
     forwarded = message.reply_to_message.forward_from
     if not forwarded:
-        await message.reply("❌ Debes responder a un mensaje reenviado por el cliente.")
+        await message.reply("❌ Tu dois répondre à un message transféré du client.")
         return
 
     user_id = forwarded.id
     ban_list.setdefault(message.from_user.id, set()).add(user_id)
-    await message.reply(f"🚫 El cliente ha sido expulsado correctamente.")
+    await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
-        await bot.send_message(user_id, "❌ Has sido eliminado. Ya no puedes volver a contactarme.")
+        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
     except Exception as e:
         print(f"Erreur d'envoi au client banni : {e}")
         await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
 
 
-@dp.message_handler(lambda message: message.text == "✅ Reintegrar al cliente" and message.reply_to_message and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "✅ Réintégrer le client" and message.reply_to_message and message.from_user.id == ADMIN_ID)
 async def bouton_reintegrer(message: types.Message):
     forwarded = message.reply_to_message.forward_from
     if not forwarded:
-        await message.reply("❌ Debes responder a un mensaje reenviado por el cliente.")
+        await message.reply("❌ Tu dois répondre à un message transféré du client.")
         return
 
     user_id = forwarded.id
     if user_id in ban_list.get(message.from_user.id, set()):
         ban_list[message.from_user.id].remove(user_id)
-        await message.reply(f"✅ El cliente ha sido reintegrado.")
+        await message.reply(f"✅ Le client a été réintégré.")
         try:
-            await bot.send_message(user_id, "✅ Has sido readmitido, puedes volver a ponerte en contacto conmigo.")
+            await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
         except Exception as e:
             print(f"Erreur d'envoi au client réintégré : {e}")
             await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
@@ -301,7 +301,7 @@ async def verifier_les_liens_uniquement(message: types.Message):
     if lien_non_autorise(text_to_check):
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            await bot.send_message(chat_id=message.chat.id, text="🚫 Los enlaces externos están prohibidos.")
+            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
             
             # Message perso au CEO pour avertir des fraudeurs
             await bot.send_message(DIRECTEUR_ID,
@@ -349,7 +349,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
         if response.status_code != 200:
             print(f"❌ Erreur Airtable : {response.text}")
         else:
-            print("✅ Pago agregado correctamente en Airtable !")
+            print("✅ Paiement ajouté dans Airtable avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi à Airtable : {e}")
 
@@ -358,53 +358,53 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
-    types.KeyboardButton("👀Soy un mirón."),
-    types.KeyboardButton("✨Chatear como VIP"),
-    types.KeyboardButton("❗ Problema con la compra")
+    types.KeyboardButton("👀Je suis un voyeur"),
+    types.KeyboardButton("✨Discuter en tant que VIP"),
+    types.KeyboardButton("❗ Problème achat")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard_admin.add(
-    types.KeyboardButton("📖 Pedidos"),
-    types.KeyboardButton("📊 Estadísticas")
+    types.KeyboardButton("📖 Commandes"),
+    types.KeyboardButton("📊 Statistiques")
 )
 keyboard_admin.add(# TEST bouton admin
-    types.KeyboardButton("❌ Expulsar al cliente"),
-    types.KeyboardButton("✅ Reintegrar al cliente")
+    types.KeyboardButton("❌ Bannir le client"),
+    types.KeyboardButton("✅ Réintégrer le client")
 )
 keyboard_admin.add(
-    types.KeyboardButton("✉️ Mensaje para todos los VIP")
+    types.KeyboardButton("✉️ Message à tous les VIPs")
 )
 
 keyboard.add(
-    types.KeyboardButton("🔞 Ver el contenido del día")
+    types.KeyboardButton("🔞 Voir le contenu du jour")
 )
 
-@dp.message_handler(lambda message: message.text == "🔞 Ver el contenido del día")
+@dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
     user_id = message.from_user.id
 
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Únete al grupo VIP por 1 €",
+                text="🔥 Rejoindre le groupe VIP pour 1€",
                 url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
             )
         )
 
         await message.reply(
-            "✅ He recibido tu solicitud !\n\n🚨 Pero el contenido de hoy está reservado para los miembros VIP.\n\nPara acceder, haz clic en el botón de abajo. 👇\n\n<i>🔐 Pago seguro mediante Stripe</i>",
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
         return  # Stop ici si ce n’est pas un VIP
 
     # ✅ Réponse automatique au VIP
-    await message.reply("👀 Hola, te enviaré el contenido del día en un momento… 🔞")
+    await message.reply("👀 Coucou, je t’envoie le contenu du jour dans un instant… 🔞")
 
     # ✅ Notification pour l’admin
     await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📥 Nueva solicitud de contenido del día recibida de un VIP !"
+        text=f"📥 Nouvelle demande de contenu du jour reçue de la part d’un VIP !"
     )
 
     forwarded = await bot.forward_message(
@@ -441,8 +441,8 @@ async def handle_start(message: types.Message):
             ]
 
             if not paiements_valides:
-                await bot.send_message(user_id, "❌ Pago no válido! Stripe ha rechazado tu pago por fondos insuficientes o rechazo general. Comprueba tu capacidad de pago.")
-                await bot.send_message(ADMIN_ID, f"⚠️ Problema ! Stripe ha rechazado el pago de tu cliente {message.from_user.username or message.from_user.first_name}.")
+                await bot.send_message(user_id, "❌ Paiement non valide ! Stripe a refusé votre paiement car fonds insuffisants ou refus général. Vérifie tes capacités de paiement.")
+                await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
                 return
 
             # Paiement validé
@@ -462,12 +462,12 @@ async def handle_start(message: types.Message):
                 paiements_en_attente_par_user.add(user_id)
 
             await bot.send_message(user_id,
-                f"✅ Gracias por tu pago de {montant}€ 💖 ! Tu contenido llegará en unos segundos...\n\n"
-                f"_❗️Si tienes algún problema con tu pedido, contáctanos en novapulse.online@gmail.com_",
+                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
+                f"_❗️En cas de problème avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
 
-            await bot.send_message(ADMIN_ID, f"💰 Nuevo pago de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=user_id,
@@ -475,17 +475,17 @@ async def handle_start(message: types.Message):
                 montant=float(montant),
                 contenu="Paiement validé via Stripe webhook + redirection"
             )
-            await bot.send_message(ADMIN_ID, "✅ Pago registrado en tu panel de control.")
+            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
             return
         else:
-            await bot.send_message(user_id, "❌ El importe indicado no es válido.")
+            await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
     # Cas 2 : VIP avec /start=vipcdan
     elif param == "vipcdan":
         authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenido al VIP! Ahora puedes escribirme o incluso ver el contenido del día...💕")
-        await bot.send_message(ADMIN_ID, f"🌟 Nuevo VIP : {message.from_user.username or message.from_user.first_name}.")
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire, ou même voir le contenu du jour...💕")
+        await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
@@ -493,16 +493,16 @@ async def handle_start(message: types.Message):
             montant=1.0,
             contenu="Accès VIP Telegram"
         )
-        await bot.send_message(ADMIN_ID, "✅ Acceso VIP registrado en tu panel de control.")
+        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
         return
     
     # Ton file_id audio (change-le pour chaque instance client)
     WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAIxM2iI3QSy6f1bs63rscmdcvv29usSAAKeGAACyR9IUDNlXhtBM21INgQ"
 
     if user_id == ADMIN_ID:
-        await bot.send_message(user_id, "👋 Hola, administrador ! Puedes ver la lista de pedidos y consultar tus estadísticas !", reply_markup=keyboard_admin)
+        await bot.send_message(user_id, "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !", reply_markup=keyboard_admin)
     else:
-        await bot.send_message(user_id, f"👋 Hola {message.from_user.first_name or 'toi'}, Qué quieres hacer 💕 ?", reply_markup=keyboard)   
+        await bot.send_message(user_id, f"👋 Coucou {message.from_user.first_name or 'toi'}, que veux-tu faire 💕 ?", reply_markup=keyboard)   
 
     # 🔊 Audio juste après le message d’accueil
     await bot.send_voice(
@@ -513,50 +513,50 @@ async def handle_start(message: types.Message):
 # Gestion des boutons…
 
 
-@dp.message_handler(lambda message: message.text == "✨Chatear como VIP")
+@dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            text="💬 Conviértete en VIP por 1 €",
+            text="💬 Devenir VIP pour 1€",
             url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
         )
     )
 
     await bot.send_message(
     message.chat.id,
-    "🚀 Hazte VIP para desbloquear el acceso al chat privado, contenido exclusivo y sorpresas reservadas para los miembros !\n\nHaz clic aquí 👇\n\n<i>🔐 Pago seguro con Stripe</i>",
+    "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )
 
 
-@dp.message_handler(lambda message: message.text == "👀Soy un mirón")
+@dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
 async def je_suis_voyeur(message: types.Message):
     keyboard_confirm = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard_confirm.add(
-        types.KeyboardButton("❌ Sí, lo confirmo (prohibido)"),
-        types.KeyboardButton("✅ No, quiero unirme al VIP")
+        types.KeyboardButton("❌ Oui je confirme (bannir)"),
+        types.KeyboardButton("✅ Non, je veux rejoindre le VIP")
     )
-    await bot.send_message(message.chat.id, "Confirma tu elección :", reply_markup=keyboard_confirm)
+    await bot.send_message(message.chat.id, "Confirme ton choix :", reply_markup=keyboard_confirm)
 
-@dp.message_handler(lambda message: message.text == "❌ Sí, lo confirmo (prohibido)")
+@dp.message_handler(lambda message: message.text == "❌ Oui je confirme (bannir)")
 async def confirmer_voyeur(message: types.Message):
-    await bot.send_message(message.chat.id, "🛑 Te quedas como simple espectador.")
+    await bot.send_message(message.chat.id, "🛑 Tu restes simple spectateur.")
 
-@dp.message_handler(lambda message: message.text == "✅ No, quiero unirme al VIP")
+@dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "✅ Genial ! Aquí tienes tu enlace VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
 
 
  # TEST
-@dp.message_handler(lambda message: message.text == "❗ Problema con la compra")
+@dp.message_handler(lambda message: message.text == "❗ Problème achat")
 async def probleme_achat(message: types.Message):
     texte_client = (
-        "❗ *Algún problema con tu compra ?*\n\n"
-        "No se preocupe! Nos tomamos muy en serio cada caso. "
-        "Puedes escribirnos directamente a *novapulse.online@gmail.com* con tu nombre de usuario de Telegram, "
-        "y vamos a investigar tu situación de inmediato !\n\n"
-        "_No presentes ninguna reclamación en Stripe, ya que nosotros nos encargaremos de la situación._"
+        "❗ *Un souci avec ton achat ?*\n\n"
+        "Pas de panique ! Nous prenons très au sérieux chaque cas. "
+        "Tu peux nous écrire directement à *novapulse.online@gmail.com* avec ton pseudo Telegram, "
+        "et on investiguera ta situation dès maintenant !\n\n"
+        "_Ne dépose pas de litige sur Stripe car nous allons nous occuper de la situtation._"
     )
     await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
 
@@ -565,9 +565,9 @@ async def probleme_achat(message: types.Message):
 
     # 🔔 Alerte pour le vendeur (admin)
     await bot.send_message(ADMIN_ID,
-        f"⚠️ *ALERTA DE LITIGIO CON CLIENTE* :\n\n"
-        f"El cliente {pseudo} (ID: {user_id}) hizo clic en *'Problema con la compra'*.\n"
-        f"Recuerda comprobar que todo está bien.",
+        f"⚠️ *ALERTE LITIGE CLIENT* :\n\n"
+        f"Le client {pseudo} (ID: {user_id}) a cliqué sur *'Problème achat'*.\n"
+        f"Pense à vérifier si tout est OK.",
         parse_mode="Markdown"
     )
 
@@ -610,7 +610,7 @@ import re
 )
 async def envoyer_lien_stripe(message: types.Message):
     if not message.reply_to_message:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utiliza el comando en respuesta a un mensaje del cliente..")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilise la commande en réponse à un message du client.")
         return
 
     user_id = None
@@ -620,7 +620,7 @@ async def envoyer_lien_stripe(message: types.Message):
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ No se puede identificar al destinatario.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
         return
 # 22 Mettre les liens propres à l'admin
     liens_paiement = {
@@ -649,7 +649,7 @@ async def envoyer_lien_stripe(message: types.Message):
     code = match.group(1)
     lien = liens_paiement.get(code)
     if not lien:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Este importe no se reconoce en los enlaces disponibles.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
         return
 
     nouvelle_legende = re.sub(r"/env(\d+|vip)", f"{lien}", texte)
@@ -658,7 +658,7 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
         await bot.send_message(
     chat_id=user_id,
-    text=f"_🔒 Este contenido a {code} € está bloqueado. Haz clic en el enlace de arriba para desbloquearlo.._",
+    text=f"_🔒 Ce contenu à {code} € est verrouillé. Clique sur le lien ci-dessus pour le débloquer._",
     parse_mode="Markdown"
 )
 
@@ -681,7 +681,7 @@ async def envoyer_lien_stripe(message: types.Message):
 ), content_types=types.ContentType.ANY)
 async def stocker_media_par_user(message: types.Message):
     if not message.reply_to_message:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilice este comando en respuesta a un mensaje del cliente.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Utilise cette commande en réponse à un message client.")
         return
 
     user_id = None
@@ -691,11 +691,11 @@ async def stocker_media_par_user(message: types.Message):
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ No se puede identificar al destinatario.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
         return
 
     if not (message.photo or message.video or message.document):
-        await bot.send_message(chat_id=ADMIN_ID, text="❗ No se detectaron medios.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Aucun média détecté.")
         return
 
     contenus_en_attente[user_id] = {
@@ -704,7 +704,7 @@ async def stocker_media_par_user(message: types.Message):
         "caption": (message.caption or message.text or "").replace("/dev", "").strip()
     }
 
-    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenido listo para el usuario {user_id}.")
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Contenu prêt pour l'utilisateur {user_id}.")
 
     # Si le client avait déjà payé → on lui envoie tout de suite
     if user_id in paiements_en_attente_par_user:
@@ -719,7 +719,7 @@ async def stocker_media_par_user(message: types.Message):
         del contenus_en_attente[user_id]   
 
 # TEST VF debut
-@dp.message_handler(lambda message: message.text == "📖 Pedidos" and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
@@ -735,7 +735,7 @@ async def show_commandes_admin(message: types.Message):
     )
     await message.reply(commandes, parse_mode="Markdown")
 
-@dp.message_handler(lambda message: message.text == "📊 Estadísticas" and message.from_user.id == ADMIN_ID)
+@dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
@@ -748,7 +748,7 @@ async def handle_admin_message(message: types.Message):
 
     def escape_html(text):
         if not text:
-            return "[Mensaje vacío]"
+            return "[Message vide]"
         return (
             text.replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -756,18 +756,18 @@ async def handle_admin_message(message: types.Message):
         )
 
     new_msg = escape_html(message.text)
-    old_msg = escape_html(last_messages.get(user_id, "Sin mensajes"))
+    old_msg = escape_html(last_messages.get(user_id, "Aucun message"))
 
-    last_messages[user_id] = message.text or "[Mensaje vacío]"
+    last_messages[user_id] = message.text or "[Message vide]"
 
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
     response = (
-        "╭───── 🧠 RESUMEN RÁPIDO ─────\n"
-        f"📌 Antiguo : {old_msg}\n"
-        f"➡️ Nuevo : {new_msg}\n"
+        "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
+        f"📌 Ancien : {old_msg}\n"
+        f"➡️ Nouveau : {new_msg}\n"
         "╰──────────────────────────\n"
-        "<i>Este mensaje se eliminará automáticamente en menos de 10 segundos.</i>"
+        "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
 
     sent_msg = await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
@@ -805,7 +805,7 @@ async def relay_from_client(message: types.Message):
             except:
                 pass
             try:
-                await bot.send_message(user_id, "🚫 Has sido expulsado. Ya no puedes enviar mensajes.")
+                await bot.send_message(user_id, "🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
             except:
                 pass
             return  # ⛔ STOP : on n'envoie rien à l'admin
@@ -816,7 +816,7 @@ async def relay_from_client(message: types.Message):
         pending_replies[(sent_msg.chat.id, sent_msg.message_id)] = message.chat.id
         print(f"✅ Message reçu de {message.chat.id} et transféré à l'admin")
     except Exception as e:
-        print(f"❌ Error al transferir el mensaje del cliente : {e}")
+        print(f"❌ Erreur transfert message client : {e}")
 
 
 
@@ -827,13 +827,13 @@ async def handle_admin_message(message: types.Message):
     mode = admin_modes.get(ADMIN_ID)
 
     # ✅ Si l'admin clique sur "Message à tous les VIPs"
-    if message.text == "✉️ Mensaje para todos los VIPs":
-        admin_modes[ADMIN_ID] = "mensaje_en_espera"
-        await bot.send_message(chat_id=ADMIN_ID, text="✍️ Qué mensaje quieres enviar a todos los VIPs ?")
+    if message.text == "✉️ Message à tous les VIPs":
+        admin_modes[ADMIN_ID] = "en_attente_message"
+        await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ?")
         return
 
     # ✅ Si l'admin est en mode groupé, on traite le contenu du message
-    if mode == "mensaje_en_espera":
+    if mode == "en_attente_message":
         admin_modes[ADMIN_ID] = None
         await traiter_message_groupé(message)
         return
@@ -851,7 +851,7 @@ async def handle_admin_message(message: types.Message):
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗No se puede identificar al destinatario.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire.")
         return
 
     # ✅ Envoi de la réponse
@@ -869,7 +869,7 @@ async def handle_admin_message(message: types.Message):
         elif message.audio:
             await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
         else:
-            await bot.send_message(chat_id=ADMIN_ID, text="📂 Tipo de mensaje no compatible.")
+            await bot.send_message(chat_id=ADMIN_ID, text="📂 Type de message non supporté.")
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
 
@@ -892,28 +892,28 @@ async def traiter_message_groupé(message: types.Message):
         pending_mass_message[ADMIN_ID] = {"type": "voice", "content": message.voice.file_id}
         preview = "[Note vocale]"
     else:
-        await message.reply("❌ Mensaje no compatible.")
+        await message.reply("❌ Message non supporté.")
         return
 
     confirmation = InlineKeyboardMarkup(row_width=2)
     confirmation.add(
-        InlineKeyboardButton("✅ Confirmar envío", callback_data="confirmar_envío_grupal"),
-        InlineKeyboardButton("❌ Cancelar envío", callback_data="cancelar_envío_grupal")
+        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
+        InlineKeyboardButton("❌ Annuler l’envoi", callback_data="annuler_envoi_groupé")
     )
 
     await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
 
 # ========== CALLBACKS ENVOI / ANNULATION GROUPÉ ==========
 
-@dp.callback_query_handler(lambda call: call.data == "confirmar_envío_grupal")
+@dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
     message_data = pending_mass_message.get(ADMIN_ID)
     if not message_data:
-        await call.message.edit_text("❌ No hay mensajes pendientes de enviar..")
+        await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    await call.message.edit_text("⏳ Envío del mensaje a todos los VIPs...")
+    await call.message.edit_text("⏳ Envoi du message à tous les VIPs...")
     envoyes = 0
     erreurs = 0
 
@@ -934,26 +934,26 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             print(f"❌ Erreur envoi à {vip_id} : {e}")
             erreurs += 1
 
-    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Enviado a {envoyes} VIP(s).\n⚠️ Fracasos : {erreurs}")
+    await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(ADMIN_ID, None)
 
-@dp.callback_query_handler(lambda call: call.data == "cancelar_envío_grupal")
+@dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
 async def annuler_envoi_groupé(call: types.CallbackQuery):
-    await call.answer("❌ Envío cancelado.")
+    await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
-    await call.message.edit_text("❌ Envío cancelado.")
+    await call.message.edit_text("❌ Envoi annulé.")
 
 #debut du 19 juillet 2025 mettre le tableau de vips
-@dp.callback_query_handler(lambda c: c.data == "ver_mis_vips")
+@dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
 async def voir_mes_vips(callback_query: types.CallbackQuery):
     telegram_id = callback_query.from_user.id
     email = ADMIN_EMAILS.get(telegram_id)
 
     if not email:
-        await bot.send_message(telegram_id, "❌ Tu correo electrónico de administrador no es válido.")
+        await bot.send_message(telegram_id, "❌ Ton e-mail admin n’est pas reconnu.")
         return
 
-    await callback_query.answer("Carga de tus VIPs...")
+    await callback_query.answer("Chargement de tes VIPs...")
 
     headers = {
         "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
@@ -971,7 +971,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
     records = response.json().get("records", [])
     if not records:
-        await bot.send_message(telegram_id, "📭 No se han encontrado registros para ti.")
+        await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
 
     # Étape 1 : repérer les pseudos ayant AU MOINS une ligne Type acces = VIP
@@ -1005,7 +1005,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
     try:
         # Construction du message final avec tri et top 3
-        message = "📋 Aquí están tus clientes VIP (con todos sus pagos) :\n\n"
+        message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
         sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
 
         for pseudo, total in sorted_vips:
@@ -1014,7 +1014,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         # 🏆 Top 3
         top3 = sorted_vips[:3]
         if top3:
-            message += "\n🏆 *Los 3 principales clientes :*\n"
+            message += "\n🏆 *Top 3 clients :*\n"
             for i, (pseudo, total) in enumerate(top3):
                 place = ["🥇", "🥈", "🥉"]
                 emoji = place[i] if i < len(place) else f"#{i+1}"
@@ -1026,7 +1026,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         import traceback
         error_text = traceback.format_exc()
         print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
-        await bot.send_message(telegram_id, "❌ Se ha producido un error al mostrar los VIPs.")
+        await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
 
 #fin du 19 juillet 2025 mettre le tableau de vips
 
