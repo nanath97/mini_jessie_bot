@@ -769,8 +769,6 @@ async def handle_admin_message(message: types.Message):
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
     # Bouton Annoter
-
-
     keyboard = InlineKeyboardMarkup().add(
         InlineKeyboardButton("📝 Annoter", callback_data=f"annoter_{user_id}")
     )
@@ -779,7 +777,7 @@ async def handle_admin_message(message: types.Message):
         "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
         f"📌 Ancien : {old_msg}\n"
         f"➡️ Nouveau : {new_msg}\n"
-        f"📒 Note : {note_admin}\n"
+        f"📒 Note :\n{note_admin}\n"
         "╰──────────────────────────\n"
         "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
@@ -807,8 +805,19 @@ async def annoter_client(call: types.CallbackQuery):
 @dp.message_handler(lambda message: ADMIN_ID == message.from_user.id and admin_modes.get("annoter"))
 async def enregistrer_annotation(message: types.Message):
     user_id_cible = admin_modes.pop("annoter")
-    annotations[user_id_cible] = message.text
-    await message.answer(f"✅ Note enregistrée pour le client {user_id_cible}.")
+    
+    ancienne_note = annotations.get(user_id_cible, "")
+    nouvelle_note = message.text.strip()
+    
+    nouvelle_ligne = f"- {nouvelle_note}"
+
+    if ancienne_note != "Aucune note" and ancienne_note:
+        annotations[user_id_cible] = ancienne_note + "\n" + nouvelle_ligne
+    else:
+        annotations[user_id_cible] = nouvelle_ligne
+
+    await message.answer(f"✅ Note ajoutée pour le client {user_id_cible}.\n📒 Notes actuelles :\n{annotations[user_id_cible]}")
+
 
 
 
