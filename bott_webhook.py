@@ -740,7 +740,12 @@ async def show_stats_direct(message: types.Message):
     await handle_stat(message)
 
 # test du résume du dernier message recu 
+
+
 import asyncio
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+annotations = {}  # {user_id: "texte note"}
 
 @dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
 async def handle_admin_message(message: types.Message):
@@ -757,20 +762,29 @@ async def handle_admin_message(message: types.Message):
 
     new_msg = escape_html(message.text)
     old_msg = escape_html(last_messages.get(user_id, "Aucun message"))
+    note_admin = annotations.get(user_id, "Aucune note")
 
     last_messages[user_id] = message.text or "[Message vide]"
 
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
+    # Bouton Annoter
+
+
+    keyboard = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("📝 Annoter", callback_data=f"annoter_{user_id}")
+    )
+
     response = (
         "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
         f"📌 Ancien : {old_msg}\n"
         f"➡️ Nouveau : {new_msg}\n"
+        f"📒 Note : {note_admin}\n"
         "╰──────────────────────────\n"
         "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
 
-    sent_msg = await bot.send_message(ADMIN_ID, response, parse_mode="HTML")
+    sent_msg = await bot.send_message(ADMIN_ID, response, parse_mode="HTML", reply_markup=keyboard)
 
     await asyncio.sleep(10)
     try:
@@ -778,6 +792,23 @@ async def handle_admin_message(message: types.Message):
     except Exception as e:
         print(f"❌ Erreur suppression message : {e}")
 
+
+# Handler pour bouton Annoter
+@dp.callback_query_handler(lambda c: c.data.startswith("annoter_"))
+async def annoter_client(call: types.CallbackQuery):
+    user_id = int(call.data.split("_")[1])
+    await call.message.answer(f"✍️ Écris la note pour ce client (ID: {user_id}).")
+    
+    # On sauvegarde dans un "mode" temporaire pour savoir quel client on annote
+    admin_modes["annoter"] = user_id
+
+
+# Handler pour réception de la note
+@dp.message_handler(lambda message: ADMIN_ID == message.from_user.id and admin_modes.get("annoter"))
+async def enregistrer_annotation(message: types.Message):
+    user_id_cible = admin_modes.pop("annoter")
+    annotations[user_id_cible] = message.text
+    await message.answer(f"✅ Note enregistrée pour le client {user_id_cible}.")
 
 
 
