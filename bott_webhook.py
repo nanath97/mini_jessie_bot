@@ -816,14 +816,17 @@ async def enregistrer_annotation(message: types.Message):
     else:
         annotations[user_id_cible] = nouvelle_ligne
 
-    await message.answer(f"✅ Note ajoutée pour le client {user_id_cible}.\n📒 Notes actuelles :\n{annotations[user_id_cible]}")
+    confirmation_msg = await message.answer(
+        f"✅ Note ajoutée pour le client {user_id_cible}.\n📒 Notes actuelles :\n{annotations[user_id_cible]}"
+    )
 
-# ⏳ Supprimer le message de confirmation après 10 secondes
+    # ⏳ Supprimer le message de confirmation après 10 secondes
     await asyncio.sleep(10)
     try:
         await bot.delete_message(chat_id=ADMIN_ID, message_id=confirmation_msg.message_id)
     except Exception as e:
         print(f"❌ Erreur suppression confirmation : {e}")
+
 
 
 
