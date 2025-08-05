@@ -745,7 +745,8 @@ async def show_stats_direct(message: types.Message):
 import asyncio
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-annotations = {}  # {user_id: "texte note"}
+annotations = {}   # {user_id: "texte note"}
+assignations = {}  # {user_id: "nom admin en charge"}
 
 @dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
 async def handle_admin_message(message: types.Message):
@@ -763,13 +764,16 @@ async def handle_admin_message(message: types.Message):
     new_msg = escape_html(message.text)
     old_msg = escape_html(last_messages.get(user_id, "Aucun message"))
     note_admin = annotations.get(user_id, "Aucune note")
+    admin_en_charge = assignations.get(user_id, "Aucun")
 
     last_messages[user_id] = message.text or "[Message vide]"
 
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
-    # Bouton Annoter
-    keyboard = InlineKeyboardMarkup().add(
+    # Boutons Annoter et Prendre en charge
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(
+        InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{user_id}"),
         InlineKeyboardButton("📝 Annoter", callback_data=f"annoter_{user_id}")
     )
 
@@ -777,7 +781,8 @@ async def handle_admin_message(message: types.Message):
         "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
         f"📌 Ancien : {old_msg}\n"
         f"➡️ Nouveau : {new_msg}\n"
-        f"📒 Note :\n{note_admin}\n"
+        f"👤 Admin en charge : {admin_en_charge}\n"
+        f"📒 Notes :\n{note_admin}\n"
         "╰──────────────────────────\n"
         "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
@@ -791,13 +796,29 @@ async def handle_admin_message(message: types.Message):
         print(f"❌ Erreur suppression message : {e}")
 
 
-# Handler pour bouton Annoter
+# Handler bouton Prendre en charge
+@dp.callback_query_handler(lambda c: c.data.startswith("prendre_"))
+async def prendre_en_charge(call: types.CallbackQuery):
+    user_id = int(call.data.split("_")[1])
+    nom_admin = call.from_user.first_name or f"Admin {call.from_user.id}"
+    
+    assignations[user_id] = nom_admin
+    await call.message.answer(f"✅ {nom_admin} est maintenant en charge du client {user_id}.")
+
+    # Supprimer confirmation après 10s
+    await asyncio.sleep(10)
+    try:
+        await bot.delete_message(chat_id=ADMIN_ID, message_id=call.message.message_id + 1)
+    except:
+        pass
+
+
+# Handler bouton Annoter
 @dp.callback_query_handler(lambda c: c.data.startswith("annoter_"))
 async def annoter_client(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     await call.message.answer(f"✍️ Écris la note pour ce client (ID: {user_id}).")
     
-    # On sauvegarde dans un "mode" temporaire pour savoir quel client on annote
     admin_modes["annoter"] = user_id
 
 
@@ -820,12 +841,12 @@ async def enregistrer_annotation(message: types.Message):
         f"✅ Note ajoutée pour le client {user_id_cible}.\n📒 Notes actuelles :\n{annotations[user_id_cible]}"
     )
 
-    # ⏳ Supprimer le message de confirmation après 10 secondes
     await asyncio.sleep(10)
     try:
         await bot.delete_message(chat_id=ADMIN_ID, message_id=confirmation_msg.message_id)
     except Exception as e:
         print(f"❌ Erreur suppression confirmation : {e}")
+
 
 
 
