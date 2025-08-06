@@ -278,7 +278,7 @@ async def bouton_reintegrer(message: types.Message):
         await message.reply("ℹ️ Ce client n’était pas retiré.")
 
 # Liste des prix autorisés
-prix_list = [1, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
+prix_list = [1, 3, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 
 # Liste blanche des liens autorisés
 WHITELIST_LINKS = [
@@ -386,8 +386,8 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Rejoindre le groupe VIP pour 1€",
-                url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+                text="🔥 Rejoindre le groupe VIP pour 3€",
+                url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
             )
         )
 
@@ -517,8 +517,8 @@ async def handle_start(message: types.Message):
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            text="💬 Devenir VIP pour 1€",
-            url="https://buy.stripe.com/4gwg32fhF4K62fCdQR"
+            text="💬 Devenir VIP pour 3€",
+            url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
         )
     )
 
@@ -545,7 +545,7 @@ async def confirmer_voyeur(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/4gwg32fhF4K62fCdQR", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j", reply_markup=keyboard)
 
 
  # TEST
@@ -638,6 +638,9 @@ async def envoyer_lien_stripe(message: types.Message):
         "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
         "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
         "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
+        "3": "https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
+
+        
     }
 
     texte = message.caption or message.text or ""
