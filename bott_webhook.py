@@ -14,6 +14,13 @@ from ban_storage import ban_list
 
 
 
+
+@dp.message_handler(content_types=types.ContentType.PHOTO)
+async def get_file_id(message: types.Message):
+    file_id = message.photo[-1].file_id
+    await message.reply(f"📸 File ID récupéré :\n`{file_id}`", parse_mode="Markdown")
+
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
