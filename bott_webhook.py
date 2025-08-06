@@ -88,11 +88,47 @@ async def handle_stat(message: types.Message):
     await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
 
     try:
-        # --- FAUX CHIFFRES POUR DÉMO VIDÉO ---
-        ventes_jour = 98
-        ventes_totales = 4986
-        contenus_vendus = 107
-        clients_vip = 56
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
+
+        response = requests.get(url, headers=headers)
+        data = response.json()
+
+        ventes_totales = 0
+        ventes_jour = 0
+        contenus_vendus = 0
+        vip_ids = set()
+
+        today = datetime.now().date().isoformat()
+        mois_courant = datetime.now().strftime("%Y-%m")
+
+        for record in data.get("records", []):
+            fields = record.get("fields", {})
+            user_id = fields.get("ID Telegram", "")
+            type_acces = fields.get("Type acces", "").lower()
+            date_str = fields.get("Date", "")
+            mois = fields.get("Mois", "")
+            montant = float(fields.get("Montant", 0))
+
+            
+            if type_acces == "vip":
+                vip_ids.add(user_id)
+
+        
+            if mois == mois_courant:
+                ventes_totales += montant
+
+            if date_str.startswith(today):
+                ventes_jour += montant
+                if type_acces != "vip":
+                    contenus_vendus += 1
+
+            if type_acces == "vip" and user_id:
+                vip_ids.add(user_id)
+
+        clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
 
         message_final = (
@@ -104,11 +140,9 @@ async def handle_stat(message: types.Message):
             f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
             f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
-
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
-
         await bot.send_message(message.chat.id, message_final, parse_mode="Markdown", reply_markup=vip_button)
 
     except Exception as e:
@@ -490,7 +524,7 @@ async def handle_start(message: types.Message):
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
             type_acces="VIP",
-            montant=1.0,
+            montant=3.0,
             contenu="Accès VIP Telegram"
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
