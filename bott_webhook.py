@@ -419,8 +419,8 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Rejoindre le groupe VIP pour 3€",
-                url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
+                text="🔥 Rejoindre le groupe VIP pour 1€",
+                url="https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k"
             )
         )
 
@@ -519,7 +519,7 @@ async def handle_start(message: types.Message):
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
             type_acces="VIP",
-            montant=3.0,
+            montant=1.0,
             contenu="Accès VIP Telegram"
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
@@ -565,8 +565,8 @@ async def handle_start(message: types.Message):
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            text="💬 Devenir VIP pour 3€",
-            url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
+            text="💬 Devenir VIP pour 1€",
+            url="https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k"
         )
     )
 
@@ -593,7 +593,7 @@ async def confirmer_voyeur(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k", reply_markup=keyboard)
 
 
  # TEST
