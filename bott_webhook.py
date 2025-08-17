@@ -12,6 +12,21 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
 
 
+@dp.message_handler(content_types=types.ContentType.AUDIO)
+async def get_audio_file_id(message: types.Message):
+    audio = message.audio
+    file_id = audio.file_id
+    await message.reply(f"🎵 Voici le file_id de ton audio :\n`{file_id}`")
+
+if __name__ == "__main__":
+    executor.start_polling(dp, skip_updates=True)
+
+
+
+
+
+
+
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
