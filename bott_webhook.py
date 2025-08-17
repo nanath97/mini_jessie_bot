@@ -572,7 +572,7 @@ async def discuter_vip(message: types.Message):
 
     await bot.send_message(
     message.chat.id,
-    "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
+    "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l \n\n",
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )

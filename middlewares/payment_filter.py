@@ -70,7 +70,8 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
                 "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
                 "C'est gratuit rien qu'aujourd'hui ! 🎁 Je t'attends...🤭\n\n"
-                "<i>🔐 Paiement sécurisé par Stripe</i>",
+                "<i>🔐 Paiement sécurisé par Stripe</i>" \
+                "\n\nhttps://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l \n\n",
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
                         text="💎 Devenir VIP gratuitement",
