@@ -529,7 +529,7 @@ async def handle_start(message: types.Message):
 
     # Ton file_id photo sexy + audio de bienvenue
     WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
-    WELCOME_AUDIO_FILE_ID = "QACAgQAAxkBAAI-uGih1fvlbwqf-PQAAmYMeYaNTndSAAKlGgAChiwQUUVhJseS_cH9NgQ"
+    WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAI-uGih1fvlbwqf-PQAAmYMeYaNTndSAAKlGgAChiwQUUVhJseS_cH9NgQ"
 
     if user_id == ADMIN_ID:
         await bot.send_message(
