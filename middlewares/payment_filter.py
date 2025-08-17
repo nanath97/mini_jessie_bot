@@ -73,7 +73,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 "<i>🔐 Paiement sécurisé par Stripe</i>",
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
-                        text="💎 Devenir VIP pour 1€",
+                        text="💎 Devenir VIP gartuitement",
                         url="https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k"
                     )
 
