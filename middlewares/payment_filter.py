@@ -74,7 +74,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
                         text="💎 Devenir VIP gartuitement",
-                        url="https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k"
+                        url="https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l"
                     )
 
                 ),
