@@ -69,13 +69,14 @@ class PaymentFilterMiddleware(BaseMiddleware):
             await message.answer(
                 "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
                 "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-                "Cela coûte 1€ en paiement unique rien qu'aujourd'hui ! 🎁 Je t'attends...🤭\n\n"
+                "C'est gratuit rien qu'aujourd'hui ! 🎁 Je t'attends...🤭\n\n"
                 "<i>🔐 Paiement sécurisé par Stripe</i>",
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
                         text="💎 Devenir VIP pour 1€",
                         url="https://buy.stripe.com/6oUaEWfBj93h4cd5Hv7AI0k"
                     )
+
                 ),
                 parse_mode="HTML"
             )
