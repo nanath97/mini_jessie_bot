@@ -392,7 +392,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     types.KeyboardButton("👀Je suis un voyeur"),
-    types.KeyboardButton("✨Discuter en tant que VIP"),
+    types.KeyboardButton("✨Discuter VIP"),
     types.KeyboardButton("❗ Problème achat")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -419,13 +419,13 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Rejoindre le groupe VIP gratuitement",
+                text="🔥 Rejoindre gratuitement",
                 url="https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l"
             )
         )
 
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\nPour y accéder, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>",
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n Mais c'est ton jour de chance, aujoud'hui c'est gratuit ! C'est simple, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l\n\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
@@ -561,18 +561,18 @@ async def handle_start(message: types.Message):
 # Gestion des boutons…
 
 
-@dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
+@dp.message_handler(lambda message: message.text == "✨Discuter VIP")
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            text="💬 Devenir VIP gratuitement aujourd'hui",
+            text="💬 Devenir VIP gratuitement",
             url="https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l"
         )
     )
 
     await bot.send_message(
     message.chat.id,
-    "🚀 Deviens VIP pour débloquer l'accès à la discussion privée, au contenu exclusif et aux surprises réservées aux membres !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l \n\n",
+    "🚀 C'est le moment où jamais...\n\n Je t'offre 30 jours d'essai gratuit en tant que VIP pour parler avec moi, se connaître et que je puisse t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l \n\n",
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )
