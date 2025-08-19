@@ -10,7 +10,7 @@ ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
     "🔞 Voir le contenu du jour",
-    "✨Discuter en tant que VIP",
+    "✨Discuter VIP",
     "👀Je suis un voyeur",
     "❌ Oui je confirme (bannir)",
     "✅ Non, je veux rejoindre le VIP"
@@ -67,9 +67,9 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 print(f"Erreur suppression message non autorisé : {e}")
 
             await message.answer(
-                "🚫 Pour discuter librement avec moi, il faudra être un VIP !\n\n"
+                "🚫 Mon coeur, pour discuter librement avec moi, il faudra être un VIP !\n\n"
                 "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-                "C'est gratuit rien qu'aujourd'hui ! 🎁 Je t'attends...🤭\n\n"
+                "C'est gratuit rien qu'aujourd'hui ! 🎁 Je t'attends de l'autre côté...🤭\n\n"
                 "<i>🔐 Paiement sécurisé par Stripe</i>" \
                 "\n\nhttps://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l \n\n",
                 reply_markup=InlineKeyboardMarkup().add(

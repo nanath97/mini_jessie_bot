@@ -425,7 +425,7 @@ async def demande_contenu_jour(message: types.Message):
         )
 
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n Mais c'est ton jour de chance, aujoud'hui c'est gratuit ! C'est simple, clique sur le bouton ci-dessous 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l\n\n",
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujoud'hui c'est gratuit 🎁 ! \n\nC'est simple, clique sur le bouton ci-dessous 👇\n\n Et parle avec moi maintenant<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l\n\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
