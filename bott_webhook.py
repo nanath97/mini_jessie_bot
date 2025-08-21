@@ -420,12 +420,12 @@ async def demande_contenu_jour(message: types.Message):
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
                 text="🔥 Rejoindre gratuitement",
-                url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
+                url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
             )
         )
 
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujoud'hui c'est gratuit 🎁 ! \n\nC'est simple, clique sur le bouton ci-dessous 👇\n\n Et parle avec moi maintenant<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j\n\n",
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujoud'hui c'est à 1 € seulement 🎁 ! \n\nC'est simple, clique sur le bouton ci-dessous 👇\n\n Et parle avec moi maintenant<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m\n\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
@@ -565,14 +565,14 @@ async def handle_start(message: types.Message):
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            text="💬 Devenir VIP gratuitement",
-            url="https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j"
+            text="💬 Devenir VIP pour 1 € ",
+            url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
         )
     )
 
     await bot.send_message(
     message.chat.id,
-    "🚀 C'est le moment où jamais...\n\n Je t'offre 30 jours d'essai gratuit en tant que VIP pour parler avec moi, se connaître et que je puisse t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j \n\n",
+    "🚀 C'est le moment où jamais...\n\n Pour 1 € seulement, tuu seras VIP et tu pourras parler avec moi, me connaître et que je puisse t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m \n\n",
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )
@@ -593,7 +593,7 @@ async def confirmer_voyeur(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
 async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/8x200idtb0wL6kl4Dr7AI0l", reply_markup=keyboard)
+    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m", reply_markup=keyboard)
 
 
  # TEST
