@@ -423,28 +423,37 @@ async def demande_contenu_jour(message: types.Message):
                 url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
             )
         )
-
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujoud'hui c'est à 1 € seulement 🎁 ! \n\nC'est simple, clique sur le bouton ci-dessous 👇\n\n Et parle avec moi maintenant<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m\n\n",
-            reply_markup=bouton_vip,
-            parse_mode="HTML"
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujourd'hui c'est à 1 € seulement 🎁 !",
+            reply_markup=bouton_vip
         )
-        return  # Stop ici si ce n’est pas un VIP
+        return
 
-    # ✅ Réponse automatique au VIP
-    await message.reply("👀 Coucou, je t’envoie le contenu du jour dans un instant… 🔞")
+    # 🎰 Machine à sous
+    dice_msg = await bot.send_dice(chat_id=message.chat.id, emoji="🎰")
+    dice_value = dice_msg.dice.value
 
-    # ✅ Notification pour l’admin
-    await bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"📥 Nouvelle demande de contenu du jour reçue de la part d’un VIP !"
-    )
+    if dice_value >= 60:  # Jackpot
+        await message.reply(
+            "🎉 Bravo ! Tu as gagné -50% aujourd’hui sur ton contenu 🔥\n\n"
+            "L’équipe t’envoie ton média tout de suite 👀"
+        )
+        # ✅ Notif admin pour envoyer le média
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"🎰 {message.from_user.username or user_id} a eu le JACKPOT (-50%) ! Envoie-lui le contenu maintenant."
+        )
+    else:  # Pas jackpot
+        await message.reply(
+            "😅 Pas de chance cette fois !\n\n"
+            "Mais bonne nouvelle 👉 on t’offre quand même -50% aujourd’hui sur ta vidéo 🔥"
+        )
+        # ✅ Notif admin aussi
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"📥 {message.from_user.username or user_id} a perdu à la machine à sous, mais il a -50%. Envoie-lui le contenu maintenant."
+        )
 
-    forwarded = await bot.forward_message(
-        chat_id=ADMIN_ID,
-        from_chat_id=message.chat.id,
-        message_id=message.message_id
-    )
 
     pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
 
