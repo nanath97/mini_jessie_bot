@@ -413,14 +413,26 @@ keyboard.add(
 )
 
 # =======================
+# Imports & globals (à mettre une seule fois)
+# =======================
+import asyncio
+import time
+from aiogram import types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# Laisse l’animation 🎰 se terminer (≈4.5–5.0s)
+DICE_WAIT_SECONDS = 5.0
 
-# Empêche de relancer la roulette (une seule fois par utilisateur)
-already_played = set()  # stocke les user_id ayant joué au moins une fois
+# Cooldown 24h
+COOLDOWN_SECONDS = 24 * 3600  # 24h en secondes
+
+# Stores
+last_played = {}     # user_id -> timestamp dernier lancement
+trigger_message = {} # user_id -> (chat_id, message_id) du message "Voir le contenu du jour"
 
 
 # =======================
-# 1) Message "Voir le contenu du jour" -> propose le bouton "Lancer la roulette"
+# 1) Message "Voir le contenu du jour" -> propose "Lancer la roulette"
 # =======================
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
@@ -443,7 +455,10 @@ async def demande_contenu_jour(message: types.Message):
         )
         return
 
-    # VIP -> propose de lancer la roulette (NE PAS lancer tout de suite)
+    # VIP -> mémoriser le message déclencheur (pour forward répondable côté admin)
+    trigger_message[user_id] = (message.chat.id, message.message_id)
+
+    # Afficher le bouton inline "Lancer la roulette"
     bouton_roulette = InlineKeyboardMarkup().add(
         InlineKeyboardButton("🎰 Lancer la roulette", callback_data="lancer_roulette")
     )
@@ -455,53 +470,114 @@ async def demande_contenu_jour(message: types.Message):
 
 
 # =======================
-# 2) Callback "Lancer la roulette" -> envoie la roulette + logique gagné/perdu
+# 2) Callback "Lancer la roulette" -> roulette + attente + messages + forwards répondables
 # =======================
 @dp.callback_query_handler(lambda c: c.data == "lancer_roulette")
 async def lancer_roulette(cb: types.CallbackQuery):
     user_id = cb.from_user.id
 
-    # Bloque le multi-clic: une seule fois par utilisateur
-    if user_id in already_played:
-        await cb.answer("⚠️ Tu as déjà lancé la roulette !", show_alert=True)
+    # ----- Cooldown 24h -----
+    now = time.time()
+    last = last_played.get(user_id)
+    if last and (now - last) < COOLDOWN_SECONDS:
+        remaining = COOLDOWN_SECONDS - (now - last)
+        heures_restantes = int(remaining // 3600)
+        minutes_restantes = int((remaining % 3600) // 60)
+        await cb.answer(
+            f"⚠️ Tu as déjà lancé la roulette aujourd’hui ! Reviens dans {heures_restantes}h{minutes_restantes:02d}.",
+            show_alert=True
+        )
         return
-    already_played.add(user_id)
+    # Marquer l’heure actuelle comme dernier lancement
+    last_played[user_id] = now
 
-    # Lancer la machine à sous Telegram
+    # Lancer la machine à sous Telegram (ne RIEN envoyer d'autre avant la fin)
     dice_msg = await bot.send_dice(chat_id=user_id, emoji="🎰")
+
+    # Attendre la fin de l’animation pour la crédibilité
+    await asyncio.sleep(DICE_WAIT_SECONDS)
+
     dice_value = dice_msg.dice.value
 
-    if dice_value >= 60:  # Jackpot
-        await bot.send_message(
+    # Récupérer le message déclencheur d’origine (pour forward répondable, comme dans ton code original)
+    src_info = trigger_message.get(user_id)   # (chat_id_src, msg_id_src)
+    chat_id_src, msg_id_src = (src_info if src_info else (user_id, None))
+
+    # Message côté client + notif admin (répondable via pending_replies)
+    if dice_value >= 60:  # JACKPOT => -50% (tu envoies manuellement le média)
+        user_msg = await bot.send_message(
             chat_id=user_id,
-            text="🎉 Bravo ! Tu as gagné -50 % aujourd’hui 🔥\n"
-                 "Je t’envoie ton média tout de suite 👀"
+            text=(
+                "🎉 Bravo ! Tu as gagné -50 % aujourd’hui 🔥\n"
+                "Je t’envoie ton média tout de suite 👀"
+            )
         )
-        # Notif admin : réponds à CE message pour écrire direct au client
         admin_notif = await bot.send_message(
             chat_id=ADMIN_ID,
             text=f"🎰 JACKPOT (-50%) pour {cb.from_user.first_name or user_id} (id: {user_id}).\n"
-                 f"➡️ Réponds à CE message pour lui envoyer le contenu."
+                 f"➡️ Réponds à CE message pour lui écrire directement."
         )
         pending_replies[(admin_notif.chat.id, admin_notif.message_id)] = user_id
 
     else:
-        await bot.send_message(
+        user_msg = await bot.send_message(
             chat_id=user_id,
-            text="😅 Pas de chance cette fois…\n\n"
-                 "Mais bonne nouvelle 👉 tu as quand même -50 % aujourd’hui sur ta vidéo 🔥\n"
-                 "Je t’envoie ton média maintenant 👀"
+            text=(
+                "😅 Pas de chance cette fois…\n\n"
+                "Mais bonne nouvelle 👉 tu as quand même -50 % aujourd’hui sur ta vidéo 🔥\n"
+                "Je t’envoie ton média maintenant 👀"
+            )
         )
         admin_notif = await bot.send_message(
             chat_id=ADMIN_ID,
             text=f"📥 DEMANDE CONTENU (-50% offert) de {cb.from_user.first_name or user_id} (id: {user_id}).\n"
-                 f"➡️ Réponds à CE message pour lui envoyer le contenu."
+                 f"➡️ Réponds à CE message pour lui écrire directement."
         )
         pending_replies[(admin_notif.chat.id, admin_notif.message_id)] = user_id
 
-    # ferme le "chargement" du bouton côté utilisateur
+    # Forward du message déclencheur d’origine (ton ancien comportement répondable)
+    if msg_id_src is not None:
+        fwd = await bot.forward_message(
+            chat_id=ADMIN_ID,
+            from_chat_id=chat_id_src,
+            message_id=msg_id_src
+        )
+        pending_replies[(fwd.chat.id, fwd.message_id)] = chat_id_src
+
+    # (Optionnel) forward du message de résultat (pratique pour contexte)
+    fwd_res = await bot.forward_message(
+        chat_id=ADMIN_ID,
+        from_chat_id=user_msg.chat.id,
+        message_id=user_msg.message_id
+    )
+    pending_replies[(fwd_res.chat.id, fwd_res.message_id)] = user_msg.chat.id
+
+    # Fermer le spinner du bouton inline
     await cb.answer()
 
+
+# =======================
+# 3) Commande admin: reset cooldown 24h d’un user
+# =======================
+@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID and m.text and m.text.startswith("/resetroulette"))
+async def reset_roulette_cmd(message: types.Message):
+    """
+    Usage:
+      /resetroulette <user_id>
+    Effet:
+      Supprime le cooldown pour cet utilisateur (il peut relancer tout de suite).
+    """
+    parts = message.text.strip().split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.reply("Usage: /resetroulette <user_id>")
+        return
+
+    target_id = int(parts[1])
+    if target_id in last_played:
+        last_played.pop(target_id, None)
+        await message.reply(f"✅ Cooldown roulette réinitialisé pour l’utilisateur {target_id}.")
+    else:
+        await message.reply(f"ℹ️ Aucun cooldown enregistré pour {target_id}.")
 
 
 #fin de l'envoi du bouton du contenu du jour
