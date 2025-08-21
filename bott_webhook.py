@@ -412,10 +412,21 @@ keyboard.add(
     types.KeyboardButton("🔞 Voir le contenu du jour")
 )
 
+# =======================
+
+
+# Empêche de relancer la roulette (une seule fois par utilisateur)
+already_played = set()  # stocke les user_id ayant joué au moins une fois
+
+
+# =======================
+# 1) Message "Voir le contenu du jour" -> propose le bouton "Lancer la roulette"
+# =======================
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
 async def demande_contenu_jour(message: types.Message):
     user_id = message.from_user.id
 
+    # Non-VIP -> propose d'acheter
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
@@ -424,38 +435,74 @@ async def demande_contenu_jour(message: types.Message):
             )
         )
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n 🍀 Mais c'est ton jour de chance, aujourd'hui c'est à 1 € seulement 🎁 !",
-            reply_markup=bouton_vip
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Le contenu du jour est réservé aux VIP.\n\n"
+            "🍀 Aujourd’hui, l’accès VIP est à 1 € 🎁\n\n"
+            "<i>🔐 Paiement sécurisé par Stripe</i>",
+            reply_markup=bouton_vip,
+            parse_mode="HTML"
         )
         return
 
-    # 🎰 Machine à sous
-    dice_msg = await bot.send_dice(chat_id=message.chat.id, emoji="🎰")
+    # VIP -> propose de lancer la roulette (NE PAS lancer tout de suite)
+    bouton_roulette = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🎰 Lancer la roulette", callback_data="lancer_roulette")
+    )
+    await message.reply(
+        "👀 Prépare-toi à tenter ta chance pour le contenu du jour…\n\n"
+        "Clique sur le bouton ci-dessous pour lancer la roulette 🎰",
+        reply_markup=bouton_roulette
+    )
+
+
+# =======================
+# 2) Callback "Lancer la roulette" -> envoie la roulette + logique gagné/perdu
+# =======================
+@dp.callback_query_handler(lambda c: c.data == "lancer_roulette")
+async def lancer_roulette(cb: types.CallbackQuery):
+    user_id = cb.from_user.id
+
+    # Bloque le multi-clic: une seule fois par utilisateur
+    if user_id in already_played:
+        await cb.answer("⚠️ Tu as déjà lancé la roulette !", show_alert=True)
+        return
+    already_played.add(user_id)
+
+    # Lancer la machine à sous Telegram
+    dice_msg = await bot.send_dice(chat_id=user_id, emoji="🎰")
     dice_value = dice_msg.dice.value
 
     if dice_value >= 60:  # Jackpot
-        await message.reply(
-            "🎉 Bravo ! Tu as gagné -50% aujourd’hui sur ton contenu 🔥\n\n"
-            "L’équipe t’envoie ton média tout de suite 👀"
-        )
-        # ✅ Notif admin pour envoyer le média
         await bot.send_message(
+            chat_id=user_id,
+            text="🎉 Bravo ! Tu as gagné -50 % aujourd’hui 🔥\n"
+                 "Je t’envoie ton média tout de suite 👀"
+        )
+        # Notif admin : réponds à CE message pour écrire direct au client
+        admin_notif = await bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🎰 {message.from_user.username or user_id} a eu le JACKPOT (-50%) ! Envoie-lui le contenu maintenant."
+            text=f"🎰 JACKPOT (-50%) pour {cb.from_user.first_name or user_id} (id: {user_id}).\n"
+                 f"➡️ Réponds à CE message pour lui envoyer le contenu."
         )
-    else:  # Pas jackpot
-        await message.reply(
-            "😅 Pas de chance cette fois !\n\n"
-            "Mais bonne nouvelle 👉 on t’offre quand même -50% aujourd’hui sur ta vidéo 🔥"
-        )
-        # ✅ Notif admin aussi
+        pending_replies[(admin_notif.chat.id, admin_notif.message_id)] = user_id
+
+    else:
         await bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"📥 {message.from_user.username or user_id} a perdu à la machine à sous, mais il a -50%. Envoie-lui le contenu maintenant."
+            chat_id=user_id,
+            text="😅 Pas de chance cette fois…\n\n"
+                 "Mais bonne nouvelle 👉 tu as quand même -50 % aujourd’hui sur ta vidéo 🔥\n"
+                 "Je t’envoie ton média maintenant 👀"
         )
+        admin_notif = await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"📥 DEMANDE CONTENU (-50% offert) de {cb.from_user.first_name or user_id} (id: {user_id}).\n"
+                 f"➡️ Réponds à CE message pour lui envoyer le contenu."
+        )
+        pending_replies[(admin_notif.chat.id, admin_notif.message_id)] = user_id
+
+    # ferme le "chargement" du bouton côté utilisateur
+    await cb.answer()
 
 
-    pending_replies[(forwarded.chat.id, forwarded.message_id)] = message.chat.id
 
 #fin de l'envoi du bouton du contenu du jour
 
