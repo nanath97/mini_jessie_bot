@@ -69,7 +69,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             await message.answer(
                 "🚫 Mon coeur, pour discuter librement avec moi, il faudra être un VIP !\n\n"
                 "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-                "C'est à 1 € seulemnt aujourd'hui ! 🎁 Je t'attends de l'autre côté...🤭\n\n"
+                "C'est à 1 € seulement aujourd'hui ! 🎁 Je t'attends de l'autre côté...🤭\n\n"
                 "<i>🔐 Paiement sécurisé par Stripe</i>" \
                 "\n\nhttps://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m \n\n",
                 reply_markup=InlineKeyboardMarkup().add(

@@ -419,7 +419,7 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Rejoindre gratuitement",
+                text="🔥 Rejoindre le VIP pour 1 €",
                 url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
             )
         )
@@ -572,7 +572,7 @@ async def discuter_vip(message: types.Message):
 
     await bot.send_message(
     message.chat.id,
-    "🚀 C'est le moment où jamais...\n\n Pour 1 € seulement, tuu seras VIP et tu pourras parler avec moi, me connaître et que je puisse t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m \n\n",
+    "🚀 C'est le moment où jamais...\n\nPour 1 € seulement, tu seras VIP et tu pourras parler avec moi, me connaître et que je pourrais t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m \n\n",
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )
