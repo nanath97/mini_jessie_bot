@@ -10,10 +10,7 @@ ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
     "🔞 Voir le contenu du jour...en jouant 🎰",
-    "✨Discuter VIP",
-    "👀Je suis un voyeur",
-    "❌ Oui je confirme (bannir)",
-    "✅ Non, je veux rejoindre le VIP"
+    "✨Discuter en tant que VIP",
 ]
 
 class PaymentFilterMiddleware(BaseMiddleware):

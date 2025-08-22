@@ -391,8 +391,8 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
-    types.KeyboardButton("👀Je suis un voyeur"),
-    types.KeyboardButton("✨Discuter VIP"),
+    
+    types.KeyboardButton("✨Discuter en tant que VIP"),
     types.KeyboardButton("❗ Problème achat")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -466,7 +466,7 @@ async def demande_contenu_jour(message: types.Message):
         InlineKeyboardButton("⚡Lancer la roulette", callback_data="lancer_roulette")
     )
     await message.reply(
-        "Prépare-toi à tenter ta chance pour le contenu du jour… Je crois les doigts pour toi mon coeur 🤞 \n\n"
+        "Prépare-toi à tenter ta chance pour le contenu du jour… Je croise les doigts pour toi mon coeur 🤞 \n\n"
         "Clique sur le bouton ci-dessous pour lancer la roulette 🎰",
         reply_markup=bouton_roulette
     )
@@ -664,7 +664,7 @@ async def handle_start(message: types.Message):
 # Gestion des boutons…
 
 
-@dp.message_handler(lambda message: message.text == "✨Discuter VIP")
+@dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
 async def discuter_vip(message: types.Message):
     bouton_vip = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
@@ -679,25 +679,6 @@ async def discuter_vip(message: types.Message):
     reply_markup=bouton_vip,
     parse_mode="HTML"
 )
-
-
-@dp.message_handler(lambda message: message.text == "👀Je suis un voyeur")
-async def je_suis_voyeur(message: types.Message):
-    keyboard_confirm = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard_confirm.add(
-        types.KeyboardButton("❌ Oui je confirme (bannir)"),
-        types.KeyboardButton("✅ Non, je veux rejoindre le VIP")
-    )
-    await bot.send_message(message.chat.id, "Confirme ton choix :", reply_markup=keyboard_confirm)
-
-@dp.message_handler(lambda message: message.text == "❌ Oui je confirme (bannir)")
-async def confirmer_voyeur(message: types.Message):
-    await bot.send_message(message.chat.id, "🛑 Tu restes simple spectateur.")
-
-@dp.message_handler(lambda message: message.text == "✅ Non, je veux rejoindre le VIP")
-async def rejoindre_vip(message: types.Message):
-    await bot.send_message(message.chat.id, "✅ Super ! Voici ton lien VIP : https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m", reply_markup=keyboard)
-
 
  # TEST
 @dp.message_handler(lambda message: message.text == "❗ Problème achat")
