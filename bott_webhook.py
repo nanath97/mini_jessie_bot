@@ -644,7 +644,7 @@ async def handle_start(message: types.Message):
         # 📝 Message texte
         await bot.send_message(
             user_id,
-            f"👋 Coucou {message.from_user.first_name or 'toi'}, bienvenue dans mon espace privé... 💕",
+            f"👋 Coucou {message.from_user.first_name or 'toi'}, bienvenue dans mon espace privé...\n\nClique sur le bouton en bas à droite 🎛️\n\nEt choisis ce que tu veux faire 💕",
             reply_markup=keyboard
         )
 
