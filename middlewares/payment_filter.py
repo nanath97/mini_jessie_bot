@@ -9,7 +9,7 @@ from ban_storage import ban_list # Import de la ban_list
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
-    "🔞 Voir le contenu du jour",
+    "🔞 Voir le contenu du jour...en jouant 🎰",
     "✨Discuter VIP",
     "👀Je suis un voyeur",
     "❌ Oui je confirme (bannir)",

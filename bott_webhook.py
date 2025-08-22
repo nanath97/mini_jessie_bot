@@ -409,7 +409,7 @@ keyboard_admin.add(
 )
 
 keyboard.add(
-    types.KeyboardButton("🔞 Voir le contenu du jour")
+    types.KeyboardButton("🔞 Voir le contenu du jour...en jouant 🎰")
 )
 
 # =======================
@@ -435,7 +435,7 @@ trigger_message = {}     # user_id -> (chat_id, message_id) du message "Voir le 
 # =======================
 # 1) Message "Voir le contenu du jour" -> propose "Lancer la roulette"
 # =======================
-@dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour")
+@dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour...en jouant 🎰")
 async def demande_contenu_jour(message: types.Message):
     user_id = message.from_user.id
 
@@ -448,8 +448,9 @@ async def demande_contenu_jour(message: types.Message):
             )
         )
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais le contenu du jour est réservé aux membres VIP.\n\n"
-            "🍀 Aujourd’hui, c'est à 1 € seulement 🎁 !\n\n"
+            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais pour jouer et tenter d'avoir le contenu du jour, tu dois être un VIP.\n\n"
+            "🍀 Mais c'est ton jour de  chance, aujourd’hui, c'est à 1 € seulement 🎁 !\n\n"
+            " C'est simple, clique sur le bouton ci-dessous 👇 et tente ta chance maintenant\n\n"
             "<i>🔐 Paiement sécurisé par Stripe</i>\n"
             "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m\n",
             reply_markup=bouton_vip,
@@ -462,10 +463,10 @@ async def demande_contenu_jour(message: types.Message):
 
     # Au lieu d'envoyer direct, on propose la roulette
     bouton_roulette = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🎰 Lancer la roulette", callback_data="lancer_roulette")
+        InlineKeyboardButton("⚡Lancer la roulette", callback_data="lancer_roulette")
     )
     await message.reply(
-        "👀 Prépare-toi à tenter ta chance pour le contenu du jour…\n\n"
+        "Prépare-toi à tenter ta chance pour le contenu du jour… Je crois les doigts pour toi mon coeur 🤞 \n\n"
         "Clique sur le bouton ci-dessous pour lancer la roulette 🎰",
         reply_markup=bouton_roulette
     )
@@ -509,25 +510,25 @@ async def lancer_roulette(cb: types.CallbackQuery):
     if dice_value >= 60:  # JACKPOT => -50% (tu envoies ensuite manuellement)
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="🎉 Bravo ! Tu as gagné -50 % aujourd’hui 🔥\n"
-                 "Je t’envoie ton média tout de suite 👀"
+            text="🎉 Bravo mon coeur ! Je t'offre -50 % aujourd’hui sur la vidéo du jour 🔥\n"
+                 "Je t’envoie ta vidéo dans quelques instants 💕"
         )
 
         await bot.send_message(
             chat_id=ADMIN_ID,
-            text="🎰 JACKPOT (-50%) — un VIP vient de gagner. Réponds au message forwardé pour lui écrire."
+            text="📥 JACKPOT (-50%) — un VIP vient de gagner. Envoie-lui son média."
         )
     else:
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="😅 Pas de chance cette fois…\n\n"
-                 "Mais bonne nouvelle 👉 on t’offre quand même -50 % aujourd’hui sur ta vidéo 🔥\n"
-                 "Je t’envoie ton média maintenant 👀"
+            text="😅 Pas de chance cette fois mon coeur…\n\n"
+                 "Mais tu sais quoi ? Je vais pas te laisser sans rien... Je t’offre quand même -50 % aujourd’hui sur ta vidéo du jour 🔥\n"
+                 "Je t’envoie ta vidéo dans quelques instants 💕"
         )
 
         await bot.send_message(
             chat_id=ADMIN_ID,
-            text="📥 Demande de contenu du jour ( -50% offert ). Réponds au message forwardé pour lui écrire."
+            text="📥 Raté, mais demande de contenu du jour ( -50% offert ). Envoie-lui son média."
         )
 
     # 👉 Forward du message déclencheur d’origine (ton ancien comportement EXACT)
@@ -615,13 +616,13 @@ async def handle_start(message: types.Message):
     # === Cas 2 : VIP avec /start=vipcdan ===
     elif param == "vipcdan":
         authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenue dans le VIP ! Tu peux désormais m'écrire, ou même voir le contenu du jour...💕")
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
             type_acces="VIP",
-            montant=0.0,
+            montant=1.0,
             contenu="Accès VIP Telegram"
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
