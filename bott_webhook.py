@@ -416,11 +416,20 @@ keyboard.add(
 # Ajouts en haut du fichier (près des imports/vars)
 # =======================
 import asyncio  # si pas déjà importé
+import time     # ⬅️ ajout pour le cooldown 24h
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-DICE_WAIT_SECONDS = 5.0  # laisse l’animation 🎰 se terminer avant d’envoyer la réponse
+DICE_WAIT_SECONDS = 2.0  # laisse l’animation 🎰 se terminer avant d’envoyer la réponse
+COOLDOWN_SECONDS = 24 * 3600  # ⬅️ cooldown 24h
+last_played = {}  # ⬅️ user_id -> timestamp du dernier lancement
 trigger_message = {}     # user_id -> (chat_id, message_id) du message "Voir le contenu du jour"
+
+# NOTE: tu as déjà:
+# - bot, dp
+# - authorized_users (set)
+# - ADMIN_ID (int)
+# - pending_replies: Dict[(chat_id, msg_id), user_chat_id]
 
 
 # =======================
@@ -469,6 +478,21 @@ async def demande_contenu_jour(message: types.Message):
 async def lancer_roulette(cb: types.CallbackQuery):
     user_id = cb.from_user.id
 
+    # ----- Cooldown 24h -----
+    now = time.time()
+    last = last_played.get(user_id)
+    if last and (now - last) < COOLDOWN_SECONDS:
+        remaining = COOLDOWN_SECONDS - (now - last)
+        heures = int(remaining // 3600)
+        minutes = int((remaining % 3600) // 60)
+        await cb.answer(
+            f"⚠️ Tu as déjà lancé la roulette aujourd’hui ! Reviens dans {heures}h{minutes:02d}.",
+            show_alert=True
+        )
+        return
+    # Marquer le lancement maintenant (évite le double-clic)
+    last_played[user_id] = now
+
     # Lancer l’animation officielle Telegram
     dice_msg = await bot.send_dice(chat_id=user_id, emoji="🎰")
 
@@ -513,7 +537,7 @@ async def lancer_roulette(cb: types.CallbackQuery):
             from_chat_id=chat_id_src,
             message_id=msg_id_src
         )
-        # Répondre à CE message côté admin => ça part chez l’utilisateur
+        # Répondre à CE message côté admin => ça part directement chez l’utilisateur
         pending_replies[(forwarded.chat.id, forwarded.message_id)] = chat_id_src
 
     # (Optionnel) tu peux aussi forward le message que le bot vient d'envoyer au client pour contexte :
@@ -522,6 +546,7 @@ async def lancer_roulette(cb: types.CallbackQuery):
 
     # Fermer le spinner du bouton inline côté client
     await cb.answer()
+
 
 
 
