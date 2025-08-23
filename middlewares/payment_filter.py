@@ -33,8 +33,8 @@ async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authori
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "Enchantée mon coeur, en vrai j'adorerais pouvoir faire ta connaissance et que je te montre plus 🔞 mais il faut que tu sois VIP 💎!\n\n"
-            "Au lieu de 9€, c'est à 1 € seulement aujourd'hui ! Je t'attends de l'autre côté...🤭\n\n"
+            "Enchantée mon coeur,\n\n en vrai j'adorerais pouvoir faire ta connaissance et que je te montre plus 🔞 mais il faut que tu sois VIP !\n\n"
+            "En plus au lieu de 9€, c'est à 1 € seulement aujourd'hui ! Je t'attends de l'autre côté...🤭\n\n"
             "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
             f"{VIP_URL} \n\n"
         ),
@@ -56,7 +56,7 @@ async def send_nonvip_second_reply_after_delay(bot, chat_id: int, user_id: int, 
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "Mon cœur 💕, en faite ce que je veux, c'est ne pas me dévoiler pour rien ! Je voudrais vraiment être moi donc pour que je te réponde"
+            "Mon cœur 💕, en faite ce que je veux, c'est ne pas me dévoiler pour rien ! Je voudrais vraiment être moi donc pour que je te réponde, "
             "il faut être dans mon espace VIP 💎. Je t’y attends… 🤭\n\n"
             "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
             f"{VIP_URL} \n\n"

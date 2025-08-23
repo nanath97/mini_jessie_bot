@@ -616,7 +616,7 @@ async def handle_start(message: types.Message):
     # === Cas 2 : VIP avec /start=vipcdan ===
     elif param == "vipcdan":
         authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕")
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! On peut désormais apprendre à se connaître, ou alors tu peux même tenter ta chance avec le contenu du jour...💕\n\n Clique sur le bouton en bas à droite 🎛️ pour choisir ce que tu veux faire")
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
