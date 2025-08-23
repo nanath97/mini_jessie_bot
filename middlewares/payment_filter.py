@@ -5,6 +5,7 @@ from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list # Import de la ban_list
 
+import asyncio  # ⬅️ ajouté ici (au lieu de l'avoir au milieu du handler)
 
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
@@ -12,6 +13,36 @@ BOUTONS_AUTORISES = [
     "🔞 Voir le contenu du jour...en jouant 🎰",
     "✨Discuter en tant que VIP",
 ]
+
+# ===== Helper pour l'envoi différé de la réponse non-VIP (phrases inchangées) =====
+VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
+
+async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authorized_users, delay_seconds: int = 13):
+    # Attendre sans bloquer le bot
+    await asyncio.sleep(delay_seconds)
+
+    # S’il est devenu VIP entre-temps, on n’envoie plus le message auto
+    if user_id in authorized_users:
+        return
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "🚫 Enchantée mon coeur, j'adorerais pouvoir commenceer à faire ta connaissance et que je te montre plus 🔞 mais il faut que tu sois dans mon espace VIP 💎!\n\n"
+            "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
+            "C'est à 1 € seulement aujourd'hui ! 🎁 Je t'attends de l'autre côté...🤭\n\n"
+            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
+            f"{VIP_URL} \n\n"
+        ),
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton(
+                text="💎 Devenir VIP maintenant",
+                url=VIP_URL
+            )
+        ),
+        parse_mode="HTML"
+    )
+
 
 class PaymentFilterMiddleware(BaseMiddleware):
     def __init__(self, authorized_users):
@@ -56,49 +87,23 @@ class PaymentFilterMiddleware(BaseMiddleware):
         if message.text.strip() in BOUTONS_AUTORISES:
             return
 
-        import asyncio
-
-VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
-
-async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authorized_users, delay_seconds: int = 13):
-    # Attendre sans bloquer le bot
-    await asyncio.sleep(delay_seconds)
-
-    # S’il est devenu VIP entre-temps, on ne renvoie pas le message auto
-    if user_id in authorized_users:
-        return
-
-    await bot.send_message(
-        chat_id=chat_id,
-        text=(
-            "🚫 Enchantée mon coeur, j'adorerais pouvoir commenceer à faire ta connaissance et que je te montre plus 🔞 mais il faut que tu sois dans mon espace VIP 💎!\n\n"
-            "👇 Clique ci-dessous pour débloquer ton accès immédiat :\n\n"
-            "C'est à 1 € seulement aujourd'hui ! 🎁 Je t'attends de l'autre côté...🤭\n\n"
-            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
-            f"{VIP_URL} \n\n"
-        ),
-        reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton(
-                text="💎 Devenir VIP maintenant",
-                url=VIP_URL
+        # =========================
+        # 🚫 CAS NON-VIP (nouvelle logique)
+        # - on NE SUPPRIME PAS le message
+        # - on NE NOTIFIE PAS l’admin
+        # - on ENVOIE la réponse automatique 13s plus tard
+        # - on stoppe le pipeline pour éviter d'autres handlers
+        # =========================
+        if user_id not in self.authorized_users:
+            asyncio.create_task(
+                send_nonvip_reply_after_delay(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    user_id=user_id,
+                    authorized_users=self.authorized_users,
+                    delay_seconds=13
+                )
             )
-        ),
-        parse_mode="HTML"
-    )
+            raise CancelHandler()
 
-# ❌ Si utilisateur non VIP → on NE supprime plus le message, on NE prévient pas l’admin,
-#    et on envoie la même réponse automatique 13s plus tard.
-
-user_id = message.from_user.id  # <-- AJOUT IMPORTANT
-if user_id not in self.authorized_users:
-    asyncio.create_task(
-        send_nonvip_reply_after_delay(
-            bot=message.bot,
-            chat_id=message.chat.id,
-            user_id=user_id,
-            authorized_users=self.authorized_users,
-            delay_seconds=13
-        )
-    )
-    # On stoppe le traitement ici (comme avant) pour éviter qu’un autre handler ne s’en mêle.
-    raise CancelHandler()
+        # (VIP) -> on laisse passer normalement, rien à changer
