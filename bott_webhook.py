@@ -12,18 +12,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
 
 
-
-
-
-
-@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=types.ContentTypes.VIDEO)
-async def grab_video_file_id(message: types.Message):
-    v = message.video
-    await message.reply(
-        f"🎬 VIDEO\nfile_id:\n`{v.file_id}`\nunique_id:\n`{v.file_unique_id}`",
-        parse_mode="Markdown"
-    )
-
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -625,44 +613,32 @@ async def handle_start(message: types.Message):
             return
 
 # === Cas 2 : VIP avec /start=vipcdan ===
-    elif param == "vipcdan":
-        authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! On peut désormais faire connaissance, me dire ce que t'en penses de ma petite photo 🔞\n\net tu peux même tenter ta chance avec le contenu du jour...💕\n\nClique sur le carré en bas à droite pour choisir 🎛️")
-        await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=user_id,
-            type_acces="VIP",
-            montant=1.0,
-            contenu="Accès VIP Telegram"
-        )
-        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
-        return
 
-    # === Message de bienvenue par défaut ===
 
-    # Ton file_id photo sexy + audio de bienvenue
-    WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAI-uGih1fvlbwqf-PQAAmYMeYaNTndSAAKlGgAChiwQUUVhJseS_cH9NgQ"
+                    # === Message de bienvenue par défaut ===
+if user_id == ADMIN_ID:
+    await bot.send_message(
+        user_id,
+        "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
+        reply_markup=keyboard_admin
+    )
+else:
+    # 📝 Message texte
+    await bot.send_message(
+        user_id,
+        f"🟢 Jessie est en ligne",
+        reply_markup=keyboard
+    )
 
-    if user_id == ADMIN_ID:
-        await bot.send_message(
-            user_id,
-            "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
-            reply_markup=keyboard_admin
-        )
-    else:
-        # 📝 Message texte
-        await bot.send_message(
-            user_id,
-            f"🟢 Jessie est en ligne",
-            reply_markup=keyboard
-        )
-
-        # 🔊 Audio de bienvenue
-        await bot.send_voice(
-            chat_id=user_id,
-            voice=WELCOME_AUDIO_FILE_ID
-        )
+    # 🎬 Vidéo de bienvenue + bouton inline "Devenir VIP"
+    vip_kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
+    )
+    await bot.send_video(
+        chat_id=user_id,
+        video=WELCOME_VIDEO_FILE_ID,
+        reply_markup=vip_kb
+    )
 
 
 
