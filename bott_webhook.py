@@ -613,10 +613,11 @@ async def handle_start(message: types.Message):
             await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
-    # === Cas 2 : VIP avec /start=vipcdan ===
+# === Cas 2 : VIP avec /start=vipcdan ===
     elif param == "vipcdan":
         authorized_users.add(user_id)
-        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! On peut désormais apprendre à se connaître, ou alors tu peux même tenter ta chance avec le contenu du jour...💕\n\n Clique sur le bouton en bas à droite 🎛️ pour choisir ce que tu veux faire")
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕")
+        WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
@@ -643,14 +644,23 @@ async def handle_start(message: types.Message):
         # 📝 Message texte
         await bot.send_message(
             user_id,
-            f"👋 Coucou {message.from_user.first_name or 'toi'}, écoute ça... 🎙️💕",
+            f"👋 Coucou {message.from_user.first_name or 'toi'}, bienvenue dans mon espace privé...\n\nClique sur le bouton en bas à droite 🎛️\n\nEt choisis ce que tu veux faire 💕",
             reply_markup=keyboard
         )
+
+        # 📸 Photo sexy
+        await bot.send_photo(
+            chat_id=user_id,
+            photo=WELCOME_PHOTO_FILE_ID
+        )
+
         # 🔊 Audio de bienvenue
         await bot.send_voice(
             chat_id=user_id,
             voice=WELCOME_AUDIO_FILE_ID
         )
+
+
 
 
 # Gestion des boutons…
