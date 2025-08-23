@@ -88,6 +88,8 @@ async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authori
 
 # ❌ Si utilisateur non VIP → on NE supprime plus le message, on NE prévient pas l’admin,
 #    et on envoie la même réponse automatique 13s plus tard.
+
+user_id = message.from_user.id  # <-- AJOUT IMPORTANT
 if user_id not in self.authorized_users:
     asyncio.create_task(
         send_nonvip_reply_after_delay(
