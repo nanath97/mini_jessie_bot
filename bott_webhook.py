@@ -13,6 +13,17 @@ from ban_storage import ban_list
 
 
 
+
+
+
+@dp.message_handler(lambda m: m.from_user.id == ADMIN_ID, content_types=types.ContentTypes.VIDEO)
+async def grab_video_file_id(message: types.Message):
+    v = message.video
+    await message.reply(
+        f"🎬 VIDEO\nfile_id:\n`{v.file_id}`\nunique_id:\n`{v.file_unique_id}`",
+        parse_mode="Markdown"
+    )
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
@@ -643,7 +654,7 @@ async def handle_start(message: types.Message):
         # 📝 Message texte
         await bot.send_message(
             user_id,
-            f"👋 Coucou {message.from_user.first_name or 'toi'}, écoute ça 🎙️💕",
+            f"🟢 Jessie est en ligne",
             reply_markup=keyboard
         )
 
