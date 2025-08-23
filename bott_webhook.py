@@ -631,7 +631,6 @@ async def handle_start(message: types.Message):
     # === Message de bienvenue par défaut ===
 
     # Ton file_id photo sexy + audio de bienvenue
-    WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
     WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAI-uGih1fvlbwqf-PQAAmYMeYaNTndSAAKlGgAChiwQUUVhJseS_cH9NgQ"
 
     if user_id == ADMIN_ID:
@@ -644,16 +643,9 @@ async def handle_start(message: types.Message):
         # 📝 Message texte
         await bot.send_message(
             user_id,
-            f"👋 Coucou {message.from_user.first_name or 'toi'}, bienvenue dans mon espace privé...\n\nClique sur le bouton en bas à droite 🎛️\n\nEt choisis ce que tu veux faire 💕",
+            f"👋 Coucou {message.from_user.first_name or 'toi'}, écoute ça... 🎙️💕",
             reply_markup=keyboard
         )
-
-        # 📸 Photo sexy
-        await bot.send_photo(
-            chat_id=user_id,
-            photo=WELCOME_PHOTO_FILE_ID
-        )
-
         # 🔊 Audio de bienvenue
         await bot.send_voice(
             chat_id=user_id,
