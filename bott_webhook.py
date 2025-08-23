@@ -17,6 +17,12 @@ last_messages = {}
 ADMIN_ID = 7334072965
 authorized_admin_ids = [ADMIN_ID]
 
+# Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
+VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
+WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJJX2ip5M78LGaR8lpcLVqo63pJaTQOAAKeGgACdShRUXXM6eoTcJPfNgQ"
+
+# (Option) si tu veux aussi une photo à l’entrée VIP :
+WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
 
 
 pending_mass_message = {}
@@ -554,10 +560,9 @@ async def lancer_roulette(cb: types.CallbackQuery):
 
 
 
-# Détecter le paiement /start=cdan... et envoyer si contenu déjà prêt ===
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
-    param = message.get_args()
+    param = message.get_args() or ""
     user_id = message.from_user.id
 
     # === Cas 1 : Paiement avec /start=cdanXX ===
@@ -612,38 +617,52 @@ async def handle_start(message: types.Message):
             await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
-# === Cas 2 : VIP avec /start=vipcdan ===
+    # === Cas 2 : VIP avec /start=vipcdan ===
+    elif param == "vipcdan":
+        authorized_users.add(user_id)
+        await bot.send_message(
+            user_id,
+            "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕"
+        )
+        # Photo d’accueil sans légende
+        await bot.send_photo(chat_id=user_id, photo=WELCOME_PHOTO_FILE_ID)
 
+        await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
+        log_to_airtable(
+            pseudo=message.from_user.username or message.from_user.first_name,
+            user_id=user_id,
+            type_acces="VIP",
+            montant=1.0,
+            contenu="Accès VIP Telegram"
+        )
+        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
+        return
 
-                    # === Message de bienvenue par défaut ===
-if user_id == ADMIN_ID:
-    await bot.send_message(
-        user_id,
-        "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
-        reply_markup=keyboard_admin
-    )
-else:
-    # 📝 Message texte
-    await bot.send_message(
-        user_id,
-        f"🟢 Jessie est en ligne",
-        reply_markup=keyboard
-    )
+    # === Message de bienvenue par défaut ===
+    if user_id == ADMIN_ID:
+        await bot.send_message(
+            user_id,
+            "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
+            reply_markup=keyboard_admin
+        )
+    else:
+        # 📝 Message texte
+        await bot.send_message(
+            user_id,
+            "🟢 Jessie est en ligne",
+            reply_markup=keyboard
+        )
 
-    # 🎬 Vidéo de bienvenue + bouton inline "Devenir VIP"
-    vip_kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
-    )
-    await bot.send_video(
-        chat_id=user_id,
-        video=WELCOME_VIDEO_FILE_ID,
-        reply_markup=vip_kb
-    )
+        # 🎬 Vidéo de bienvenue + bouton inline "Devenir VIP"
+        vip_kb = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
+        )
+        await bot.send_video(
+            chat_id=user_id,
+            video=WELCOME_VIDEO_FILE_ID,
+            reply_markup=vip_kb
+        )
 
-
-
-
-# Gestion des boutons…
 
 
 @dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
