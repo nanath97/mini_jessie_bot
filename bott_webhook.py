@@ -631,7 +631,6 @@ async def handle_start(message: types.Message):
     # === Message de bienvenue par défaut ===
 
     # Ton file_id photo sexy + audio de bienvenue
-    WELCOME_PHOTO_FILE_ID
     WELCOME_AUDIO_FILE_ID = "CQACAgQAAxkBAAI-uGih1fvlbwqf-PQAAmYMeYaNTndSAAKlGgAChiwQUUVhJseS_cH9NgQ"
 
     if user_id == ADMIN_ID:
