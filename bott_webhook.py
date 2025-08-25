@@ -15,9 +15,6 @@ from payment_filter import PaymentFilterMiddleware, reset_free_quota  # NEW
 
 
 
-
-
-
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))  # <-- NEW
 
 
