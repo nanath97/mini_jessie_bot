@@ -10,6 +10,15 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
+from NOM_DU_FICHIER_MIDDLEWARE import PaymentFilterMiddleware, reset_free_quota  # <-- NEW
+
+
+
+
+
+dp.middleware.setup(PaymentFilterMiddleware(authorized_users))  # <-- NEW
+
+
 
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
@@ -583,6 +592,7 @@ async def handle_start(message: types.Message):
             # Paiement validé
             paiements_recents[montant].remove(paiements_valides[0])
             authorized_users.add(user_id)
+            reset_free_quota(user_id)  # ✅ NEW : on réinitialise le compteur de messages gratuits
 
             if user_id in contenus_en_attente:
                 contenu = contenus_en_attente[user_id]
@@ -620,6 +630,8 @@ async def handle_start(message: types.Message):
     # === Cas 2 : VIP avec /start=vipcdan ===
     elif param == "vipcdan":
         authorized_users.add(user_id)
+        reset_free_quota(user_id)  # ✅ NEW : on réinitialise le compteur de messages gratuits
+
         await bot.send_message(
             user_id,
             "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕"
@@ -663,23 +675,6 @@ async def handle_start(message: types.Message):
             reply_markup=vip_kb
         )
 
-
-
-@dp.message_handler(lambda message: message.text == "✨Discuter en tant que VIP")
-async def discuter_vip(message: types.Message):
-    bouton_vip = InlineKeyboardMarkup().add(
-        InlineKeyboardButton(
-            text="💬 Devenir VIP pour 1 € ",
-            url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
-        )
-    )
-
-    await bot.send_message(
-    message.chat.id,
-    "🚀 C'est le moment où jamais...\n\nPour 1 € seulement, tu seras VIP et tu pourras parler avec moi, me connaître et que je pourrais t'envoyer des photos ou vidéos de moi toute nue 🔞 !\n\nClique ici 👇\n\n<i>🔐 Paiement sécurisé par Stripe</i>\n\n https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m \n\n",
-    reply_markup=bouton_vip,
-    parse_mode="HTML"
-)
 
  # TEST
 @dp.message_handler(lambda message: message.text == "❗ Problème achat")
