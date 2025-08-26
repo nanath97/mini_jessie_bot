@@ -15,7 +15,7 @@ BOUTONS_AUTORISES = [
     "✨Discuter en tant que VIP",
 ]
 
-# ===== Paramètres "messages gratuits" (NEW) =====
+# ===== Paramètres "messages gratuits" =====
 FREE_MSGS_LIMIT = 5                          # nombre de messages gratuits
 FREE_MSGS_WINDOW_SECONDS = 24 * 3600         # fenêtre glissante de 24h
 SHOW_REMAINING_HINT = True                   # afficher "X/5 utilisés" au fil de l'eau
@@ -23,6 +23,17 @@ free_msgs_state = {}                         # user_id -> {"count": int, "window
 
 # Lien VIP (existant)
 VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
+
+# ===== Anti-doublon par message =====
+# clé = (chat_id, message_id) → timestamp
+_processed_keys = {}
+_PROCESSED_TTL = 60  # secondes
+
+def _prune_processed(now: float):
+    # Nettoyage simple pour éviter l'accumulation en mémoire
+    for k, ts in list(_processed_keys.items()):
+        if now - ts > _PROCESSED_TTL:
+            del _processed_keys[k]
 
 # (Anciennes fonctions de nudge conservées mais non utilisées ; tu peux les supprimer si tu veux)
 async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authorized_users, delay_seconds: int = 13):
@@ -74,6 +85,15 @@ class PaymentFilterMiddleware(BaseMiddleware):
     async def on_pre_process_message(self, message: types.Message, data: dict):
         user_id = message.from_user.id
 
+        # 🔒 Anti-doublon: s'assurer qu'on ne compte/envoie qu'une fois par message
+        now = time.time()
+        _prune_processed(now)
+        key = (message.chat.id, message.message_id)
+        if key in _processed_keys:
+            # ce même message a déjà été traité par le middleware → ne pas re-compter ni re-notifier
+            return
+        _processed_keys[key] = now
+
         # 🔒 Banni → supprimer + notifier
         for admin_id, clients_bannis in ban_list.items():
             if user_id in clients_bannis:
@@ -114,14 +134,13 @@ class PaymentFilterMiddleware(BaseMiddleware):
         # 🚫 NON-VIP : 5 messages gratuits / 24h, puis paywall VIP
         # =========================
         if user_id not in self.authorized_users:
-            now = time.time()
             state = free_msgs_state.get(user_id)
 
             # Reset si première fois OU fenêtre expirée
             if (not state) or (now - state.get("window_start", 0) > FREE_MSGS_WINDOW_SECONDS):
                 state = {"count": 0, "window_start": now}
 
-            # Incrémenter pour CE message
+            # Incrémenter pour CE message (une seule fois grâce à l'anti-doublon)
             state["count"] += 1
             state["last"] = now
             free_msgs_state[user_id] = state
@@ -134,9 +153,13 @@ class PaymentFilterMiddleware(BaseMiddleware):
                         f"💬 Message gratuit utilisé ({state['count']}/{FREE_MSGS_LIMIT})."
                         f"{' Il t’en reste ' + str(remaining) + '.' if remaining > 0 else ' C’était le dernier gratuit 😉'}"
                     )
-                    # on envoie en tache pour ne pas bloquer
+                    # on envoie en tâche pour ne pas bloquer
                     asyncio.create_task(
-                        message.bot.send_message(chat_id=message.chat.id, text=hint)
+                        message.bot.send_message(
+                            chat_id=message.chat.id,
+                            text=hint,
+                            reply_to_message_id=message.message_id  # optionnel: rend le rappel plus lisible
+                        )
                     )
                 # Laisser passer vers tes handlers normaux
                 return
