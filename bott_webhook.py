@@ -19,11 +19,6 @@ from middlewares.payment_filter import PaymentFilterMiddleware, reset_free_quota
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
-authorized_users.add(user_id)
-reset_free_quota(user_id)
-
-
-
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
