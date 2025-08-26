@@ -1,69 +1,80 @@
-# middlewares/payment_filter.py
+from detect_links_whitelist import lien_non_autorise  # Pour filtrer les liens
 from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from detect_links_whitelist import lien_non_autorise
-from ban_storage import ban_list
+from ban_storage import ban_list  # Import de la ban_list
 
 import asyncio
-import time
+import time  # pour la fenêtre glissante
 
-ADMIN_ID = 7334072965
+ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
     "🔞 Voir le contenu du jour...en jouant 🎰",
     "✨Discuter en tant que VIP",
 ]
 
-# ----- Quota messages gratuits (non-VIP) -----
-FREE_MSGS_LIMIT = 5
-FREE_MSGS_WINDOW_SECONDS = 24 * 3600
-SHOW_REMAINING_HINT = True
+# ===== Paramètres "messages gratuits" (NEW) =====
+FREE_MSGS_LIMIT = 5                          # nombre de messages gratuits
+FREE_MSGS_WINDOW_SECONDS = 24 * 3600         # fenêtre glissante de 24h
+SHOW_REMAINING_HINT = True                   # afficher "X/5 utilisés" au fil de l'eau
+free_msgs_state = {}                         # user_id -> {"count": int, "window_start": float, "last": float}
 
+# Lien VIP (existant)
 VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
 
-# État quota par utilisateur : user_id -> {"count": int, "window_start": float, "last": float}
-free_msgs_state = {}
+# (Anciennes fonctions de nudge conservées mais non utilisées ; tu peux les supprimer si tu veux)
+async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authorized_users, delay_seconds: int = 13):
+    await asyncio.sleep(delay_seconds)
+    if user_id in authorized_users:
+        return
+    await bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "Enchantée mon coeur,\n\nEn vrai j'adorerais pouvoir faire ta connaissance et te montrer plus 🔞 mais il faut que tu sois VIP !\n\n"
+            "En plus au lieu de 9€, c'est à 1 € seulement aujourd'hui ! Je t'attends de l'autre côté...🤭\n\n"
+            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
+            f"{VIP_URL} \n\n"
+        ),
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton(text="💎 Devenir VIP maintenant", url=VIP_URL)
+        ),
+        parse_mode="HTML"
+    )
 
-# ----- Anti-doublon par message -----
-RECENT_CACHE_TTL = 90  # secondes
-_recent_decisions = {}  # (chat_id, message_id) -> (cancel: bool, ts: float)
+async def send_nonvip_second_reply_after_delay(bot, chat_id: int, user_id: int, authorized_users, delay_seconds: int = 13):
+    await asyncio.sleep(delay_seconds)
+    if user_id in authorized_users:
+        return
+    await bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "Mon cœur 💕, en faite ce que je veux, c'est ne pas me dévoiler pour rien ! Je voudrais vraiment être moi donc pour que je te réponde, "
+            "il faut être dans mon espace VIP 💎. Je t’y attends… 🤭\n\n"
+            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
+            f"{VIP_URL} \n\n"
+        ),
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton(text="💎 Devenir VIP maintenant", url=VIP_URL)
+        ),
+        parse_mode="HTML"
+    )
 
-def _remember_decision(key, cancel, now):
-    _recent_decisions[key] = (cancel, now)
-    # petit nettoyage
-    if len(_recent_decisions) > 5000:
-        cutoff = now - RECENT_CACHE_TTL
-        for k, (_, ts) in list(_recent_decisions.items()):
-            if ts < cutoff:
-                del _recent_decisions[k]
-
+# Helper facultatif : à appeler quand un user devient VIP pour nettoyer son compteur
 def reset_free_quota(user_id: int):
-    """Appelée quand l'utilisateur devient VIP (/start=cdanXX ou /start=vipcdan)."""
     free_msgs_state.pop(user_id, None)
 
 
 class PaymentFilterMiddleware(BaseMiddleware):
     def __init__(self, authorized_users):
-        super().__init__()
+        super(PaymentFilterMiddleware, self).__init__()
         self.authorized_users = authorized_users
 
     async def on_pre_process_message(self, message: types.Message, data: dict):
         user_id = message.from_user.id
-        now = time.time()
 
-        # ---------- Anti-doublon ----------
-        key = (message.chat.id, message.message_id)
-        memo = _recent_decisions.get(key)
-        if memo is not None:
-            cancel, _ = memo
-            if cancel:
-                raise CancelHandler()
-            return
-
-        # ---------- Ban ----------
+        # 🔒 Banni → supprimer + notifier
         for admin_id, clients_bannis in ban_list.items():
             if user_id in clients_bannis:
                 try:
@@ -74,15 +85,13 @@ class PaymentFilterMiddleware(BaseMiddleware):
                     await message.answer("🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
                 except Exception as e:
                     print(f"Erreur envoi message banni : {e}")
-                _remember_decision(key, True, now)
                 raise CancelHandler()
 
-        # On ne filtre que le TEXT ici
+        # Ne gérer que du texte
         if message.content_type != types.ContentType.TEXT:
-            _remember_decision(key, False, now)
             return
 
-        # ---------- Admin : vérifier les liens uniquement ----------
+        # ✅ Admin : juste filtrage des liens
         if user_id == ADMIN_ID:
             if lien_non_autorise(message.text):
                 try:
@@ -90,51 +99,49 @@ class PaymentFilterMiddleware(BaseMiddleware):
                     await message.answer("🚫 Seuls les liens autorisés sont acceptés.")
                 except Exception as e:
                     print(f"Erreur suppression lien admin : {e}")
-                _remember_decision(key, True, now)
                 raise CancelHandler()
-            _remember_decision(key, False, now)
             return
 
-        # ---------- Laisser passer /start ----------
+        # ✅ Autoriser /start
         if message.text and message.text.startswith("/start"):
-            _remember_decision(key, False, now)
             return
 
-        # ---------- Laisser passer les boutons prédéfinis ----------
+        # ✅ Autoriser les boutons prédéfinis
         if message.text.strip() in BOUTONS_AUTORISES:
-            _remember_decision(key, False, now)
             return
 
         # =========================
-        # 🚫 NON-VIP : 5 messages gratuits / 24h, puis paywall
+        # 🚫 NON-VIP : 5 messages gratuits / 24h, puis paywall VIP
         # =========================
         if user_id not in self.authorized_users:
+            now = time.time()
             state = free_msgs_state.get(user_id)
 
-            # Reset si fenêtre expirée ou première fois
+            # Reset si première fois OU fenêtre expirée
             if (not state) or (now - state.get("window_start", 0) > FREE_MSGS_WINDOW_SECONDS):
                 state = {"count": 0, "window_start": now}
 
-            # Incrémenter pour CE message (protégé par anti-doublon)
+            # Incrémenter pour CE message
             state["count"] += 1
             state["last"] = now
             free_msgs_state[user_id] = state
 
             if state["count"] <= FREE_MSGS_LIMIT:
-                # Petit rappel "X/5"
+                # Option : petit rappel "X/5"
                 if SHOW_REMAINING_HINT:
                     remaining = FREE_MSGS_LIMIT - state["count"]
                     hint = (
                         f"💬 Message gratuit utilisé ({state['count']}/{FREE_MSGS_LIMIT})."
                         f"{' Il t’en reste ' + str(remaining) + '.' if remaining > 0 else ' C’était le dernier gratuit 😉'}"
                     )
+                    # on envoie en tache pour ne pas bloquer
                     asyncio.create_task(
                         message.bot.send_message(chat_id=message.chat.id, text=hint)
                     )
-                _remember_decision(key, False, now)  # laisser passer vers tes handlers
+                # Laisser passer vers tes handlers normaux
                 return
 
-            # Quota dépassé → push VIP + bloquer
+            # Quota dépassé → push VIP + bloquer la propagation
             pay_kb = InlineKeyboardMarkup().add(
                 InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
             )
@@ -147,16 +154,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 ),
                 reply_markup=pay_kb
             )
-            _remember_decision(key, True, now)
             raise CancelHandler()
 
-        # ---------- VIP : on laisse passer ----------
-        _remember_decision(key, False, now)
+        # ✅ VIP : on laisse passer
         return
-    
-
-
-# après création de dp
-if not getattr(dp, "_pfm_installed", False):
-    dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
-    dp._pfm_installed = True
