@@ -15,9 +15,8 @@ from middlewares.payment_filter import PaymentFilterMiddleware, reset_free_quota
 
 
 
-if not getattr(dp, "_pfm_installed", False):
-    dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
-    dp._pfm_installed = True
+
+dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
 
