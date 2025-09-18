@@ -11,8 +11,8 @@ import time  # pour la fenêtre glissante
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
-    "🔞 Voir le contenu du jour...en jouant 🎰",
-    "✨Discuter en tant que VIP",
+    "🔞 See today's content...while playing 🎰",
+    "✨Chat as a VIP",
 ]
 
 # ===== Paramètres "messages gratuits" =====
@@ -43,13 +43,13 @@ async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authori
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "Enchantée mon coeur,\n\nEn vrai j'adorerais pouvoir faire ta connaissance et te montrer plus 🔞 mais il faut que tu sois VIP !\n\n"
-            "En plus au lieu de 9€, c'est à 1 € seulement aujourd'hui ! Je t'attends de l'autre côté...🤭\n\n"
-            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
+            "Nice to meet you, my dear,\n\nActually, I would love to get to know you and show you more 🔞 but you have to be a VIP !\n\n"
+            "Plus, instead of €9, it's only €1 today! I'll be waiting for you on the other side....🤭\n\n"
+            "<i>🔐 Secure payment via Stripe</i>\n\n"
             f"{VIP_URL} \n\n"
         ),
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton(text="💎 Devenir VIP maintenant", url=VIP_URL)
+            InlineKeyboardButton(text="💎 Become a VIP now", url=VIP_URL)
         ),
         parse_mode="HTML"
     )
@@ -61,13 +61,13 @@ async def send_nonvip_second_reply_after_delay(bot, chat_id: int, user_id: int, 
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "Mon cœur 💕, en faite ce que je veux, c'est ne pas me dévoiler pour rien ! Je voudrais vraiment être moi donc pour que je te réponde, "
-            "il faut être dans mon espace VIP 💎. Je t’y attends… 🤭\n\n"
-            "<i>🔐 Paiement sécurisé par Stripe</i>\n\n"
+            "My heart 💕, Actually, what I want is not to reveal myself for nothing! I really want to be myself so that I can answer you, "
+            "you have to be in my VIP area 💎. I'll be waiting for you there… 🤭\n\n"
+            "<i>🔐 Secure payment via Stripe</i>\n\n"
             f"{VIP_URL} \n\n"
         ),
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton(text="💎 Devenir VIP maintenant", url=VIP_URL)
+            InlineKeyboardButton(text="💎 Become a VIP now", url=VIP_URL)
         ),
         parse_mode="HTML"
     )
@@ -102,7 +102,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 except Exception as e:
                     print(f"Erreur suppression message banni : {e}")
                 try:
-                    await message.answer("🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
+                    await message.answer("🚫 You have been banned. You can no longer send messages.")
                 except Exception as e:
                     print(f"Erreur envoi message banni : {e}")
                 raise CancelHandler()
@@ -166,14 +166,14 @@ class PaymentFilterMiddleware(BaseMiddleware):
 
             # Quota dépassé → push VIP + bloquer la propagation
             pay_kb = InlineKeyboardMarkup().add(
-                InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
+                InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
             )
             await message.bot.send_message(
                 chat_id=message.chat.id,
                 text=(
-                    "🚪 Tu as utilisé tes 5 messages gratuits.\n"
-                    "Pour continuer à discuter librement et avoir mes réponses prioritaires, "
-                    "rejoins mon espace VIP 💕."
+                    "🚪 You have used your 5 free messages.\n"
+                    "To continue discussing freely and receive priority responses, "
+                    "join my VIP area 💕."
                 ),
                 reply_markup=pay_kb
             )

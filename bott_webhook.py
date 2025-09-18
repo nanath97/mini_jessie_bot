@@ -169,7 +169,7 @@ async def handle_stat(message: types.Message):
 @dp.message_handler(commands=["nath"])
 async def handle_nath_global_stats(message: types.Message):
     if message.from_user.id != int(ADMIN_ID):
-        await bot.send_message(message.chat.id, "❌ Tu n'as pas l'autorisation d'utiliser cette commande.")
+        await bot.send_message(message.chat.id, "❌ You do not have permission to use this command.")
         return
 
     await bot.send_message(message.chat.id, "🕓 Récupération des statistiques globales en cours...")
@@ -246,7 +246,7 @@ async def bannir_client(message: types.Message):
 
         await message.reply("✅ Le client a été retiré avec succès.")
         try:
-            await bot.send_message(user_id, "❌ Désolée mais vous avez été retiré du groupe VIP.")
+            await bot.send_message(user_id, "❌ Sorry, but you have been removed from the VIP group.")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client banni : {e}")
             await message.reply("ℹ️ Le client est bien banni, mais je n’ai pas pu lui envoyer le message (permissions Telegram).")
@@ -277,7 +277,7 @@ async def reintegrer_client(message: types.Message):
 
         await message.reply("✅ Le client a été réintégré avec succès.")
         try:
-            await bot.send_message(user_id, "✅ Vous avez été réintégré au sein du groupe VIP !")
+            await bot.send_message(user_id, "✅ You have been reinstated to the VIP group !")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message au client réintégré : {e}")
             await message.reply("ℹ️ Réintégré, mais le message n’a pas pu être envoyé (permissions Telegram).")
@@ -298,7 +298,7 @@ async def bouton_bannir(message: types.Message):
     ban_list.setdefault(message.from_user.id, set()).add(user_id)
     await message.reply(f"🚫 Le client a été banni avec succès.")
     try:
-        await bot.send_message(user_id, "❌ Tu as été retiré. Tu ne peux plus me recontacter.")
+        await bot.send_message(user_id, "❌ You have been removed. You can no longer contact me.")
     except Exception as e:
         print(f"Erreur d'envoi au client banni : {e}")
         await message.reply("ℹ️ Le client est banni, mais je n’ai pas pu lui envoyer le message.")
@@ -316,7 +316,7 @@ async def bouton_reintegrer(message: types.Message):
         ban_list[message.from_user.id].remove(user_id)
         await message.reply(f"✅ Le client a été réintégré.")
         try:
-            await bot.send_message(user_id, "✅ Tu as été réintégré, tu peux me recontacter.")
+            await bot.send_message(user_id, "✅ You have been reinstated, you can contact me again.")
         except Exception as e:
             print(f"Erreur d'envoi au client réintégré : {e}")
             await message.reply("ℹ️ Réintégré, mais je n’ai pas pu lui envoyer le message.")
@@ -405,8 +405,8 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     
-    types.KeyboardButton("✨Discuter en tant que VIP"),
-    types.KeyboardButton("❗ Problème achat")
+    types.KeyboardButton("✨Chat as a VIP"),
+    types.KeyboardButton("❗ Purchase problem")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard_admin.add(
@@ -422,7 +422,7 @@ keyboard_admin.add(
 )
 
 keyboard.add(
-    types.KeyboardButton("🔞 Voir le contenu du jour...en jouant 🎰")
+    types.KeyboardButton("🔞 See today's content...while playing 🎰")
 )
 
 # =======================
@@ -448,7 +448,7 @@ trigger_message = {}     # user_id -> (chat_id, message_id) du message "Voir le 
 # =======================
 # 1) Message "Voir le contenu du jour" -> propose "Lancer la roulette"
 # =======================
-@dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour...en jouant 🎰")
+@dp.message_handler(lambda message: message.text == "🔞 See today's content...while playing 🎰")
 async def demande_contenu_jour(message: types.Message):
     user_id = message.from_user.id
 
@@ -456,15 +456,17 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Rejoindre le VIP pour 1 €",
+                text="🔥 Join the VIP for $1",
                 url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
             )
         )
         await message.reply(
-            "✅ J'ai bien reçu ta demande !\n\n🚨 Mais pour jouer et tenter d'avoir le contenu du jour, tu dois être un VIP.\n\n"
-            "🍀 Mais c'est ton jour de  chance, aujourd’hui, c'est à 1 € seulement 🎁 !\n\n"
-            " C'est simple, clique sur le bouton ci-dessous 👇 et tente ta chance maintenant\n\n"
-            "<i>🔐 Paiement sécurisé par Stripe</i>\n"
+            "I’ve received your request! ✅\n\n"
+"🚨 But to play and try to get today’s content, you need to be a VIP.\n\n"
+"🍀 But it’s your lucky day — today it’s only $1 🎁!\n\n"
+"It’s simple: click the button below 👇 and try your luck now\n\n"
+"<i>🔐 Secure payment via Stripe</i>\n"
+
             "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
@@ -476,11 +478,11 @@ async def demande_contenu_jour(message: types.Message):
 
     # Au lieu d'envoyer direct, on propose la roulette
     bouton_roulette = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("⚡Lancer la roulette", callback_data="lancer_roulette")
+        InlineKeyboardButton("⚡Spin the roulette wheel", callback_data="Spin the roulette wheel")
     )
     await message.reply(
-        "Prépare-toi à tenter ta chance pour le contenu du jour… Je croise les doigts pour toi mon coeur 🤞 \n\n"
-        "Clique sur le bouton ci-dessous pour lancer la roulette 🎰",
+        "Get ready to try your luck at today's content... I'm keeping my fingers crossed for you, sweetheart 🤞 \n\n"
+        "Click on the button below to start the roulette wheel 🎰",
         reply_markup=bouton_roulette
     )
 
@@ -488,7 +490,7 @@ async def demande_contenu_jour(message: types.Message):
 # =======================
 # 2) Callback "Lancer la roulette" -> roulette + attente + réponses + forward répondable
 # =======================
-@dp.callback_query_handler(lambda c: c.data == "lancer_roulette")
+@dp.callback_query_handler(lambda c: c.data == "Spin the roulette wheel")
 async def lancer_roulette(cb: types.CallbackQuery):
     user_id = cb.from_user.id
 
@@ -500,7 +502,7 @@ async def lancer_roulette(cb: types.CallbackQuery):
         heures = int(remaining // 3600)
         minutes = int((remaining % 3600) // 60)
         await cb.answer(
-            f"⚠️ Tu as déjà lancé la roulette aujourd’hui ! Reviens dans {heures}h{minutes:02d}.",
+            f"⚠️ You've already spun the wheel today! Come back in {heures}h{minutes:02d}.",
             show_alert=True
         )
         return
@@ -523,8 +525,8 @@ async def lancer_roulette(cb: types.CallbackQuery):
     if dice_value >= 60:  # JACKPOT => -50% (tu envoies ensuite manuellement)
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="🎉 Bravo mon coeur ! Je t'offre -50 % aujourd’hui sur la vidéo du jour 🔥\n"
-                 "Je t’envoie ta vidéo dans quelques instants 💕"
+            text="🎉 Well done, sweetheart! I'm offering you 50% off today's video 🔥\n"
+                 "I'll send you your video in a few moments 💕"
         )
 
         await bot.send_message(
@@ -534,9 +536,9 @@ async def lancer_roulette(cb: types.CallbackQuery):
     else:
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="😅 Pas de chance cette fois mon coeur…\n\n"
-                 "Mais tu sais quoi ? Je vais pas te laisser sans rien... Je t’offre quand même -50 % aujourd’hui sur ta vidéo du jour 🔥\n"
-                 "Je t’envoie ta vidéo dans quelques instants 💕"
+            text="😅 No luck this time, my dear…\n\n"
+                 "But you know what? I'm not going to leave you empty-handed... I'll still give you 50%  off your video of the day today. 🔥\n"
+                 "I'll send you your video in a few moments 💕"
         )
 
         await bot.send_message(
@@ -584,7 +586,7 @@ async def handle_start(message: types.Message):
             ]
 
             if not paiements_valides:
-                await bot.send_message(user_id, "❌ Paiement non valide ! Stripe a refusé votre paiement car fonds insuffisants ou refus général. Vérifie tes capacités de paiement.")
+                await bot.send_message(user_id, "❌ Invalid payment! Stripe declined your payment due to insufficient funds or a general decline. Please verify your payment capabilities.")
                 await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
                 return
 
@@ -607,12 +609,12 @@ async def handle_start(message: types.Message):
 
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
-                f"_❗️En cas de problème avec ta commande, contacte-nous à novapulse.online@gmail.com_",
+                f"✅ Thank you for your payment of {montant}$ 💖 ! Your content will arrive in a few seconds...\n\n"
+                f"_❗️If you have any problems with your order, please contact us at novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
 
-            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
+            await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}$ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=user_id,
@@ -633,7 +635,7 @@ async def handle_start(message: types.Message):
 
         await bot.send_message(
             user_id,
-            "✨ Bienvenue dans le VIP mon coeur 💕 ! Tu peux désormais m'écrire normalement, ou même tenter ta chance avec le contenu du jour...💕"
+            "✨ Welcome to the VIP section, my dear 💕! You can now write to me as usual, or even try your luck with today's content...💕"
         )
         # Photo d’accueil sans légende
         await bot.send_photo(chat_id=user_id, photo=WELCOME_PHOTO_FILE_ID)
@@ -660,13 +662,13 @@ async def handle_start(message: types.Message):
         # 📝 Message texte
         await bot.send_message(
             user_id,
-            "🟢 Jessie est en ligne",
+            "🟢 Jessie is online",
             reply_markup=keyboard
         )
 
         # 🎬 Vidéo de bienvenue + bouton inline "Devenir VIP"
         vip_kb = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("💎 Devenir VIP maintenant", url=VIP_URL)
+            InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
         )
         await bot.send_video(
             chat_id=user_id,
@@ -676,14 +678,14 @@ async def handle_start(message: types.Message):
 
 
  # TEST
-@dp.message_handler(lambda message: message.text == "❗ Problème achat")
+@dp.message_handler(lambda message: message.text == "❗ Purchase problem")
 async def probleme_achat(message: types.Message):
     texte_client = (
-        "❗ *Un souci avec ton achat ?*\n\n"
-        "Pas de panique ! Nous prenons très au sérieux chaque cas. "
-        "Tu peux nous écrire directement à *novapulse.online@gmail.com* avec ton pseudo Telegram, "
-        "et on investiguera ta situation dès maintenant !\n\n"
-        "_Ne dépose pas de litige sur Stripe car nous allons nous occuper de la situtation._"
+        "❗ *A problem with your purchase ?*\n\n"
+        "Don't panic! We take every case very seriously. "
+        "You can write to us directly at *novapulse.online@gmail.com* with your Telegram username, "
+        "and we will investigate your situation immediately !\n\n"
+        "_Do not file a dispute with Stripe because we will handle the situation._"
     )
     await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
 
@@ -788,7 +790,7 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
         await bot.send_message(
     chat_id=user_id,
-    text=f"_🔒 Ce contenu à {code} € est verrouillé. Clique sur le lien ci-dessus pour le débloquer._",
+    text=f"_🔒 This content at {code} € is locked. Click on the link above to unlock it._",
     parse_mode="Markdown"
 )
 
@@ -1005,7 +1007,7 @@ async def relay_from_client(message: types.Message):
             except:
                 pass
             try:
-                await bot.send_message(user_id, "🚫 Tu as été banni. Tu ne peux plus envoyer de message.")
+                await bot.send_message(user_id, "🚫 You have been banned. You can no longer send messages.")
             except:
                 pass
             return  # ⛔ STOP : on n'envoie rien à l'admin
