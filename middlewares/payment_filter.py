@@ -150,8 +150,8 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 if SHOW_REMAINING_HINT:
                     remaining = FREE_MSGS_LIMIT - state["count"]
                     hint = (
-                        f"💬 Message gratuit utilisé ({state['count']}/{FREE_MSGS_LIMIT})."
-                        f"{' Il t’en reste ' + str(remaining) + '.' if remaining > 0 else ' C’était le dernier gratuit 😉'}"
+                        f"💬 Free message used ({state['count']}/{FREE_MSGS_LIMIT})."
+                        f"{' You still have some left ' + str(remaining) + '.' if remaining > 0 else ' It was the last free one 😉'}"
                     )
                     # on envoie en tâche pour ne pas bloquer
                     asyncio.create_task(
