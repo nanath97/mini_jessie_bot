@@ -14,26 +14,6 @@ from middlewares.payment_filter import PaymentFilterMiddleware, reset_free_quota
 
 
 
-# Handler pour récupérer le file_id d'une photo
-@dp.message_handler(content_types=['photo'])
-async def get_photo_file_id(message: types.Message):
-    file_id = message.photo[-1].file_id  # on prend la meilleure résolution
-    await message.reply(f"📸 File ID de cette photo :\n{file_id}")
-
-# Handler pour récupérer le file_id d'une vidéo
-@dp.message_handler(content_types=['video'])
-async def get_video_file_id(message: types.Message):
-    file_id = message.video.file_id
-    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
-
-
-
-
-
-
-
-
-
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
@@ -47,8 +27,6 @@ authorized_admin_ids = [ADMIN_ID]
 VIP_URL = "https://buy.stripe.com/fZeg328Th4K67zW9AA"
 WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJJX2ip5M78LGaR8lpcLVqo63pJaTQOAAKeGgACdShRUXXM6eoTcJPfNgQ"
 
-# photo à l’entrée VIP :
-WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
 
 
 pending_mass_message = {}
@@ -655,19 +633,28 @@ async def handle_start(message: types.Message):
             user_id,
             "✨ Welcome to the VIP section, my dear 💕! You can now write to me as usual, or even try your luck with today's content...💕"
         )
-        # Photo d’accueil sans légende
-        await bot.send_photo(chat_id=user_id, photo=WELCOME_PHOTO_FILE_ID)
+        # Envoi des 2 photos exclusives
+    await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVGjQEl41mcOenWoUHd0wBApWeIgAA43KMRtXEIBSXkjHysPuAYMBAAMCAAN4AAM2BA")
+    await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVWjQEl4aYR_CKOnekikxufzd6PHlAAKOyjEbVxCAUvKJA0Awx7TdAQADAgADeAADNgQ")
+    await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ")
 
-        await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=user_id,
-            type_acces="VIP",
-            montant=9.0,
-            contenu="Accès VIP Telegram"
-        )
-        await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
-        return
+    # Envoi de la vidéo exclusive
+    await bot.send_video(chat_id=user_id, video="BAACAgQAAxkBAAJoWGjQEoDBkbxuCtL-jigfwNWNtEGBAAIDHQACVxCAUsgVHeltOHHgNgQ")
+
+    # Log admin
+    await bot.send_message(
+        ADMIN_ID,
+        f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}."
+    )
+    log_to_airtable(
+        pseudo=message.from_user.username or message.from_user.first_name,
+        user_id=user_id,
+        type_acces="VIP",
+        montant=9.0, 
+        contenu="Pack 2 photos + 1 vidéo + accès VIP"
+    )
+    await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
+    return
 
     # === Message de bienvenue par défaut ===
     if user_id == ADMIN_ID:
