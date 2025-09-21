@@ -14,6 +14,24 @@ from middlewares.payment_filter import PaymentFilterMiddleware, reset_free_quota
 
 
 
+# Handler pour récupérer le file_id d'une photo
+@dp.message_handler(content_types=['photo'])
+async def get_photo_file_id(message: types.Message):
+    file_id = message.photo[-1].file_id  # on prend la meilleure résolution
+    await message.reply(f"📸 File ID de cette photo :\n{file_id}")
+
+# Handler pour récupérer le file_id d'une vidéo
+@dp.message_handler(content_types=['video'])
+async def get_video_file_id(message: types.Message):
+    file_id = message.video.file_id
+    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
+
+
+
+
+
+
+
 
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
@@ -26,10 +44,10 @@ ADMIN_ID = 7334072965
 authorized_admin_ids = [ADMIN_ID]
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
-VIP_URL = "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
+VIP_URL = "https://buy.stripe.com/fZeg328Th4K67zW9AA"
 WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJJX2ip5M78LGaR8lpcLVqo63pJaTQOAAKeGgACdShRUXXM6eoTcJPfNgQ"
 
-# (Option) si tu veux aussi une photo à l’entrée VIP :
+# photo à l’entrée VIP :
 WELCOME_PHOTO_FILE_ID = "AgACAgQAAxkBAAI5CWiTyezRZ1Yxt253Ew90pjGocTPgAAJcyTEbhNWhUIGAHUOKvOVZAQADAgADeQADNgQ"
 
 
@@ -405,7 +423,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     
-    types.KeyboardButton("✨Chat as a VIP"),
+    types.KeyboardButton("✨  "),
     types.KeyboardButton("❗ Purchase problem")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -645,7 +663,7 @@ async def handle_start(message: types.Message):
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
             type_acces="VIP",
-            montant=1.0,
+            montant=9.0,
             contenu="Accès VIP Telegram"
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
@@ -667,14 +685,26 @@ async def handle_start(message: types.Message):
         )
 
         # 🎬 Vidéo de bienvenue + bouton inline "Devenir VIP"
-        vip_kb = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
-        )
-        await bot.send_video(
-            chat_id=user_id,
-            video=WELCOME_VIDEO_FILE_ID,
-            reply_markup=vip_kb
-        )
+    vip_kb = InlineKeyboardMarkup().add(
+    InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
+)
+    await bot.send_video(
+    chat_id=user_id,
+    video=WELCOME_VIDEO_FILE_ID,
+    reply_markup=vip_kb
+)
+
+# 🎁 Image floutée + nouvelle offre VIP
+    vip_offer_kb = InlineKeyboardMarkup().add(
+    InlineKeyboardButton("💎 Unlock now for $9", url=VIP_URL)
+)
+    await bot.send_photo(
+    chat_id=user_id,
+    photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+    caption="🔥 Unlock 3 exclusive photos + 1 private video for just $9!\n👉 Click below to access instantly!",
+    reply_markup=vip_offer_kb
+)
+
 
 
  # TEST
