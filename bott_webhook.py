@@ -452,18 +452,18 @@ async def demande_contenu_jour(message: types.Message):
     if user_id not in authorized_users:
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
-                text="🔥 Join the VIP for $1",
-                url="https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m"
+                text="🔥 Join the VIP for $9",
+                url="https://buy.stripe.com/fZeg328Th4K67zW9AA"
             )
         )
         await message.reply(
             "I’ve received your request! ✅\n\n"
 "🚨 But to play and try to get today’s content, you need to be a VIP.\n\n"
-"🍀 But it’s your lucky day — today it’s only $1 🎁!\n\n"
+"🍀 But it’s your lucky day — today it’s only $9 🎁! With 2 nudes and 1 video very hard of my pussy 🔞\n\n"
 "It’s simple: click the button below 👇 and try your luck now\n\n"
 "<i>🔐 Secure payment via Stripe</i>\n"
 
-            "https://buy.stripe.com/dRm28q3SB7Zd9wx9XL7AI0m\n",
+            "https://buy.stripe.com/fZeg328Th4K67zW9AA\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
