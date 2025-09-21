@@ -566,12 +566,16 @@ async def lancer_roulette(cb: types.CallbackQuery):
 
 
 
+from aiogram import types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, timedelta
+
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
-    param = message.get_args() or ""
     user_id = message.from_user.id
+    param = (message.get_args() or "").strip()
 
-    # === Cas 1 : Paiement avec /start=cdanXX ===
+    # === Cas A : /start=cdanXX (paiement Stripe) ===
     if param.startswith("cdan") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
@@ -580,7 +584,6 @@ async def handle_start(message: types.Message):
                 t for t in paiements_recents.get(montant, [])
                 if now - t < timedelta(minutes=3)
             ]
-
             if not paiements_valides:
                 await bot.send_message(user_id, "❌ Invalid payment! Stripe declined your payment due to insufficient funds or a general decline. Please verify your payment capabilities.")
                 await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
@@ -589,16 +592,16 @@ async def handle_start(message: types.Message):
             # Paiement validé
             paiements_recents[montant].remove(paiements_valides[0])
             authorized_users.add(user_id)
-            reset_free_quota(user_id)  # ✅ NEW : on réinitialise le compteur de messages gratuits
+            reset_free_quota(user_id)
 
             if user_id in contenus_en_attente:
                 contenu = contenus_en_attente[user_id]
                 if contenu["type"] == types.ContentType.PHOTO:
-                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
+                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu.get("caption"))
                 elif contenu["type"] == types.ContentType.VIDEO:
-                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu.get("caption"))
                 elif contenu["type"] == types.ContentType.DOCUMENT:
-                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
+                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu.get("caption"))
                 del contenus_en_attente[user_id]
             else:
                 paiements_en_attente_par_user.add(user_id)
@@ -609,7 +612,6 @@ async def handle_start(message: types.Message):
                 f"_❗️If you have any problems with your order, please contact us at novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
-
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}$ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
@@ -624,14 +626,7 @@ async def handle_start(message: types.Message):
             await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
-# === Cas 2 : VIP avec /start=vipcdan ===
-@dp.message_handler(commands=['start'])
-async def start_command(message: types.Message):
-    user_id = message.from_user.id
-    args = message.get_args()
-    param = args.strip() if args else None
-
-    # === Cas 1 : retour VIP après paiement ===
+    # === Cas B : /start=vipcdan (retour après paiement VIP) ===
     if param == "vipcdan":
         authorized_users.add(user_id)
         reset_free_quota(user_id)
@@ -641,18 +636,15 @@ async def start_command(message: types.Message):
             "✨ Welcome to the VIP section, my dear 💕! Here are your exclusive rewards:"
         )
 
-        # Envoi des 2 photos
+        # 2 photos VIP
         await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVGjQEl41mcOenWoUHd0wBApWeIgAA43KMRtXEIBSXkjHysPuAYMBAAMCAAN4AAM2BA")
         await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVWjQEl4aYR_CKOnekikxufzd6PHlAAKOyjEbVxCAUvKJA0Awx7TdAQADAgADeAADNgQ")
 
-        # Envoi de la vidéo
+        # 1 vidéo VIP
         await bot.send_video(chat_id=user_id, video="BAACAgQAAxkBAAJoWGjQEoDBkbxuCtL-jigfwNWNtEGBAAIDHQACVxCAUsgVHeltOHHgNgQ")
 
-        # Log admin
-        await bot.send_message(
-            ADMIN_ID,
-            f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}."
-        )
+        # Logs
+        await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
@@ -661,43 +653,45 @@ async def start_command(message: types.Message):
             contenu="Pack 2 photos + 1 vidéo + accès VIP"
         )
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
+        return  # on sort ici pour ne pas passer à l’accueil normal
 
-    # === Cas 2 : start normal ===
-    else:
-        if user_id == ADMIN_ID:
-            await bot.send_message(
-                user_id,
-                "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
-                reply_markup=keyboard_admin
-            )
-        else:
-            # 📝 Message texte
-            await bot.send_message(
-                user_id,
-                "🟢 Jessie is online",
-                reply_markup=keyboard
-            )
+    # === Cas C : /start simple (accueil normal) ===
+    if user_id == ADMIN_ID:
+        await bot.send_message(
+            user_id,
+            "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
+            reply_markup=keyboard_admin
+        )
+        return
 
-            # 🎬 Vidéo de bienvenue + bouton
-            vip_kb = InlineKeyboardMarkup().add(
-                InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
-            )
-            await bot.send_video(
-                chat_id=user_id,
-                video=WELCOME_VIDEO_FILE_ID,
-                reply_markup=vip_kb
-            )
+    # 1) Texte d’accueil
+    await bot.send_message(
+        user_id,
+        "🟢 Jessie is online",
+        reply_markup=keyboard
+    )
 
-            # 🎁 Image floutée + offre VIP
-            vip_offer_kb = InlineKeyboardMarkup().add(
-                InlineKeyboardButton("💎 Unlock now for $9", url=VIP_URL)
-            )
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-                caption="🔥 Unlock 2 exclusive photos + 1 private video for just $9!\n👉 Click below to access instantly!",
-                reply_markup=vip_offer_kb
-            )
+    # 2) Vidéo de présentation + bouton VIP
+    vip_kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
+    )
+    await bot.send_video(
+        chat_id=user_id,
+        video=WELCOME_VIDEO_FILE_ID,
+        reply_markup=vip_kb
+    )
+
+    # 3) Image floutée + offre $9
+    vip_offer_kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("💎 Unlock now for $9", url=VIP_URL)
+    )
+    await bot.send_photo(
+        chat_id=user_id,
+        photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+        caption="🔥 Unlock 2 exclusive photos + 1 private video for just $9!\n👉 Click below to access instantly!",
+        reply_markup=vip_offer_kb
+    )
+
 
 
 
