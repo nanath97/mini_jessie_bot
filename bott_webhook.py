@@ -141,11 +141,11 @@ async def handle_stat(message: types.Message):
 
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales : {ventes_totales}€\n"
+            f"💰 Ventes du jour : {ventes_jour}$\n"
+            f"💶 Ventes totales : {ventes_totales}$\n"
             f"📦 Contenus vendus total : {contenus_vendus}\n"
             f"🌟 Clients VIP : {clients_vip}\n"
-            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
+            f"📈 Bénéfice estimé net : {benefice_net}$\n\n"
             f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
         vip_button = InlineKeyboardMarkup().add(
@@ -201,7 +201,7 @@ async def handle_nath_global_stats(message: types.Message):
 
         for email, total in ventes_par_email.items():
             benefice = round(total * 0.94, 2)
-            lignes.append(f"• {email} → {total:.2f} € (bénéfice : {benefice:.2f} €)")
+            lignes.append(f"• {email} → {total:.2f} $ (bénéfice : {benefice:.2f} $)")
 
         lignes.append("\n_Le bénéfice net tient compte d’une commission de 6 %._")
 
@@ -401,7 +401,7 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
     
-    types.KeyboardButton("✨  "),
+    types.KeyboardButton("✨Chat as a VIP"),
     types.KeyboardButton("❗ Purchase problem")
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -810,7 +810,7 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
         await bot.send_message(
     chat_id=user_id,
-    text=f"_🔒 This content at {code} € is locked. Click on the link above to unlock it._",
+    text=f"_🔒 This content at {code} $ is locked. Click on the link above to unlock it._",
     parse_mode="Markdown"
 )
 
@@ -877,7 +877,7 @@ async def show_commandes_admin(message: types.Message):
         "📖 *Liste des commandes disponibles :*\n\n"
         "📦 */dev* – Stocker un contenu\n"
         "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende.Il sera placé en attente et se débloquera au moment où ton client aura payé._\n\n"
-        "🔒 */envxx* – Envoyer un contenu payant €\n"
+        "🔒 */envxx* – Envoyer un contenu payant $\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
 
@@ -1231,7 +1231,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
 
         for pseudo, total in sorted_vips:
-            message += f"👤 @{pseudo} — {round(total)} €\n"
+            message += f"👤 @{pseudo} — {round(total)} $\n"
 
         # 🏆 Top 3
         top3 = sorted_vips[:3]
@@ -1240,7 +1240,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             for i, (pseudo, total) in enumerate(top3):
                 place = ["🥇", "🥈", "🥉"]
                 emoji = place[i] if i < len(place) else f"#{i+1}"
-                message += f"{emoji} @{pseudo} — {round(total)} €\n"
+                message += f"{emoji} @{pseudo} — {round(total)} $\n"
 
         await bot.send_message(telegram_id, message)
 
