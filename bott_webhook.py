@@ -688,7 +688,7 @@ async def handle_start(message: types.Message):
     await bot.send_photo(
         chat_id=user_id,
         photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption="🔥 Unlock 2 exclusive photos + 1 private video for just $9!\n👉 Click below to access instantly!",
+        caption="🔥 Special Offer Today Only!\n Unlock 2 exclusive photos + 1 private video for just $9 ! Instant access right after payment 👇\n👉 Click below to access instantly!",
         reply_markup=vip_offer_kb
     )
 
