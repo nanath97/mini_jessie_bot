@@ -683,12 +683,12 @@ async def handle_start(message: types.Message):
 
     # 3) Image floutée + offre €9
     vip_offer_kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("💎 Accès immédiat pour 9 € seulement", url=VIP_URL)
+        InlineKeyboardButton("💎 Accès immédiat pour 9 €", url=VIP_URL)
     )
     await bot.send_photo(
         chat_id=user_id,
         photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
+        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n-Accès à vie au VIP⚡\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
         reply_markup=vip_offer_kb
     )
 
