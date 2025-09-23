@@ -43,9 +43,9 @@ async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authori
     await bot.send_message(
         chat_id=chat_id,
         text=(
-            "Nice to meet you, my dear,\n\nActually, I would love to get to know you and show you more 🔞 but you have to be a VIP !\n\n"
-            "Plus, instead of €9, it's only €1 today! I'll be waiting for you on the other side....🤭\n\n"
-            "<i>🔐 Secure payment via Stripe</i>\n\n"
+            "Ravi de te rencontrer mon coeur 💕,\n\nJe voudrais tellement te montrer plus 🔞 mais tu dois être un VIP !\n\n"
+            "En plus pour 9 €, tu auras droit à\n- l'accès VIP à vie ⚡\n- 2 nudes sexy 🔞 \n- 1 video de ma petite chatte qui mouille 💦\nJe t'attends ....🤭\n\n"
+            "<i>🔐 Paiement sécurisé via Stripe</i>\n\n"
             f"{VIP_URL} \n\n"
         ),
         reply_markup=InlineKeyboardMarkup().add(
@@ -102,7 +102,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 except Exception as e:
                     print(f"Erreur suppression message banni : {e}")
                 try:
-                    await message.answer("🚫 You have been banned. You can no longer send messages.")
+                    await message.answer("🚫 Tu as été banni, tu ne peux plus envoyer de messages.")
                 except Exception as e:
                     print(f"Erreur envoi message banni : {e}")
                 raise CancelHandler()

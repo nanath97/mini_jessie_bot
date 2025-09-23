@@ -457,11 +457,11 @@ async def demande_contenu_jour(message: types.Message):
             )
         )
         await message.reply(
-            "I’ve received your request! ✅\n\n"
-"🚨 But to play and try to get today’s content, you need to be a VIP.\n\n"
-"🍀 But it’s your lucky day — today it’s only €9 🎁! With 2 nudes and 1 video very hard of my pussy 🔞\n\n"
-"It’s simple: click the button below 👇 and try your luck now\n\n"
-"<i>🔐 Secure payment via Stripe</i>\n"
+            "Tu veux tenter ta chance mon coeur ? 🍀\n\n"
+"🚨 Mais pour jouer et essayer d'obtenir le contenu d'aujourd'hui, tu dois être un VIP.\n\n"
+" Mais c'est ton jour de chance : aujourd'hui, il ne coûte que 9 € 🎁 ! Avec 2 photos nues et 1 vidéo très hard de ma chatte. 🔞\n\n"
+"C'est simple : clique sur le bouton ci-dessous 👇 et tente ta chance dès maintenant\n\n"
+"<i>🔐 Paiement sécurisé via Stripe</i>\n"
 
             "https://buy.stripe.com/fZeg328Th4K67zW9AA\n",
             reply_markup=bouton_vip,
@@ -477,8 +477,8 @@ async def demande_contenu_jour(message: types.Message):
         InlineKeyboardButton("⚡Spin the roulette wheel", callback_data="Spin the roulette wheel")
     )
     await message.reply(
-        "Get ready to try your luck at today's content... I'm keeping my fingers crossed for you, sweetheart 🤞 \n\n"
-        "Click on the button below to start the roulette wheel 🎰",
+        "Prépare-toi à tenter ta chance avec le contenu d'aujourd'hui... Je croise les doigts pour toi, mon chérie 🤞 \n\n"
+        "Clique sur le bouton ci-dessous pour lancer la roulette 🎰",
         reply_markup=bouton_roulette
     )
 
@@ -486,7 +486,7 @@ async def demande_contenu_jour(message: types.Message):
 # =======================
 # 2) Callback "Lancer la roulette" -> roulette + attente + réponses + forward répondable
 # =======================
-@dp.callback_query_handler(lambda c: c.data == "Spin the roulette wheel")
+@dp.callback_query_handler(lambda c: c.data == "Fais tourner la roulette")
 async def lancer_roulette(cb: types.CallbackQuery):
     user_id = cb.from_user.id
 
@@ -498,7 +498,7 @@ async def lancer_roulette(cb: types.CallbackQuery):
         heures = int(remaining // 3600)
         minutes = int((remaining % 3600) // 60)
         await cb.answer(
-            f"⚠️ You've already spun the wheel today! Come back in {heures}h{minutes:02d}.",
+            f"⚠️ Tu as déjà tourné la roue aujourd'hui ! Reviens plus tard. {heures}h{minutes:02d}.",
             show_alert=True
         )
         return
@@ -521,8 +521,8 @@ async def lancer_roulette(cb: types.CallbackQuery):
     if dice_value >= 60:  # JACKPOT => -50% (tu envoies ensuite manuellement)
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="🎉 Well done, sweetheart! I'm offering you 50% off today's video 🔥\n"
-                 "I'll send you your video in a few moments 💕"
+            text="🎉 Bravo, mon chérie ! Je t'offre 50 % de réduction sur la vidéo d'aujourd'hui. 🔥\n"
+                 "Je t'envoie ta vidéo dans quelques instants 💕"
         )
 
         await bot.send_message(
@@ -532,9 +532,9 @@ async def lancer_roulette(cb: types.CallbackQuery):
     else:
         user_msg = await bot.send_message(
             chat_id=user_id,
-            text="😅 No luck this time, my dear…\n\n"
-                 "But you know what? I'm not going to leave you empty-handed... I'll still give you 50%  off your video of the day today. 🔥\n"
-                 "I'll send you your video in a few moments 💕"
+            text="😅 Pas de chance cette fois-ci mon coeur…\n\n"
+                 "Mais tu sais quoi ? Je ne vais pas te laisser les mains vides... Je offre quand même 50 %  de réduction sur ma vidéo du jour. 🔥\n"
+                 "Je te l'envoie dans quelques instants💕"
         )
 
         await bot.send_message(
@@ -585,7 +585,7 @@ async def handle_start(message: types.Message):
                 if now - t < timedelta(minutes=3)
             ]
             if not paiements_valides:
-                await bot.send_message(user_id, "❌ Invalid payment! Stripe declined your payment due to insufficient funds or a general decline. Please verify your payment capabilities.")
+                await bot.send_message(user_id, "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement.")
                 await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
                 return
 
@@ -608,8 +608,8 @@ async def handle_start(message: types.Message):
 
             await bot.send_message(
                 user_id,
-                f"✅ Thank you for your payment of {montant}€ 💖 ! Your content will arrive in a few seconds...\n\n"
-                f"_❗️If you have any problems with your order, please contact us at novapulse.online@gmail.com_",
+                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
+                f"_❗️Si tuas le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
@@ -633,7 +633,7 @@ async def handle_start(message: types.Message):
 
         await bot.send_message(
             user_id,
-            "✨ Welcome to the VIP section, my dear 💕! Here are your exclusive rewards:"
+            "✨ Bienvenue dans le VIP mon coeur 💕! Et voici ton cadeau 🎁:"
         )
 
         # 2 photos VIP
@@ -688,7 +688,7 @@ async def handle_start(message: types.Message):
     await bot.send_photo(
         chat_id=user_id,
         photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n- Accès VIP ç vie ⚡\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
+        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n- Accès VIP à vie ⚡\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
         reply_markup=vip_offer_kb
     )
 
@@ -698,11 +698,11 @@ async def handle_start(message: types.Message):
 @dp.message_handler(lambda message: message.text == "❗ Problème d'achat")
 async def probleme_achat(message: types.Message):
     texte_client = (
-        "❗ *A problem with your purchase ?*\n\n"
-        "Don't panic! We take every case very seriously. "
-        "You can write to us directly at *novapulse.online@gmail.com* with your Telegram username, "
-        "and we will investigate your situation immediately !\n\n"
-        "_Do not file a dispute with Stripe because we will handle the situation._"
+        "❗ *Un problème avec ton achat ?*\n\n"
+        "Pas de panique ! Je traite chaque cas avec le plus grand sérieux. "
+        "Tu peux m'écrire à *novapulse.online@gmail.com* avec ton nom de telegram, "
+        "et je vais traiter ta demande maintenant !\n\n"
+        "_Je m'en charge._"
     )
     await bot.send_message(message.chat.id, texte_client, parse_mode="Markdown")
 
