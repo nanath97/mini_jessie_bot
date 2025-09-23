@@ -688,12 +688,9 @@ async def handle_start(message: types.Message):
     await bot.send_photo(
         chat_id=user_id,
         photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes\n - 1 vidéo hard où je mouille\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
+        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
         reply_markup=vip_offer_kb
     )
-
-
-
 
 
 
