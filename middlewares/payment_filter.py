@@ -11,8 +11,8 @@ import time  # pour la fenêtre glissante
 ADMIN_ID = 7334072965  # Ton ID Telegram admin
 
 BOUTONS_AUTORISES = [
-    "🔞 See today's content...while playing 🎰",
-    "✨Chat as a VIP",
+    "🔞 Voir le contenu du jour... tout en jouant 🎰",
+    "✨Discuter en tant que VIP",
 ]
 
 # ===== Paramètres "messages gratuits" =====
@@ -49,7 +49,7 @@ async def send_nonvip_reply_after_delay(bot, chat_id: int, user_id: int, authori
             f"{VIP_URL} \n\n"
         ),
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton(text="💎 Become a VIP now", url=VIP_URL)
+            InlineKeyboardButton(text="💎 Deviens VIP", url=VIP_URL)
         ),
         parse_mode="HTML"
     )
@@ -67,7 +67,7 @@ async def send_nonvip_second_reply_after_delay(bot, chat_id: int, user_id: int, 
             f"{VIP_URL} \n\n"
         ),
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton(text="💎 Become a VIP now", url=VIP_URL)
+            InlineKeyboardButton(text="💎 Deviens VIP", url=VIP_URL)
         ),
         parse_mode="HTML"
     )
@@ -150,8 +150,8 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 if SHOW_REMAINING_HINT:
                     remaining = FREE_MSGS_LIMIT - state["count"]
                     hint = (
-                        f"💬 Free message used ({state['count']}/{FREE_MSGS_LIMIT})."
-                        f"{' You still have some left ' + str(remaining) + '.' if remaining > 0 else ' It was the last free one 😉'}"
+                        f"💬 Messages gratuit ({state['count']}/{FREE_MSGS_LIMIT})."
+                        f"{' Il en reste ' + str(remaining) + '.' if remaining > 0 else ' Le dernier message à été utilisé 😉'}"
                     )
                     # on envoie en tâche pour ne pas bloquer
                     asyncio.create_task(
@@ -166,14 +166,14 @@ class PaymentFilterMiddleware(BaseMiddleware):
 
             # Quota dépassé → push VIP + bloquer la propagation
             pay_kb = InlineKeyboardMarkup().add(
-                InlineKeyboardButton("💎 Become a VIP now", url=VIP_URL)
+                InlineKeyboardButton("💎 Deviens VIP", url=VIP_URL)
             )
             await message.bot.send_message(
                 chat_id=message.chat.id,
                 text=(
-                    "🚪 You have used your 5 free messages.\n"
-                    "To continue discussing freely and receive priority responses, "
-                    "join my VIP area 💕."
+                    "🚪 Vous avez utilisé vos 5 messages gratuits.\n"
+                    "Pour continuer à discuter librement et recevoir des réponses prioritaires, "
+                    "rejoins mon VIP 💕."
                 ),
                 reply_markup=pay_kb
             )
