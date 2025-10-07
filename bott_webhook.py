@@ -892,18 +892,12 @@ async def show_stats_direct(message: types.Message):
 
 
 import asyncio
-from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-annotations = {}     # {user_id: "texte note"}
-assignations = {}    # {user_id: "nom admin en charge"}
-last_messages = {}   # {user_id: "dernier message"}
-admin_modes = {}     # pour savoir si un admin est en train d’annoter
+annotations = {}   # {user_id: "texte note"}
+assignations = {}  # {user_id: "nom admin en charge"}
 
-ADMIN_ID = int(os.getenv("ADMIN_TELEGRAM_ID"))
-
-# Quand le client envoie un message
-@dp.message_handler(lambda message: message.chat.id not in authorized_users)
+@dp.message_handler(lambda message: message.chat.id not in authorized_admin_ids)
 async def handle_admin_message(message: types.Message):
     user_id = message.from_user.id
 
@@ -916,7 +910,6 @@ async def handle_admin_message(message: types.Message):
                 .replace(">", "&gt;")
         )
 
-    new_msg = escape_html(message.text)
     old_msg = escape_html(last_messages.get(user_id, "Aucun message"))
     note_admin = annotations.get(user_id, "Aucune note")
     admin_en_charge = assignations.get(user_id, "Aucun")
@@ -925,52 +918,65 @@ async def handle_admin_message(message: types.Message):
 
     await bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
-    # === Boutons ===
+    # Boutons Annoter et Prendre en charge
     keyboard = InlineKeyboardMarkup()
     keyboard.add(
         InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{user_id}"),
-        InlineKeyboardButton("📝 Annoter", callback_data=f"annoter_{user_id}"),
-        InlineKeyboardButton("📌 Résumé", callback_data=f"resume_{user_id}")
+        InlineKeyboardButton("📝 Annoter", callback_data=f"annoter_{user_id}")
     )
 
-    sent_msg = await bot.send_message(
-        ADMIN_ID,
-        f"Nouveau message reçu du client {user_id}",
-        reply_markup=keyboard
+    response = (
+        "╭───── 🧠 RÉSUMÉ RAPIDE ─────\n"
+        f"📌 Ancien : {old_msg}\n"
+        f"👤 Admin en charge : {admin_en_charge}\n"
+        f"📒 Notes :\n{note_admin}\n"
+        "╰──────────────────────────\n"
+        "<i>Ce message sera supprimé automatiquement dans moins de 10 secondes.</i>"
     )
 
-    # Suppression auto des boutons après 15s
-    await asyncio.sleep(15)
+    sent_msg = await bot.send_message(ADMIN_ID, response, parse_mode="HTML", reply_markup=keyboard)
+
+    await asyncio.sleep(10)
     try:
         await bot.delete_message(chat_id=ADMIN_ID, message_id=sent_msg.message_id)
     except Exception as e:
-        print(f"❌ Erreur suppression boutons : {e}")
+        print(f"❌ Erreur suppression message : {e}")
 
 
-# === Handlers des boutons ===
-
+# Handler bouton Prendre en charge
 @dp.callback_query_handler(lambda c: c.data.startswith("prendre_"))
 async def prendre_en_charge(call: types.CallbackQuery):
-    await call.answer()  # évite le “chargement infini”
     user_id = int(call.data.split("_")[1])
     nom_admin = call.from_user.first_name or f"Admin {call.from_user.id}"
+    
     assignations[user_id] = nom_admin
     await call.message.answer(f"✅ {nom_admin} est maintenant en charge du client {user_id}.")
 
+    # Supprimer confirmation après 10s
+    await asyncio.sleep(10)
+    try:
+        await bot.delete_message(chat_id=ADMIN_ID, message_id=call.message.message_id + 1)
+    except:
+        pass
 
+
+# Handler bouton Annoter
 @dp.callback_query_handler(lambda c: c.data.startswith("annoter_"))
 async def annoter_client(call: types.CallbackQuery):
-    await call.answer()
     user_id = int(call.data.split("_")[1])
     await call.message.answer(f"✍️ Écris la note pour ce client (ID: {user_id}).")
+    
     admin_modes["annoter"] = user_id
 
 
+# Handler pour réception de la note
 @dp.message_handler(lambda message: ADMIN_ID == message.from_user.id and admin_modes.get("annoter"))
 async def enregistrer_annotation(message: types.Message):
     user_id_cible = admin_modes.pop("annoter")
+    
     ancienne_note = annotations.get(user_id_cible, "")
     nouvelle_note = message.text.strip()
+    
     nouvelle_ligne = f"- {nouvelle_note}"
 
     if ancienne_note != "Aucune note" and ancienne_note:
@@ -987,24 +993,6 @@ async def enregistrer_annotation(message: types.Message):
         await bot.delete_message(chat_id=ADMIN_ID, message_id=confirmation_msg.message_id)
     except Exception as e:
         print(f"❌ Erreur suppression confirmation : {e}")
-
-
-@dp.callback_query_handler(lambda c: c.data.startswith("resume_"))
-async def afficher_resume(call: types.CallbackQuery):
-    await call.answer()
-    user_id = int(call.data.split("_")[1])
-    msg = last_messages.get(user_id, "Aucun message")
-    note_admin = annotations.get(user_id, "Aucune note")
-    admin_en_charge = assignations.get(user_id, "Aucun")
-
-    response = (
-        "╭───── 🧠 RÉSUMÉ ─────\n"
-        f"➡️ Dernier message : {msg}\n"
-        f"👤 Admin en charge : {admin_en_charge}\n"
-        f"📒 Notes :\n{note_admin}\n"
-        "╰────────────────────\n"
-    )
-    await call.message.answer(response)
 
 
 
