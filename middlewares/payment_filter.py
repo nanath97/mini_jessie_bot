@@ -22,7 +22,7 @@ SHOW_REMAINING_HINT = True                   # afficher "X/5 utilisés" au fil d
 free_msgs_state = {}                         # user_id -> {"count": int, "window_start": float, "last": float}
 
 # Lien VIP (existant)
-VIP_URL = "https://buy.stripe.com/fZeg328Th4K67zW9AA"
+VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
 
 # ===== Anti-doublon par message =====
 # clé = (chat_id, message_id) → timestamp

@@ -24,7 +24,7 @@ ADMIN_ID = 7334072965
 authorized_admin_ids = [ADMIN_ID]
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
-VIP_URL = "https://buy.stripe.com/fZeg328Th4K67zW9AA"
+VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
 WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJJX2ip5M78LGaR8lpcLVqo63pJaTQOAAKeGgACdShRUXXM6eoTcJPfNgQ"
 
 
@@ -453,7 +453,7 @@ async def demande_contenu_jour(message: types.Message):
         bouton_vip = InlineKeyboardMarkup().add(
             InlineKeyboardButton(
                 text="🔥 Rejoins le VIP pour 9 €",
-                url="https://buy.stripe.com/fZeg328Th4K67zW9AA"
+                url="https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
             )
         )
         await message.reply(
@@ -463,7 +463,7 @@ async def demande_contenu_jour(message: types.Message):
 "C'est simple : clique sur le bouton ci-dessous 👇 et tente ta chance dès maintenant\n\n"
 "<i>🔐 Paiement sécurisé via Stripe</i>\n"
 
-            "https://buy.stripe.com/fZeg328Th4K67zW9AA\n",
+            "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G\n",
             reply_markup=bouton_vip,
             parse_mode="HTML"
         )
@@ -771,7 +771,7 @@ async def envoyer_lien_stripe(message: types.Message):
 # 22 Mettre les liens propres à l'admin
     liens_paiement = {
         "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
-        "9": "https://buy.stripe.com/fZeg328Th4K67zW9AA",
+        "9": "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G",
         "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
         "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
         "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
@@ -807,7 +807,7 @@ async def envoyer_lien_stripe(message: types.Message):
         await bot.send_photo(chat_id=user_id, photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=nouvelle_legende)
         await bot.send_message(
     chat_id=user_id,
-    text=f"_🔒 This content at {code} € is locked. Click on the link above to unlock it._",
+    text=f"_🔒 Ce contenu {code} € est vérouillé. Clique sur le lien pour le déverouiller._",
     parse_mode="Markdown"
 )
 
