@@ -91,6 +91,8 @@ def initialize_authorized_users():
 
 # === Statistiques ===
 
+# === Statistiques ===
+
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
     await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
@@ -120,11 +122,9 @@ async def handle_stat(message: types.Message):
             mois = fields.get("Mois", "")
             montant = float(fields.get("Montant", 0))
 
-            
             if type_acces == "vip":
                 vip_ids.add(user_id)
 
-        
             if mois == mois_courant:
                 ventes_totales += montant
 
@@ -136,15 +136,22 @@ async def handle_stat(message: types.Message):
             if type_acces == "vip" and user_id:
                 vip_ids.add(user_id)
 
+        # calcul réel gardé pour référence
         clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.94, 2)
 
+        # === Affichage forcé (valeurs demandées) ===
+        ventes_jour_affichees = 97
+        ventes_totales_affichees = 4278.00
+        contenus_vendus_affiches = 72
+        clients_vip_affiches = 87
+
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales : {ventes_totales}€\n"
-            f"📦 Contenus vendus total : {contenus_vendus}\n"
-            f"🌟 Clients VIP : {clients_vip}\n"
+            f"💰 Ventes du jour : {ventes_jour_affichees}€\n"
+            f"💶 Ventes totales : {ventes_totales_affichees}€\n"
+            f"📦 Contenus vendus total : {contenus_vendus_affiches}\n"
+            f"🌟 Clients VIP : {clients_vip_affiches}\n"
             f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
             f"_Le bénéfice tient compte d’une commission de 6 %._"
         )
@@ -156,6 +163,7 @@ async def handle_stat(message: types.Message):
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 # Fin de la fonction des stats
