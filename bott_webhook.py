@@ -870,7 +870,7 @@ async def show_commandes_admin(message: types.Message):
 async def handle_maj_bot(call: types.CallbackQuery):
     await bot.answer_callback_query(call.id)
     await bot.send_message(call.message.chat.id, "🔄 Mise à jour du bot en cours...")
-    await start_cmd(call.message)  # relance la commande /start
+    await bot.send_message(call.message.chat.id, "/start")  # relance la commande /start
 
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
