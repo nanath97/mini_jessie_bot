@@ -450,7 +450,7 @@ trigger_message = {}     # user_id -> (chat_id, message_id) du message "Voir le 
 
 
 # =======================
-# 1) Message "Voir le contenu du jour" -> propose "Lancer la roulette"
+# 1 Message "Voir le contenu du jour" -> propose "Lancer la roulette"
 # =======================
 @dp.message_handler(lambda message: message.text == "🔞 Voir le contenu du jour... tout en jouant 🎰")
 async def demande_contenu_jour(message: types.Message):
@@ -847,20 +847,30 @@ async def envoyer_contenu_payant(message: types.Message):
         parse_mode="Markdown"
     )
 
-# TEST VF debut
 @dp.message_handler(lambda message: message.text == "📖 Commandes" and message.from_user.id == ADMIN_ID)
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
         "🔒 */envxx* – Envoyer un contenu payant €\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
-        "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
-
-        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n"
-
+        "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n\n"
+        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n\n"
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
-    await message.reply(commandes, parse_mode="Markdown")
+
+    # Création du bouton inline "Mise à jour"
+    inline_keyboard = InlineKeyboardMarkup()
+    inline_keyboard.add(InlineKeyboardButton("🛠️ Mise à jour", callback_data="maj_bot"))
+
+    await message.reply(commandes, parse_mode="Markdown", reply_markup=inline_keyboard)
+
+
+# Callback quand on clique sur le bouton inline
+@dp.callback_query_handler(lambda call: call.data == "maj_bot")
+async def handle_maj_bot(call: types.CallbackQuery):
+    await bot.answer_callback_query(call.id)
+    await bot.send_message(call.message.chat.id, "🔄 Mise à jour du bot en cours...")
+    await start_cmd(call.message)  # relance la commande /start
 
 @dp.message_handler(lambda message: message.text == "📊 Statistiques" and message.from_user.id == ADMIN_ID)
 async def show_stats_direct(message: types.Message):
