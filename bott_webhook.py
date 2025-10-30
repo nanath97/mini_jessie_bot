@@ -482,7 +482,7 @@ async def demande_contenu_jour(message: types.Message):
 
     # Au lieu d'envoyer direct, on propose la roulette
     bouton_roulette = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("⚡Spin the roulette wheel", callback_data="Spin the roulette wheel")
+        InlineKeyboardButton("⚡Fais tourner la roulette", callback_data="Fais tourner la roulette")
     )
     await message.reply(
         "Prépare-toi à tenter ta chance avec le contenu d'aujourd'hui... Je croise les doigts pour toi, mon chérie 🤞 \n\n"
@@ -616,8 +616,8 @@ async def handle_start(message: types.Message):
 
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Ton contenu arrive dans quelques secondes...\n\n"
-                f"_❗️Si tuas le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
+                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Voici ton contenu...\n\n"
+                f"_❗️Si tu as le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
@@ -852,8 +852,6 @@ async def envoyer_contenu_payant(message: types.Message):
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
-        "📦 */dev* – Stocker un contenu\n"
-        "_À utiliser en réponse à un message client. Joins un média (photo/vidéo) avec la commande dans la légende.Il sera placé en attente et se débloquera au moment où ton client aura payé._\n\n"
         "🔒 */envxx* – Envoyer un contenu payant €\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n"
