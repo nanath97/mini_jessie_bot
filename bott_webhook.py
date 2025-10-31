@@ -776,11 +776,14 @@ async def probleme_achat(message: types.Message):
 import re
 
 @dp.message_handler(
-    lambda message: message.from_user.id == ADMIN_ID and (
+    lambda message: message.from_user.id == ADMIN_ID 
+    and admin_modes.get(ADMIN_ID) is None   # ✅ Seulement si pas de diffusion en cours
+    and (
         (message.text and "/env" in message.text.lower()) or 
         (message.caption and "/env" in message.caption.lower())
     ),
-    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.DOCUMENT]
+    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, 
+                   types.ContentType.VIDEO, types.ContentType.DOCUMENT]
 )
 async def envoyer_contenu_payant(message: types.Message):
     import re  # au cas où pas importé en haut
