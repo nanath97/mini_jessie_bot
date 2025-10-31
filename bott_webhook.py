@@ -1023,43 +1023,66 @@ async def relay_from_client(message: types.Message):
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
 
+# ========== HANDLER ADMIN : réponses privées + messages groupés ==========
+
+# ce dict doit exister quelque part :
+# admin_modes = {}
+# pending_mass_message = {}
+
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def handle_admin_message(message: types.Message):
+    """
+    1. Si l'admin clique sur "Message à tous les VIPs" -> on affiche le petit menu (gratuit / payant)
+    2. Si l'admin est en mode "en_attente_message" -> on traite l'envoi groupé GRATUIT
+    3. Si l'admin est en mode "en_attente_message_payant" -> on traite l'envoi groupé PAYANT
+    4. Sinon -> c'est le fonctionnement normal : réponse privée à un client (reply)
+    """
     mode = admin_modes.get(ADMIN_ID)
 
+    # 1) L'admin appuie sur le bouton "Message à tous les VIPs"
     if message.text == "✉️ Message à tous les VIPs":
-        choix = InlineKeyboardMarkup()
-        choix.add(
+        kb = InlineKeyboardMarkup()
+        kb.add(
             InlineKeyboardButton("📩 Message gratuit", callback_data="vip_message_gratuit"),
-            InlineKeyboardButton("💸 Message payant", callback_data="vip_message_payant")
+            InlineKeyboardButton("💸 Message payant", callback_data="vip_message_payant"),
         )
-        await bot.send_message(chat_id=ADMIN_ID, text="Quel type de message veux-tu envoyer ?", reply_markup=choix)
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text="🧩 Choisis le type de message à envoyer à tous les VIPs :",
+            reply_markup=kb
+        )
         return
 
+    # 2) L'admin était en train d'envoyer un message groupé GRATUIT
     if mode == "en_attente_message":
         admin_modes[ADMIN_ID] = None
         await traiter_message_groupé(message)
         return
 
+    # 3) L'admin était en train d'envoyer un message groupé PAYANT
     if mode == "en_attente_message_payant":
         admin_modes[ADMIN_ID] = None
         await traiter_message_payant_groupé(message)
         return
 
+    # 4) Sinon → fonctionnement normal : réponse à un client en reply
     if not message.reply_to_message:
+        # on ne dit rien pour ne pas spammer l'admin
         print("❌ Pas de reply détecté (et pas en mode groupé)")
         return
 
-    user_id = None
+    # ---------- Réponse privée classique ----------
+    # on retrouve le vrai user_id depuis le message d'origine
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
     else:
         user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire.")
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Impossible d'identifier le destinataire.")
         return
 
+    # on renvoie ce que l'admin a envoyé
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
@@ -1079,21 +1102,89 @@ async def handle_admin_message(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
 
 
+# ========== CALLBACK DU PETIT MENU (gratuit / payant) ==========
+
 @dp.callback_query_handler(lambda call: call.data in ["vip_message_gratuit", "vip_message_payant"])
 async def choix_type_message_vip(call: types.CallbackQuery):
     await call.answer()
+
     if call.data == "vip_message_gratuit":
+        # on bascule le handler admin en mode "j'attends un message"
         admin_modes[ADMIN_ID] = "en_attente_message"
-        await bot.send_message(chat_id=ADMIN_ID, text="✍️ Envoie maintenant le message à diffuser gratuitement à tous les VIPs.")
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text="✍️ Envoie maintenant le message (texte / photo / vidéo) à diffuser GRATUITEMENT à tous les VIPs."
+        )
     else:
         admin_modes[ADMIN_ID] = "en_attente_message_payant"
-        await bot.send_message(chat_id=ADMIN_ID, text="💰 Envoie maintenant le média payant à diffuser à tous les VIPs. Utilise une légende avec /envXX (ex: /env14).")
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text="💰 Envoie maintenant le MÉDIA PAYANT pour tous les VIPs.\n"
+                 "Ajoute dans la légende la commande `/envXX` (ex: `/env9` ou `/env39`).",
+            parse_mode="Markdown"
+        )
 
 
-# ========== TRAITEMENT MESSAGE PAYANT GROUPÉ ==========
+# ========== ENVOI GROUPÉ GRATUIT ==========
+
+async def traiter_message_groupé(message: types.Message):
+    """
+    Stocke le message (texte / photo / vidéo) que l’admin vient d’envoyer
+    puis lui propose de confirmer l’envoi à tous les VIPs.
+    """
+    if message.text:
+        pending_mass_message[ADMIN_ID] = {"type": "text", "content": message.text}
+        preview = message.text
+    elif message.photo:
+        pending_mass_message[ADMIN_ID] = {
+            "type": "photo",
+            "content": message.photo[-1].file_id,
+            "caption": message.caption or ""
+        }
+        preview = f"[Photo] {message.caption or ''}"
+    elif message.video:
+        pending_mass_message[ADMIN_ID] = {
+            "type": "video",
+            "content": message.video.file_id,
+            "caption": message.caption or ""
+        }
+        preview = f"[Vidéo] {message.caption or ''}"
+    elif message.audio:
+        pending_mass_message[ADMIN_ID] = {
+            "type": "audio",
+            "content": message.audio.file_id,
+            "caption": message.caption or ""
+        }
+        preview = f"[Audio] {message.caption or ''}"
+    elif message.voice:
+        pending_mass_message[ADMIN_ID] = {
+            "type": "voice",
+            "content": message.voice.file_id,
+        }
+        preview = "[Note vocale]"
+    else:
+        await message.reply("❌ Message non supporté.")
+        return
+
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
+        InlineKeyboardButton("❌ Annuler", callback_data="annuler_envoi_groupé"),
+    )
+
+    await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=kb)
+
+
+# ========== ENVOI GROUPÉ PAYANT ==========
 
 async def traiter_message_payant_groupé(message: types.Message):
+    """
+    Ici l’admin t’envoie une photo/vidéo + /envXX
+    On remplace /envXX par le vrai lien Stripe
+    On stocke le média, mais on enverra aux VIPs l'image floutée + légende avec lien.
+    """
     import re
+
     texte = message.caption or message.text or ""
     match = re.search(r"/env(\d+|vip)", texte.lower())
     if not match:
@@ -1101,29 +1192,49 @@ async def traiter_message_payant_groupé(message: types.Message):
         return
 
     code = match.group(1)
+
+    # si tes liens sont dans une variable globale ailleurs, supprime ce bloc et importe ta variable
+    liens_paiement = {
+        "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
+        "3": "https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j",
+        "9": "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G",
+        "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
+        "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
+        "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
+        "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
+        "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
+        "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
+        "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
+        "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
+        "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
+        "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
+        "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
+        "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv",
+    }
+
     lien = liens_paiement.get(code)
     if not lien:
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
         return
 
-    nouvelle_legende = re.sub(r"/env(\d+|vip)", lien, texte)
+    # on remplace /envXX dans la légende par l'URL Stripe
+    nouvelle_legende = re.sub(r"/env(\d+|vip)", lien, texte, flags=re.IGNORECASE)
 
     if not (message.photo or message.video or message.document):
         await bot.send_message(chat_id=ADMIN_ID, text="❗ Merci d'envoyer une photo, vidéo ou document.")
         return
 
-    type_media = None
-    file_id = None
     if message.photo:
         type_media = "photo"
         file_id = message.photo[-1].file_id
     elif message.video:
         type_media = "video"
         file_id = message.video.file_id
-    elif message.document:
+    else:
         type_media = "document"
         file_id = message.document.file_id
 
+    # on stocke ce qu'il faut envoyer aux VIPs
     pending_mass_message[ADMIN_ID] = {
         "type": type_media,
         "file_id": file_id,
@@ -1131,57 +1242,27 @@ async def traiter_message_payant_groupé(message: types.Message):
         "payant": True
     }
 
-    confirmation = InlineKeyboardMarkup()
-    confirmation.add(
+    kb = InlineKeyboardMarkup()
+    kb.add(
         InlineKeyboardButton("✅ Confirmer l’envoi payant", callback_data="confirmer_envoi_groupé"),
-        InlineKeyboardButton("❌ Annuler", callback_data="annuler_envoi_groupé")
+        InlineKeyboardButton("❌ Annuler", callback_data="annuler_envoi_groupé"),
     )
 
-    await bot.send_message(chat_id=ADMIN_ID, text="Prévisualisation du contenu payant à envoyer :")
+    await bot.send_message(chat_id=ADMIN_ID, text="👀 Prévisualisation du contenu payant à envoyer :")
     if type_media == "photo":
-        await bot.send_photo(chat_id=ADMIN_ID, photo=file_id, caption=nouvelle_legende, reply_markup=confirmation)
+        await bot.send_photo(chat_id=ADMIN_ID, photo=file_id, caption=nouvelle_legende, reply_markup=kb)
     elif type_media == "video":
-        await bot.send_video(chat_id=ADMIN_ID, video=file_id, caption=nouvelle_legende, reply_markup=confirmation)
-    elif type_media == "document":
-        await bot.send_document(chat_id=ADMIN_ID, document=file_id, caption=nouvelle_legende, reply_markup=confirmation)
-
-
-# ========== TRAITEMENT MESSAGE GRATUIT GROUPÉ ==========
-
-async def traiter_message_groupé(message: types.Message):
-    if message.text:
-        pending_mass_message[ADMIN_ID] = {"type": "text", "content": message.text}
-        preview = message.text
-    elif message.photo:
-        pending_mass_message[ADMIN_ID] = {"type": "photo", "content": message.photo[-1].file_id, "caption": message.caption or ""}
-        preview = f"[Photo] {message.caption or ''}"
-    elif message.video:
-        pending_mass_message[ADMIN_ID] = {"type": "video", "content": message.video.file_id, "caption": message.caption or ""}
-        preview = f"[Vidéo] {message.caption or ''}"
-    elif message.audio:
-        pending_mass_message[ADMIN_ID] = {"type": "audio", "content": message.audio.file_id, "caption": message.caption or ""}
-        preview = f"[Audio] {message.caption or ''}"
-    elif message.voice:
-        pending_mass_message[ADMIN_ID] = {"type": "voice", "content": message.voice.file_id}
-        preview = "[Note vocale]"
+        await bot.send_video(chat_id=ADMIN_ID, video=file_id, caption=nouvelle_legende, reply_markup=kb)
     else:
-        await message.reply("❌ Message non supporté.")
-        return
-
-    confirmation = InlineKeyboardMarkup()
-    confirmation.add(
-        InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
-        InlineKeyboardButton("❌ Annuler l’envoi", callback_data="annuler_envoi_groupé")
-    )
-
-    await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
+        await bot.send_document(chat_id=ADMIN_ID, document=file_id, caption=nouvelle_legende, reply_markup=kb)
 
 
-# ========== ENVOI / ANNULATION ==========
+# ========== CALLBACKS ENVOI / ANNULATION GROUPÉ ==========
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
+
     message_data = pending_mass_message.get(ADMIN_ID)
     if not message_data:
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
@@ -1193,11 +1274,21 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
 
     for vip_id in authorized_users:
         try:
-            payant = message_data.get("payant", False)
-            if payant:
-                await bot.send_photo(chat_id=int(vip_id), photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=message_data["caption"])
-                await bot.send_message(chat_id=int(vip_id), text="_🔒 Ce contenu est verrouillé. Clique sur le lien ci-dessus pour le déverrouiller._", parse_mode="Markdown")
+            # message PAYANT
+            if message_data.get("payant", False):
+                # on envoie l'image floutée + légende avec lien
+                await bot.send_photo(
+                    chat_id=int(vip_id),
+                    photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+                    caption=message_data["caption"]
+                )
+                await bot.send_message(
+                    chat_id=int(vip_id),
+                    text="_🔒 Ce contenu est verrouillé. Clique sur le lien ci-dessus pour le déverrouiller._",
+                    parse_mode="Markdown"
+                )
             else:
+                # message GRATUIT
                 if message_data["type"] == "text":
                     await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
                 elif message_data["type"] == "photo":
@@ -1208,7 +1299,9 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                     await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data.get("caption", ""))
                 elif message_data["type"] == "voice":
                     await bot.send_voice(chat_id=int(vip_id), voice=message_data["content"])
+
             envoyes += 1
+
         except Exception as e:
             print(f"❌ Erreur envoi à {vip_id} : {e}")
             erreurs += 1
@@ -1222,6 +1315,7 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ Envoi annulé.")
+
 
 
 # ========== TABLEAU DES VIPs + TOP 3 depuis Airtable ==========
