@@ -1249,7 +1249,12 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    await call.message.edit_text("⏳ Envoi du message à tous les VIPs...")
+    # ✅ Nouveau bloc ici : vérifie si le message est textuel ou pas
+    if call.message.content_type == types.ContentType.TEXT:
+        await call.message.edit_text("⏳ Envoi du message à tous les VIPs...")
+    else:
+        await bot.send_message(chat_id=ADMIN_ID, text="⏳ Envoi du message à tous les VIPs...")
+
     envoyes = 0
     erreurs = 0
 
@@ -1257,7 +1262,7 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         try:
             vip_id = int(vip_id)
 
-            # Cas PAYANT
+            # cas PAYANT → on envoie l'image floutée + le lien dans la légende
             if message_data.get("payant"):
                 await bot.send_photo(
                     chat_id=vip_id,
@@ -1269,9 +1274,8 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                     text="_🔒 Ce contenu est verrouillé. Paie via le lien ci-dessus pour le débloquer._",
                     parse_mode="Markdown"
                 )
-
-            # Cas GRATUIT
             else:
+                # cas GRATUIT → on envoie tel quel
                 if message_data["type"] == "text":
                     await bot.send_message(chat_id=vip_id, text=message_data["content"])
                 elif message_data["type"] == "photo":
@@ -1290,7 +1294,6 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
 
     await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(ADMIN_ID, None)
-
 
 
 @dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
