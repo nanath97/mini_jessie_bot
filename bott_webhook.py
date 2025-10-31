@@ -981,12 +981,6 @@ async def enregistrer_annotation(message: types.Message):
     except Exception as e:
         print(f"❌ Erreur suppression confirmation : {e}")
 
-
-
-
-
-
-
 # fin du resume du dernier message recu 
 
 # ======================== IMPORTS & VARIABLES ========================
@@ -1027,29 +1021,35 @@ async def relay_from_client(message: types.Message):
 
 
 # ========== HANDLER ADMIN : réponses privées + messages groupés ==========
+# ========== HANDLER ADMIN : réponses privées + messages groupés ==========
 
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID, content_types=types.ContentType.ANY)
 async def handle_admin_message(message: types.Message):
     mode = admin_modes.get(ADMIN_ID)
 
-    # ✅ Si l'admin clique sur "Message à tous les VIPs"
     if message.text == "✉️ Message à tous les VIPs":
-        admin_modes[ADMIN_ID] = "en_attente_message"
-        await bot.send_message(chat_id=ADMIN_ID, text="✍️ Quel message veux-tu envoyer à tous les VIPs ?")
+        choix = InlineKeyboardMarkup()
+        choix.add(
+            InlineKeyboardButton("📩 Message gratuit", callback_data="vip_message_gratuit"),
+            InlineKeyboardButton("💸 Message payant", callback_data="vip_message_payant")
+        )
+        await bot.send_message(chat_id=ADMIN_ID, text="Quel type de message veux-tu envoyer ?", reply_markup=choix)
         return
 
-    # ✅ Si l'admin est en mode groupé, on traite le contenu du message
     if mode == "en_attente_message":
         admin_modes[ADMIN_ID] = None
         await traiter_message_groupé(message)
         return
 
-    # ✅ Sinon, on attend un reply pour une réponse privée
+    if mode == "en_attente_message_payant":
+        admin_modes[ADMIN_ID] = None
+        await traiter_message_payant_groupé(message)
+        return
+
     if not message.reply_to_message:
         print("❌ Pas de reply détecté (et pas en mode groupé)")
         return
 
-    # 🔍 Identification du destinataire
     user_id = None
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
@@ -1060,7 +1060,6 @@ async def handle_admin_message(message: types.Message):
         await bot.send_message(chat_id=ADMIN_ID, text="❗Impossible d'identifier le destinataire.")
         return
 
-    # ✅ Envoi de la réponse
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
@@ -1079,7 +1078,75 @@ async def handle_admin_message(message: types.Message):
     except Exception as e:
         await bot.send_message(chat_id=ADMIN_ID, text=f"❗Erreur admin -> client : {e}")
 
-# ========== TRAITEMENT MESSAGE GROUPÉ VIPs ==========
+
+@dp.callback_query_handler(lambda call: call.data in ["vip_message_gratuit", "vip_message_payant"])
+async def choix_type_message_vip(call: types.CallbackQuery):
+    await call.answer()
+    if call.data == "vip_message_gratuit":
+        admin_modes[ADMIN_ID] = "en_attente_message"
+        await bot.send_message(chat_id=ADMIN_ID, text="✍️ Envoie maintenant le message à diffuser gratuitement à tous les VIPs.")
+    else:
+        admin_modes[ADMIN_ID] = "en_attente_message_payant"
+        await bot.send_message(chat_id=ADMIN_ID, text="💰 Envoie maintenant le média payant à diffuser à tous les VIPs. Utilise une légende avec /envXX (ex: /env14).")
+
+
+# ========== TRAITEMENT MESSAGE PAYANT GROUPÉ ==========
+
+async def traiter_message_payant_groupé(message: types.Message):
+    import re
+    texte = message.caption or message.text or ""
+    match = re.search(r"/env(\d+|vip)", texte.lower())
+    if not match:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Merci d'utiliser la commande /envXX dans la légende.")
+        return
+
+    code = match.group(1)
+    lien = liens_paiement.get(code)
+    if not lien:
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
+        return
+
+    nouvelle_legende = re.sub(r"/env(\d+|vip)", lien, texte)
+
+    if not (message.photo or message.video or message.document):
+        await bot.send_message(chat_id=ADMIN_ID, text="❗ Merci d'envoyer une photo, vidéo ou document.")
+        return
+
+    type_media = None
+    file_id = None
+    if message.photo:
+        type_media = "photo"
+        file_id = message.photo[-1].file_id
+    elif message.video:
+        type_media = "video"
+        file_id = message.video.file_id
+    elif message.document:
+        type_media = "document"
+        file_id = message.document.file_id
+
+    pending_mass_message[ADMIN_ID] = {
+        "type": type_media,
+        "file_id": file_id,
+        "caption": nouvelle_legende,
+        "payant": True
+    }
+
+    confirmation = InlineKeyboardMarkup()
+    confirmation.add(
+        InlineKeyboardButton("✅ Confirmer l’envoi payant", callback_data="confirmer_envoi_groupé"),
+        InlineKeyboardButton("❌ Annuler", callback_data="annuler_envoi_groupé")
+    )
+
+    await bot.send_message(chat_id=ADMIN_ID, text="Prévisualisation du contenu payant à envoyer :")
+    if type_media == "photo":
+        await bot.send_photo(chat_id=ADMIN_ID, photo=file_id, caption=nouvelle_legende, reply_markup=confirmation)
+    elif type_media == "video":
+        await bot.send_video(chat_id=ADMIN_ID, video=file_id, caption=nouvelle_legende, reply_markup=confirmation)
+    elif type_media == "document":
+        await bot.send_document(chat_id=ADMIN_ID, document=file_id, caption=nouvelle_legende, reply_markup=confirmation)
+
+
+# ========== TRAITEMENT MESSAGE GRATUIT GROUPÉ ==========
 
 async def traiter_message_groupé(message: types.Message):
     if message.text:
@@ -1101,7 +1168,7 @@ async def traiter_message_groupé(message: types.Message):
         await message.reply("❌ Message non supporté.")
         return
 
-    confirmation = InlineKeyboardMarkup(row_width=2)
+    confirmation = InlineKeyboardMarkup()
     confirmation.add(
         InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
         InlineKeyboardButton("❌ Annuler l’envoi", callback_data="annuler_envoi_groupé")
@@ -1109,7 +1176,8 @@ async def traiter_message_groupé(message: types.Message):
 
     await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=confirmation)
 
-# ========== CALLBACKS ENVOI / ANNULATION GROUPÉ ==========
+
+# ========== ENVOI / ANNULATION ==========
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
@@ -1125,16 +1193,21 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
 
     for vip_id in authorized_users:
         try:
-            if message_data["type"] == "text":
-                await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
-            elif message_data["type"] == "photo":
-                await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data.get("caption", ""))
-            elif message_data["type"] == "video":
-                await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data.get("caption", ""))
-            elif message_data["type"] == "audio":
-                await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data.get("caption", ""))
-            elif message_data["type"] == "voice":
-                await bot.send_voice(chat_id=int(vip_id), voice=message_data["content"])
+            payant = message_data.get("payant", False)
+            if payant:
+                await bot.send_photo(chat_id=int(vip_id), photo=DEFAULT_FLOU_IMAGE_FILE_ID, caption=message_data["caption"])
+                await bot.send_message(chat_id=int(vip_id), text="_🔒 Ce contenu est verrouillé. Clique sur le lien ci-dessus pour le déverrouiller._", parse_mode="Markdown")
+            else:
+                if message_data["type"] == "text":
+                    await bot.send_message(chat_id=int(vip_id), text=message_data["content"])
+                elif message_data["type"] == "photo":
+                    await bot.send_photo(chat_id=int(vip_id), photo=message_data["content"], caption=message_data.get("caption", ""))
+                elif message_data["type"] == "video":
+                    await bot.send_video(chat_id=int(vip_id), video=message_data["content"], caption=message_data.get("caption", ""))
+                elif message_data["type"] == "audio":
+                    await bot.send_audio(chat_id=int(vip_id), audio=message_data["content"], caption=message_data.get("caption", ""))
+                elif message_data["type"] == "voice":
+                    await bot.send_voice(chat_id=int(vip_id), voice=message_data["content"])
             envoyes += 1
         except Exception as e:
             print(f"❌ Erreur envoi à {vip_id} : {e}")
@@ -1143,13 +1216,16 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(ADMIN_ID, None)
 
+
 @dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
 async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ Envoi annulé.")
 
-#debut du 19 juillet 2025 mettre le tableau de vips
+
+# ========== TABLEAU DES VIPs + TOP 3 depuis Airtable ==========
+
 @dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
 async def voir_mes_vips(callback_query: types.CallbackQuery):
     telegram_id = callback_query.from_user.id
@@ -1166,9 +1242,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     }
 
     url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
-    params = {
-        "filterByFormula": f"{{Email}} = '{email}'"
-    }
+    params = {"filterByFormula": f"{{Email}} = '{email}'"}
 
     response = requests.get(url, headers=headers, params=params)
     if response.status_code != 200:
@@ -1180,7 +1254,6 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
 
-    # Étape 1 : repérer les pseudos ayant AU MOINS une ligne Type acces = VIP
     pseudos_vip = set()
     for r in records:
         f = r.get("fields", {})
@@ -1189,7 +1262,6 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         if pseudo and type_acces == "vip":
             pseudos_vip.add(pseudo)
 
-    # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
     montants_par_pseudo = {}
     for r in records:
         f = r.get("fields", {})
@@ -1204,35 +1276,23 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         except:
             montant_float = 0.0
 
-        if pseudo not in montants_par_pseudo:
-            montants_par_pseudo[pseudo] = 0.0
+        montants_par_pseudo[pseudo] = montants_par_pseudo.get(pseudo, 0.0) + montant_float
 
-        montants_par_pseudo[pseudo] += montant_float
+    message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
+    sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
 
-    try:
-        # Construction du message final avec tri et top 3
-        message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
-        sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
+    for pseudo, total in sorted_vips:
+        message += f"👤 @{pseudo} — {round(total)} €\n"
 
-        for pseudo, total in sorted_vips:
-            message += f"👤 @{pseudo} — {round(total)} €\n"
+    top3 = sorted_vips[:3]
+    if top3:
+        message += "\n🏆 *Top 3 clients :*\n"
+        place = ["🥇", "🥈", "🥉"]
+        for i, (pseudo, total) in enumerate(top3):
+            message += f"{place[i]} @{pseudo} — {round(total)} €\n"
 
-        # 🏆 Top 3
-        top3 = sorted_vips[:3]
-        if top3:
-            message += "\n🏆 *Top 3 clients :*\n"
-            for i, (pseudo, total) in enumerate(top3):
-                place = ["🥇", "🥈", "🥉"]
-                emoji = place[i] if i < len(place) else f"#{i+1}"
-                message += f"{emoji} @{pseudo} — {round(total)} €\n"
+    await bot.send_message(telegram_id, message)
 
-        await bot.send_message(telegram_id, message)
-
-    except Exception as e:
-        import traceback
-        error_text = traceback.format_exc()
-        print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
-        await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
 
 #fin du 19 juillet 2025 mettre le tableau de vips
 
