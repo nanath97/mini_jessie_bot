@@ -1301,3 +1301,90 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.answer("❌ Envoi annulé.")
     pending_mass_message.pop(ADMIN_ID, None)
     await call.message.edit_text("❌ Envoi annulé.")
+
+#mettre le tableau de vips
+@dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
+async def voir_mes_vips(callback_query: types.CallbackQuery):
+    telegram_id = callback_query.from_user.id
+    email = ADMIN_EMAILS.get(telegram_id)
+
+    if not email:
+        await bot.send_message(telegram_id, "❌ Ton e-mail admin n’est pas reconnu.")
+        return
+
+    await callback_query.answer("Chargement de tes VIPs...")
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('AIRTABLE_API_KEY')}"
+    }
+
+    url = "https://api.airtable.com/v0/appdA5tvdjXiktFzq/tblwdps52XKMk43xo"
+    params = {
+        "filterByFormula": f"{{Email}} = '{email}'"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code != 200:
+        await bot.send_message(telegram_id, f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}")
+        return
+
+    records = response.json().get("records", [])
+    if not records:
+        await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
+        return
+
+    # Étape 1 : repérer les pseudos ayant AU MOINS une ligne Type acces = VIP
+    pseudos_vip = set()
+    for r in records:
+        f = r.get("fields", {})
+        pseudo = f.get("Pseudo Telegram", "").strip()
+        type_acces = f.get("Type acces", "").strip().lower()
+        if pseudo and type_acces == "vip":
+            pseudos_vip.add(pseudo)
+
+    # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
+    montants_par_pseudo = {}
+    for r in records:
+        f = r.get("fields", {})
+        pseudo = f.get("Pseudo Telegram", "").strip()
+        montant = f.get("Montant")
+
+        if not pseudo or pseudo not in pseudos_vip:
+            continue
+
+        try:
+            montant_float = float(montant)
+        except:
+            montant_float = 0.0
+
+        if pseudo not in montants_par_pseudo:
+            montants_par_pseudo[pseudo] = 0.0
+
+        montants_par_pseudo[pseudo] += montant_float
+
+    try:
+        # Construction du message final avec tri et top 3
+        message = "📋 Voici tes clients VIP (avec tous leurs paiements) :\n\n"
+        sorted_vips = sorted(montants_par_pseudo.items(), key=lambda x: x[1], reverse=True)
+
+        for pseudo, total in sorted_vips:
+            message += f"👤 @{pseudo} — {round(total)} €\n"
+
+        # 🏆 Top 3
+        top3 = sorted_vips[:3]
+        if top3:
+            message += "\n🏆 *Top 3 clients :*\n"
+            for i, (pseudo, total) in enumerate(top3):
+                place = ["🥇", "🥈", "🥉"]
+                emoji = place[i] if i < len(place) else f"#{i+1}"
+                message += f"{emoji} @{pseudo} — {round(total)} €\n"
+
+        await bot.send_message(telegram_id, message)
+
+    except Exception as e:
+        import traceback
+        error_text = traceback.format_exc()
+        print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
+        await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
+
+#fin du 19 juillet 2025 mettre le tableau de vips
