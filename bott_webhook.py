@@ -158,7 +158,7 @@ async def handle_stat(message: types.Message):
 
         # calcul réel gardé pour référence
         clients_vip = len(vip_ids)
-        benefice_net = round(ventes_totales * 0.94, 2)
+        benefice_net = round(ventes_totales * 0.88)
 
         # === Affichage forcé (valeurs demandées) ===
         ventes_jour_affichees = 97
@@ -173,7 +173,7 @@ async def handle_stat(message: types.Message):
             f"📦 Contenus vendus total : {contenus_vendus_affiches}\n"
             f"🌟 Clients VIP : {clients_vip_affiches}\n"
             f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
-            f"_Le bénéfice tient compte d’une commission de 6 %._"
+            f"_Le bénéfice tient compte d’une commission de 12 %._"
         )
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
@@ -228,10 +228,10 @@ async def handle_nath_global_stats(message: types.Message):
         lignes = [f"📊 Récapitulatif global :\n"]
 
         for email, total in ventes_par_email.items():
-            benefice = round(total * 0.94, 2)
+            benefice = round(total * 0.88)
             lignes.append(f"• {email} → {total:.2f} € (bénéfice : {benefice:.2f} $)")
 
-        lignes.append("\n_Le bénéfice net tient compte d’une commission de 6 %._")
+        lignes.append("\n_Le bénéfice net tient compte d’une commission de 12 %._")
 
         await bot.send_message(message.chat.id, "\n".join(lignes), parse_mode="Markdown")
 
