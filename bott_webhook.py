@@ -18,6 +18,13 @@ dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
 
+# Handler pour récupérer le file_id d'une vidéo
+@dp.message_handler(content_types=['video'])
+async def get_video_file_id(message: types.Message):
+    file_id = message.video.file_id
+    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
+
+
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
 last_messages = {}
 ADMIN_ID = 7334072965
