@@ -179,6 +179,61 @@ async def handle_stat(message: types.Message):
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
 
+
+
+
+
+# DEBUT de la fonction du proprietaire ! Ne pas toucher
+
+@dp.message_handler(commands=["nath"])
+async def handle_nath_global_stats(message: types.Message):
+    if message.from_user.id != int(ADMIN_ID):
+        await bot.send_message(message.chat.id, "❌ You do not have permission to use this command.")
+        return
+
+    await bot.send_message(message.chat.id, "🕓 Récupération des statistiques globales en cours...")
+
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
+
+        response = requests.get(url, headers=headers)
+        data = response.json()
+
+        ventes_par_email = {}
+
+        for record in data.get("records", []):
+            fields = record.get("fields", {})
+            email = fields.get("Email", "")
+            montant = float(fields.get("Montant", 0))
+
+            if not email:
+                continue
+
+            if email not in ventes_par_email:
+                ventes_par_email[email] = 0
+            ventes_par_email[email] += montant
+
+        if not ventes_par_email:
+            await bot.send_message(message.chat.id, "Aucune donnée trouvée dans Airtable.")
+            return
+
+        lignes = [f"📊 Récapitulatif global :\n"]
+
+        for email, total in ventes_par_email.items():
+            benefice = round(total * 0.88, 2)
+            lignes.append(f"• {email} → {total:.2f} € (bénéfice : {benefice:.2f} €)")
+
+        lignes.append("\n_Le bénéfice net tient compte d’une commission de 12 %._")
+
+        await bot.send_message(message.chat.id, "\n".join(lignes), parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"Erreur dans /nath : {e}")
+        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
+
 # FIN de la fonction du propriétaire 
 
 
