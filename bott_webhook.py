@@ -188,7 +188,7 @@ async def handle_stat(message: types.Message):
 @dp.message_handler(commands=["nath"])
 async def handle_nath_global_stats(message: types.Message):
     if message.from_user.id != int(ADMIN_ID):
-        await bot.send_message(message.chat.id, "❌ You do not have permission to use this command.")
+        await bot.send_message(message.chat.id, "❌ Timal, tu n'as pas la permission d'utiliser ce bouton.")
         return
 
     await bot.send_message(message.chat.id, "🕓 Récupération des statistiques globales en cours...")
@@ -220,13 +220,24 @@ async def handle_nath_global_stats(message: types.Message):
             await bot.send_message(message.chat.id, "Aucune donnée trouvée dans Airtable.")
             return
 
-        lignes = [f"📊 Récapitulatif global :\n"]
+        lignes = ["📊 *Récapitulatif global des ventes :*\n"]
+        total_global = 0
 
         for email, total in ventes_par_email.items():
-            benefice = round(total * 0.88, 2)
-            lignes.append(f"• {email} → {total:.2f} € (bénéfice : {benefice:.2f} €)")
+            benefice_vendeur = round(total * 0.88, 2)
+            benefice_nath = round(total * 0.12, 2)
+            total_global += total
+            lignes.append(
+                f"• {email} → {total:.2f} €  |  Vendeur : {benefice_vendeur:.2f} €  |  Toi (12 %) : {benefice_nath:.2f} €"
+            )
 
-        lignes.append("\n_Le bénéfice net tient compte d’une commission de 12 %._")
+        total_benefice_nath = round(total_global * 0.12, 2)
+        total_benefice_vendeurs = round(total_global * 0.88, 2)
+
+        lignes.append("\n💰 *Synthèse globale :*")
+        lignes.append(f"• Total des ventes : {total_global:.2f} €")
+        lignes.append(f"• Tes bénéfices (12 %) : {total_benefice_nath:.2f} €")
+        lignes.append(f"• Bénéfices vendeurs (88 %) : {total_benefice_vendeurs:.2f} €")
 
         await bot.send_message(message.chat.id, "\n".join(lignes), parse_mode="Markdown")
 
@@ -234,7 +245,8 @@ async def handle_nath_global_stats(message: types.Message):
         print(f"Erreur dans /nath : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
 
-# FIN de la fonction du propriétaire 
+# FIN de la fonction du propriétaire
+
 
 
 
