@@ -435,8 +435,6 @@ def log_to_airtable(pseudo, user_id, type_acces, montant, contenu="Paiement Tele
 
 keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(
-    
-    types.KeyboardButton("✨Discuter en tant que VIP"),
 )
 keyboard_admin = types.ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard_admin.add(
