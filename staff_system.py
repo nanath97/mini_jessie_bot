@@ -86,9 +86,18 @@ async def ensure_topic_for(bot, *, user_id: int, username: Optional[str], email:
         return
 
     name = f"VIP: @{username}" if username else f"VIP: {user_id}"
-    ft = await bot.create_forum_topic(STAFF_GROUP_ID, name=name)
-    topic_id = ft.message_thread_id
-    _set(user_id, {"topic_id": topic_id, "owner_id": None, "username": username or "", "email": email or "", "total": float(total_spent or 0.0)})
+
+    # ✅ version compatible aiogram 2.x
+    try:
+        resp = await bot.request("createForumTopic", {"chat_id": STAFF_GROUP_ID, "name": name})
+        topic_id = resp.get("message_thread_id")
+        if not topic_id:
+            raise RuntimeError(f"createForumTopic returned: {resp}")
+    except Exception as e:
+        print(f"[staff] create_forum_topic error: {e}")
+        return
+
+    _set(user_id, {"topic_id": int(topic_id), "owner_id": None, "username": username or "", "email": email or "", "total": float(total_spent or 0.0)})
     await _post_header(bot, user_id)
 
 async def _post_header(bot, user_id: int):
@@ -144,7 +153,6 @@ async def register_staff_handlers(dp, bot):
 
     @dp.message_handler(lambda m: m.chat.id == STAFF_GROUP_ID and getattr(m, "message_thread_id", None) is not None, content_types=types.ContentTypes.ANY)
     async def _outbound(m: types.Message):
-        # retrouve le client par topic_id
         uid = None
         for k, v in _map.items():
             if v.get("topic_id") == m.message_thread_id:
@@ -154,7 +162,7 @@ async def register_staff_handlers(dp, bot):
 
         owner_id = _map[str(uid)].get("owner_id")
         if owner_id and m.from_user and m.from_user.id != owner_id:
-            return  # un autre chatter a "pris" ce client
+            return
 
         try:
             if m.text:
