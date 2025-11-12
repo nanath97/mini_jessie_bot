@@ -20,8 +20,7 @@ dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 # === Ajout FastAPI (pour Render et les webhooks) ===
 from fastapi import FastAPI
 from stripe_webhook import router as stripe_router
-from bott_webhook import router as bott_router
+import bott_webhook
 
 app = FastAPI()
 app.include_router(stripe_router)
-app.include_router(bott_router)
