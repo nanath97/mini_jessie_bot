@@ -11,11 +11,21 @@ from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list
 from middlewares.payment_filter import PaymentFilterMiddleware, reset_free_quota
-
-
+from core import authorized_users, bot, dp
+import staff_system
+from aiogram import types
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
+
+# STAFF SUCCURSAL
+
+@dp.message_handler(lambda m: staff_system.STAFF_FEATURE_ENABLED and m.from_user and (m.from_user.id in authorized_users), content_types=types.ContentTypes.ANY)
+async def _mirror_vip_to_staff(message: types.Message):
+    try:
+        await staff_system.forward_client_to_staff(bot, message)
+    except Exception as e:
+        print(f"[staff] mirror error: {e}")
 
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
@@ -626,6 +636,20 @@ async def handle_start(message: types.Message):
             authorized_users.add(user_id)
             reset_free_quota(user_id)
 
+            # 🔹 Création automatique du topic staff
+            try:
+                import staff_system
+                if staff_system.STAFF_FEATURE_ENABLED:
+                    await staff_system.ensure_topic_for(
+                        bot,
+                        user_id=user_id,
+                        username=message.from_user.username or message.from_user.first_name,
+                        email="",  # tu pourras ajouter plus tard l’email Stripe
+                        total_spent=float(montant)
+                    )
+            except Exception as e:
+                print(f"[staff] ensure_topic_for error: {e}")
+
             if user_id in contenus_en_attente:
                 contenu = contenus_en_attente[user_id]
                 if contenu["type"] == types.ContentType.PHOTO:
@@ -641,7 +665,7 @@ async def handle_start(message: types.Message):
             await bot.send_message(
                 user_id,
                 f"✅ Merci pour ton paiement de {montant}€ 💖 ! Voici ton contenu...\n\n"
-                f"_❗️Si tu as le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
+                f"_❗️Si tu as le moindre souci avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
@@ -658,11 +682,28 @@ async def handle_start(message: types.Message):
             await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
             return
 
+
     # === Cas B : /start=vipcdan (retour après paiement VIP) ===
     if param == "vipcdan":
         authorized_users.add(user_id)
         reset_free_quota(user_id)
 
+
+# 🔹 NEW: créer/assurer la “pièce staff” pour ce VIP (même sans Stripe)
+    try:
+        import staff_system
+        if staff_system.STAFF_FEATURE_ENABLED:
+            await staff_system.ensure_topic_for(
+                bot,
+                user_id=user_id,
+                username=message.from_user.username or message.from_user.first_name,
+                email="",          # optionnel; tu pourras le peupler plus tard
+                total_spent=0.0    # ici on met 0; les montants viendront de Stripe/Airtable
+            )
+    except Exception as e:
+        print(f"[staff] ensure_topic_for error: {e}")
+
+        
         await bot.send_message(
             user_id,
             "✨ Bienvenue dans le VIP mon coeur 💕! Et voici ton cadeau 🎁:"
@@ -711,17 +752,6 @@ async def handle_start(message: types.Message):
         chat_id=user_id,
         video=WELCOME_VIDEO_FILE_ID,
         reply_markup=vip_kb
-    )
-
-    # 3) Image floutée + offre €9
-    vip_offer_kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("💎 Accès immédiat pour 9 €", url=VIP_URL)
-    )
-    await bot.send_photo(
-        chat_id=user_id,
-        photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption="🔥 Offre spéciale valable uniquement aujourd'hui !\n - 2 nudes 🔞\n - 1 vidéo hard où je mouille 💦\n- Accès VIP à vie ⚡\n Pour seulement 9 € \n👉 Cliquez ci-dessous pour y accéder immédiatement !",
-        reply_markup=vip_offer_kb
     )
 
 
