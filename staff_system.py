@@ -1,202 +1,90 @@
-# staff_system.py — aiogram 2.22.x
-import os, json, asyncio
-from typing import Dict, Any, Optional
+# staff_system.py
+
+import json
+import os
 from aiogram import types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.exceptions import RetryAfter, ChatNotFound
+from core import dp, bot, authorized_users
 
-STAFF_FEATURE_ENABLED = os.getenv("STAFF_FEATURE_ENABLED", "false").lower() == "true"
-STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
-MAP_PATH = os.getenv("STAFF_MAP_PATH", "vip_threads.json")  # persistance légère
+# Configuration : ID du groupe staff (type forum)
+STAFF_FEATURE_ENABLED = True
+STAFF_GROUP_ID = -1003418175247  # ← remplace par l’ID de ton groupe forum staff
 
-# { str(user_id): {"topic_id": int, "owner_id": Optional[int], "username": str, "email": str, "total": float} }
-_map: Dict[str, Dict[str, Any]] = {}
+# Fichier pour stocker les correspondances utilisateur ↔ topic
+TOPIC_MAP_FILE = "staff_topics.json"
+_map = {}
 
-# ---------- persistance ----------
-def _load_map():
+# Charger les topics existants depuis fichier
+if os.path.exists(TOPIC_MAP_FILE):
+    with open(TOPIC_MAP_FILE, "r") as f:
+        _map = json.load(f)
+
+
+def save_topic_map():
+    with open(TOPIC_MAP_FILE, "w") as f:
+        json.dump(_map, f)
+
+
+# Créer un topic pour le client s’il n’existe pas encore
+async def ensure_topic_for(bot, user_id, username="", email="", total_spent=0.0):
     global _map
+    if str(user_id) in _map:
+        return  # déjà créé
+
+    # Nom du topic
+    thread_name = f"{username or user_id} – VIP"
+    if total_spent > 0:
+        thread_name += f" ({int(total_spent)}€)"
+
     try:
-        with open(MAP_PATH, "r", encoding="utf-8") as f:
-            _map = json.load(f)
-    except FileNotFoundError:
-        _map = {}
-    except Exception as e:
-        print(f"[staff] load map error: {e}")
-        _map = {}
-
-def _save_map():
-    try:
-        with open(MAP_PATH, "w", encoding="utf-8") as f:
-            json.dump(_map, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[staff] save map error: {e}")
-
-def _get(uid: int) -> Optional[Dict[str, Any]]:
-    return _map.get(str(uid))
-
-def _set(uid: int, data: Dict[str, Any]):
-    _map[str(uid)] = data
-    _save_map()
-
-# ---------- UI ----------
-def _kb(claimed: bool) -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=2)
-    if claimed:
-        kb.add(
-            InlineKeyboardButton("🔓 Relâcher", callback_data="staff_release"),
-            InlineKeyboardButton("📌 Note", callback_data="staff_note"),
+        forum_topic = await bot.create_forum_topic(
+            chat_id=STAFF_GROUP_ID,
+            name=thread_name
         )
-    else:
-        kb.add(
-            InlineKeyboardButton("🖐️ Prendre en charge", callback_data="staff_claim"),
-            InlineKeyboardButton("📌 Note", callback_data="staff_note"),
-        )
-    return kb
-
-def _mask_email(e: str) -> str:
-    if not e or "@" not in e: return e or "—"
-    name, dom = e.split("@", 1)
-    name_mask = name[0] + "*" * max(1, len(name)-2) + (name[-1] if len(name) > 1 else "")
-    return f"{name_mask}@{dom}"
-
-# ---------- API publique ----------
-async def init(bot):
-    if not STAFF_FEATURE_ENABLED or STAFF_GROUP_ID == 0:
-        print("[staff] disabled")
-        return
-    _load_map()
-    try:
-        await bot.get_chat(STAFF_GROUP_ID)
-        print(f"[staff] ready — topics tracked: {len(_map)}")
-    except ChatNotFound:
-        print("[staff] STAFF_GROUP_ID introuvable")
-
-async def ensure_topic_for(bot, *, user_id: int, username: Optional[str], email: Optional[str] = "", total_spent: float = 0.0):
-    """Crée (idempotent) le topic staff pour ce VIP."""
-    if not STAFF_FEATURE_ENABLED or STAFF_GROUP_ID == 0:
-        return
-    entry = _get(user_id)
-    if entry and entry.get("topic_id"):
-        # mise à jour légère
-        entry["username"] = username or entry.get("username") or ""
-        if email: entry["email"] = email
-        if total_spent: entry["total"] = float(total_spent)
-        _set(user_id, entry)
-        await _post_update(bot, user_id)
-        return
-
-    name = f"VIP: @{username}" if username else f"VIP: {user_id}"
-
-    # ✅ version compatible aiogram 2.x
-    try:
-        resp = await bot.request("createForumTopic", {"chat_id": STAFF_GROUP_ID, "name": name})
-        topic_id = resp.get("message_thread_id")
-        if not topic_id:
-            raise RuntimeError(f"createForumTopic returned: {resp}")
+        _map[str(user_id)] = {
+            "thread_id": forum_topic.message_thread_id,
+            "owner_id": user_id,
+            "username": username,
+            "email": email,
+            "total_spent": total_spent
+        }
+        save_topic_map()
     except Exception as e:
-        print(f"[staff] create_forum_topic error: {e}")
-        return
+        print(f"[staff_system] Erreur création topic pour {user_id} : {e}")
 
-    _set(user_id, {"topic_id": int(topic_id), "owner_id": None, "username": username or "", "email": email or "", "total": float(total_spent or 0.0)})
-    await _post_header(bot, user_id)
 
-async def _post_header(bot, user_id: int):
-    e = _get(user_id); 
-    if not e: return
-    text = (
-        "📌 *Fiche VIP*\n"
-        f"• Nom: {e['username'] or user_id}\n"
-        f"• Telegram ID: `{user_id}`\n"
-        f"• Email Stripe: {_mask_email(e.get('email',''))}\n"
-        f"• Total dépensé: *{float(e.get('total',0.0)):.2f} €*\n\n"
-        "➡️ Répondez dans ce topic pour écrire au client."
-    )
-    await bot.send_message(STAFF_GROUP_ID, text, parse_mode="Markdown", message_thread_id=e["topic_id"], reply_markup=_kb(False))
-
-async def _post_update(bot, user_id: int):
-    e = _get(user_id); 
-    if not e: return
-    await bot.send_message(
-        STAFF_GROUP_ID,
-        f"🔄 Mise à jour: Email={_mask_email(e.get('email',''))} | Total={float(e.get('total',0.0)):.2f}€",
-        message_thread_id=e["topic_id"],
-        disable_notification=True
-    )
-
+# Copier le message privé du client vers son topic staff
 async def mirror_client_to_staff(bot, message: types.Message):
-    """Duplique le message privé du VIP vers son topic staff (si mappé)."""
-    if not STAFF_FEATURE_ENABLED or STAFF_GROUP_ID == 0:
+    if not STAFF_FEATURE_ENABLED or message.chat.type != "private":
         return
-    e = _get(message.from_user.id)
-    if not e: 
-        return
+
+    user_id = message.from_user.id
+    if str(user_id) not in _map:
+        await ensure_topic_for(bot, user_id, message.from_user.username)
+    thread_id = _map[str(user_id)]["thread_id"]
+
     try:
         await bot.copy_message(
             chat_id=STAFF_GROUP_ID,
             from_chat_id=message.chat.id,
             message_id=message.message_id,
-            message_thread_id=e["topic_id"]
+            message_thread_id=thread_id
         )
-    except RetryAfter as ra:
-        await asyncio.sleep(ra.timeout + 1)
-        await bot.copy_message(
-            chat_id=STAFF_GROUP_ID,
-            from_chat_id=message.chat.id,
-            message_id=message.message_id,
-            message_thread_id=e["topic_id"]
-        )
+    except Exception as e:
+        print(f"[staff_system] Erreur copie message VIP vers topic : {e}")
 
-async def register_staff_handlers(dp, bot):
-    """À appeler au startup pour écouter les réponses staff."""
-    if not STAFF_FEATURE_ENABLED or STAFF_GROUP_ID == 0:
-        return
 
-    @dp.message_handler(lambda m: m.chat.id == STAFF_GROUP_ID and getattr(m, "message_thread_id", None) is not None, content_types=types.ContentTypes.ANY)
-    async def _outbound(m: types.Message):
-        uid = None
-        for k, v in _map.items():
-            if v.get("topic_id") == m.message_thread_id:
-                uid = int(k); break
-        if not uid: 
-            return
-
-        owner_id = _map[str(uid)].get("owner_id")
-        if owner_id and m.from_user and m.from_user.id != owner_id:
-            return
-
-        try:
-            if m.text:
-                await bot.send_message(uid, m.text)
-            elif m.caption and m.photo:
-                await bot.send_photo(uid, m.photo[-1].file_id, caption=m.caption)
-            elif m.photo:
-                await bot.send_photo(uid, m.photo[-1].file_id)
-            elif m.document:
-                await bot.send_document(uid, m.document.file_id, caption=m.caption or None)
-            elif m.video:
-                await bot.send_video(uid, m.video.file_id, caption=m.caption or None)
-            elif m.voice:
-                await bot.send_voice(uid, m.voice.file_id, caption=m.caption or None)
-        except Exception as e:
-            await bot.send_message(STAFF_GROUP_ID, f"❌ Non délivré: {e}", message_thread_id=m.message_thread_id, disable_notification=True)
-
-    @dp.callback_query_handler(lambda c: c.data in {"staff_claim", "staff_release"})
-    async def _claim(c: types.CallbackQuery):
-        topic_id = c.message.message_thread_id
-        uid = None
-        for k, v in _map.items():
-            if v.get("topic_id") == topic_id:
-                uid = int(k); break
-        if not uid:
-            return await c.answer("Introuvable", show_alert=True)
-
-        if c.data == "staff_claim":
-            _map[str(uid)]["owner_id"] = c.from_user.id
-            _save_map()
-            await c.message.edit_reply_markup(reply_markup=_kb(True))
-            await c.answer("Pris en charge")
-        else:
-            _map[str(uid)]["owner_id"] = None
-            _save_map()
-            await c.message.edit_reply_markup(reply_markup=_kb(False))
-            await c.answer("Libéré")
+# Réponse du staff → renvoyer vers le client
+@dp.message_handler(
+    lambda m: m.chat.id == STAFF_GROUP_ID and getattr(m, "message_thread_id", None) is not None,
+    content_types=types.ContentTypes.ANY
+)
+async def _outbound(m: types.Message):
+    try:
+        thread_id = m.message_thread_id
+        for uid, val in _map.items():
+            if val["thread_id"] == thread_id:
+                user_id = int(uid)
+                await m.send_copy(chat_id=user_id)
+                break
+    except Exception as e:
+        print(f"[staff_system] Erreur retour vers client : {e}")

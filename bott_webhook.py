@@ -714,6 +714,18 @@ async def handle_start(message: types.Message):
     )
 
 
+from staff_system import mirror_client_to_staff, STAFF_FEATURE_ENABLED
+from core import authorized_users, bot
+
+@dp.message_handler(
+    lambda m: STAFF_FEATURE_ENABLED and m.chat.type == "private" and m.from_user.id in authorized_users,
+    content_types=types.ContentTypes.ANY
+)
+async def _mirror_vip_to_staff(message: types.Message):
+    try:
+        await mirror_client_to_staff(bot, message)
+    except Exception as e:
+        print(f"[staff] Erreur miroir vers topic : {e}")
 
  # TEST
 @dp.message_handler(lambda message: message.text == "❗ Problème d'achat")
