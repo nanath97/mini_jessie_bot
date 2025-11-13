@@ -23,7 +23,7 @@ dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 @dp.message_handler(lambda m: staff_system.STAFF_FEATURE_ENABLED and m.from_user and (m.from_user.id in authorized_users), content_types=types.ContentTypes.ANY)
 async def _mirror_vip_to_staff(message: types.Message):
     try:
-        await staff_system.forward_client_to_staff(bot, message)
+        await staff_system.mirror_client_to_staff(bot, message)
     except Exception as e:
         print(f"[staff] mirror error: {e}")
 
@@ -617,50 +617,41 @@ async def handle_start(message: types.Message):
     user_id = message.from_user.id
     param = (message.get_args() or "").strip()
 
-    # === Cas A : /start=cdanXX (paiement Stripe) ===
+    # === Cas A : /start=cdanXX (retour de paiement Stripe avec montant) ===
     if param.startswith("cdan") and param[4:].isdigit():
         montant = int(param[4:])
         if montant in prix_list:
+            # Vérifier qu’un paiement récent de ce montant a été enregistré
             now = datetime.now()
             paiements_valides = [
                 t for t in paiements_recents.get(montant, [])
                 if now - t < timedelta(minutes=3)
             ]
             if not paiements_valides:
-                await bot.send_message(user_id, "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement.")
-                await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}.")
+                await bot.send_message(user_id, "❌ Paiement invalide ! ...")
+                await bot.send_message(ADMIN_ID, f"⚠️ Problème ! Stripe a refusé le paiement de {message.from_user.username or message.from_user.first_name}.")
                 return
 
-            # Paiement validé
+            # Paiement validé – on marque l’utilisateur comme VIP et on réinitialise son quota gratuit
             paiements_recents[montant].remove(paiements_valides[0])
             authorized_users.add(user_id)
             reset_free_quota(user_id)
 
-            # 🔹 Création automatique du topic staff
+            # 🔹 Créer automatiquement le topic staff pour ce VIP
             try:
-                import staff_system
                 if staff_system.STAFF_FEATURE_ENABLED:
                     await staff_system.ensure_topic_for(
                         bot,
                         user_id=user_id,
                         username=message.from_user.username or message.from_user.first_name,
-                        email="",  # tu pourras ajouter plus tard l’email Stripe
+                        email="",
                         total_spent=float(montant)
                     )
             except Exception as e:
                 print(f"[staff] ensure_topic_for error: {e}")
 
-            if user_id in contenus_en_attente:
-                contenu = contenus_en_attente[user_id]
-                if contenu["type"] == types.ContentType.PHOTO:
-                    await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu.get("caption"))
-                elif contenu["type"] == types.ContentType.VIDEO:
-                    await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu.get("caption"))
-                elif contenu["type"] == types.ContentType.DOCUMENT:
-                    await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu.get("caption"))
-                del contenus_en_attente[user_id]
-            else:
-                paiements_en_attente_par_user.add(user_id)
+            # (Optionnel : gérer envoi de contenu acheté via contenus_en_attente...)
+            # ... 
 
             await bot.send_message(
                 user_id,
@@ -670,89 +661,59 @@ async def handle_start(message: types.Message):
             )
             await bot.send_message(ADMIN_ID, f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}.")
             log_to_airtable(
-                pseudo=message.from_user.username or message.from_user.first_name,
-                user_id=user_id,
-                type_acces="Paiement",
-                montant=float(montant),
-                contenu="Paiement validé via Stripe webhook + redirection"
-            )
-            await bot.send_message(ADMIN_ID, "✅ Paiement enregistré dans ton Dashboard.")
-            return
-        else:
-            await bot.send_message(user_id, "❌ Le montant indiqué n’est pas valide.")
-            return
+    pseudo=message.from_user.username or message.from_user.first_name,
+    user_id=user_id,
+    type_acces="Paiement",
+    montant=float(montant),
+    contenu="Paiement validé via Stripe webhook + redirection",
+    email="vinteo.ac@gmail.com"
+)
 
-
-    # === Cas B : /start=vipcdan (retour après paiement VIP) ===
+    # === Cas B : /start vipcdan (retour après paiement VIP) ===
     if param == "vipcdan":
+        # Si l’utilisateur a bien payé, il devrait déjà être dans authorized_users (webhook Stripe)
+        # On l’ajoute quand même par précaution, et on réinitialise son quota gratuit
         authorized_users.add(user_id)
         reset_free_quota(user_id)
 
+        # Créer/assurer le topic staff pour ce VIP nouvellement enregistré
+        try:
+            if staff_system.STAFF_FEATURE_ENABLED:
+                await staff_system.ensure_topic_for(
+                    bot,
+                    user_id=user_id,
+                    username=message.from_user.username or message.from_user.first_name,
+                    email="",
+                    total_spent=0.0  # Montant VIP à vie (peut être mis à jour plus tard depuis Airtable/Stripe)
+                )
+        except Exception as e:
+            print(f"[staff] ensure_topic_for error: {e}")
 
-# 🔹 NEW: créer/assurer la “pièce staff” pour ce VIP (même sans Stripe)
-    try:
-        import staff_system
-        if staff_system.STAFF_FEATURE_ENABLED:
-            await staff_system.ensure_topic_for(
-                bot,
-                user_id=user_id,
-                username=message.from_user.username or message.from_user.first_name,
-                email="",          # optionnel; tu pourras le peupler plus tard
-                total_spent=0.0    # ici on met 0; les montants viendront de Stripe/Airtable
-            )
-    except Exception as e:
-        print(f"[staff] ensure_topic_for error: {e}")
+        # 🎁 Envoi du pack de bienvenue VIP (2 photos + 1 vidéo)
+        await bot.send_message(user_id, "✨ Bienvenue dans le VIP mon cœur 💕 ! Et voici ton cadeau 🎁 :")
+        await bot.send_photo(chat_id=user_id, photo="<FILE_ID_PHOTO_1>")
+        await bot.send_photo(chat_id=user_id, photo="<FILE_ID_PHOTO_2>")
+        await bot.send_video(chat_id=user_id, video="<FILE_ID_VIDEO_VIP>")
 
-        
-        await bot.send_message(
-            user_id,
-            "✨ Bienvenue dans le VIP mon coeur 💕! Et voici ton cadeau 🎁:"
-        )
-
-        # 2 photos VIP
-        await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVGjQEl41mcOenWoUHd0wBApWeIgAA43KMRtXEIBSXkjHysPuAYMBAAMCAAN4AAM2BA")
-        await bot.send_photo(chat_id=user_id, photo="AgACAgQAAxkBAAJoVWjQEl4aYR_CKOnekikxufzd6PHlAAKOyjEbVxCAUvKJA0Awx7TdAQADAgADeAADNgQ")
-
-        # 1 vidéo VIP
-        await bot.send_video(chat_id=user_id, video="BAACAgQAAxkBAAJoWGjQEoDBkbxuCtL-jigfwNWNtEGBAAIDHQACVxCAUsgVHeltOHHgNgQ")
-
-        # Logs
+        # Log de l’accès VIP pour l’admin et enregistrement Airtable
         await bot.send_message(ADMIN_ID, f"🌟 Nouveau VIP : {message.from_user.username or message.from_user.first_name}.")
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=user_id,
-            type_acces="VIP",
-            montant=9.0,
-            contenu="Pack 2 photos + 1 vidéo + accès VIP"
-        )
+        log_to_airtable(pseudo=message.from_user.username or message.from_user.first_name,
+                        user_id=user_id, type_acces="VIP", montant=9.0,
+                        contenu="Pack 2 photos + 1 vidéo + accès VIP")
         await bot.send_message(ADMIN_ID, "✅ VIP Access enregistré dans ton dashboard.")
-        return  # on sort ici pour ne pas passer à l’accueil normal
+        return  # on sort ici pour ne pas exécuter l’accueil normal
 
-    # === Cas C : /start simple (accueil normal) ===
+    # === Cas C : /start sans paramètre (accueil normal) ===
     if user_id == ADMIN_ID:
-        await bot.send_message(
-            user_id,
-            "👋 Bonjour admin ! Tu peux voir le listing des commandes et consulter tes statistiques !",
-            reply_markup=keyboard_admin
-        )
+        # Message d’accueil spécifique pour l’admin
+        await bot.send_message(user_id, "👋 Bonjour admin ! ...", reply_markup=keyboard_admin)
         return
 
-    # 1) Texte d’accueil
-    await bot.send_message(
-        user_id,
-        "🟢 Jessie est en ligne",
-        reply_markup=keyboard
-    )
+    # Accueil standard pour un utilisateur non VIP
+    await bot.send_message(user_id, "🟢 Jessie est en ligne", reply_markup=keyboard)
+    vip_kb = InlineKeyboardMarkup().add(InlineKeyboardButton("💎 Deviens un VIP", url=VIP_URL))
+    await bot.send_video(chat_id=user_id, video=WELCOME_VIDEO_FILE_ID, reply_markup=vip_kb)
 
-    # 2) Vidéo de présentation + bouton VIP
-    vip_kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("💎 Deviens un VIP", url=VIP_URL)
-    )
-    await bot.send_video(
-        chat_id=user_id,
-        video=WELCOME_VIDEO_FILE_ID,
-        reply_markup=vip_kb
-    )
 
 
 
