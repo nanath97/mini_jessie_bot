@@ -2,10 +2,10 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
 import os
 from dotenv import load_dotenv
-from core import bot, dp, app
+from core import bot, dp
 import bott_webhook
 from stripe_webhook import router as stripe_router
-import staff_system
+
 
 
 
@@ -14,15 +14,6 @@ load_dotenv()
 
 
 app = FastAPI()
-
-
-@app.on_event("startup")
-async def _startup_staff():
-    if os.getenv("STAFF_FEATURE_ENABLED", "false").lower() == "true":
-        await staff_system.init(bot)
-        await staff_system.register_staff_handlers(dp, bot)
-
-
 
 @app.post(f"/bot/{os.getenv('BOT_TOKEN')}")
 async def telegram_webhook(request: Request):
@@ -52,5 +43,3 @@ app.include_router(stripe_router)
 print("🔥 >>> FICHIER MAIN.PY BIEN LANCÉ <<< 🔥")
 
 # === 221097 FINV1
-
-

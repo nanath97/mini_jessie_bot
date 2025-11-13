@@ -15,12 +15,3 @@ dp = Dispatcher(bot)
 authorized_users = set()
 # ===== Activation du middleware =====
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
-
-
-# === Ajout FastAPI (pour Render et les webhooks) ===
-from fastapi import FastAPI
-from stripe_webhook import router as stripe_router
-import bott_webhook
-
-app = FastAPI()
-app.include_router(stripe_router)
