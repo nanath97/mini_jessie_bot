@@ -37,7 +37,7 @@ def is_admin(user_id: int) -> bool:
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
 VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
-WELCOME_VIDEO_FILE_ID = "BAACAgEAAxkBAAMzaRe_FXGFxa985em5FslgcyIeRa0AAmUHAAJVArlE6gHI1Lq6DdE2BA"
+WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJ94mkItI9fuZ9rKDxry1Ou0Gr53q0QAAL_GwACx-RIUIFWcMIrUxGqNgQ"
 
 
 
@@ -529,17 +529,17 @@ async def handle_start(message: types.Message):
         # 2 photos VIP
         await bot.send_photo(
             chat_id=user_id,
-            photo="AgACAgEAAxkBAAMxaRe_BtBD6d7hdvclCBxBSIPeRtYAAoULaxtVArlEyuuNXhy3_pgBAAMCAAN4AAM2BA"
+            photo="AgACAgQAAxkBAAJoVGjQEl41mcOenWoUHd0wBApWeIgAA43KMRtXEIBSXkjHysPuAYMBAAMCAAN4AAM2BA"
         )
         await bot.send_photo(
             chat_id=user_id,
-            photo="AgACAgEAAxkBAAMvaRe_AyWrpdwMVHguMI4Qy03mIt8AAgELaxv7zcBEf0CJnOTUnLUBAAMCAAN5AAM2BA"
+            photo="AgACAgQAAxkBAAJoVWjQEl4aYR_CKOnekikxufzd6PHlAAKOyjEbVxCAUvKJA0Awx7TdAQADAgADeAADNgQ"
         )
 
         # 1 vidéo VIP
         await bot.send_video(
             chat_id=user_id,
-            video="BAACAgEAAxkBAAMzaRe_FXGFxa985em5FslgcyIeRa0AAmUHAAJVArlE6gHI1Lq6DdE2BA"
+            video="BAACAgQAAxkBAAJoWGjQEoDBkbxuCtL-jigfwNWNtEGBAAIDHQACVxCAUsgVHeltOHHgNgQ"
         )
 
         # 4) Logs Airtable
