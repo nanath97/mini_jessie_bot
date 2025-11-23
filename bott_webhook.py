@@ -76,7 +76,7 @@ liens_paiement = {
 
 
 # 1.=== Variables globales ===
-DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAMlaRe8XkiqsFX0iy0McYOjCtmGdvQAAoELaxtVArlE_4hgbgpoyOsBAAMCAAN4AAM2BA" # Remplace par le vrai file_id Telegram
+DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rjEbM2KQRDdrQA-mqmNwAQADAgADeAADNgQ" # Remplace par le vrai file_id Telegram
 
 
 # Fonction de détection de lien non autorisé
