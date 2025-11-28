@@ -426,6 +426,8 @@ async def handle_start(message: types.Message):
 
             # Paiement validé
             paiements_recents[montant].remove(paiements_valides[0])
+
+            # 🔑 Le client devient VIP (payeurs) pour tout le reste du système
             authorized_users.add(user_id)
 
             # Si un contenu était en attente → on le livre
@@ -454,12 +456,14 @@ async def handle_start(message: types.Message):
                 # Le client a payé avant que tu aies /envXX → on note le paiement en attente
                 paiements_en_attente_par_user.add(user_id)
 
+            # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
                 f"✅ Merci pour ton paiement de {montant}€ 💖 ! Voici ton contenu...\n\n"
                 f"_❗️Si tu as le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
+
             # avertir tous les admins
             for adm in authorized_admin_ids:
                 try:
@@ -469,6 +473,8 @@ async def handle_start(message: types.Message):
                     )
                 except Exception:
                     pass
+
+            # Log Airtable du paiement (Type acces = Paiement)
             log_to_airtable(
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=user_id,
@@ -476,11 +482,14 @@ async def handle_start(message: types.Message):
                 montant=float(montant),
                 contenu="Paiement validé via Stripe webhook + redirection"
             )
+
+            # 🔔 Notification dans le TOPIC du client (et plus dans le bot)
             try:
                 from vip_topics import ensure_topic_for_vip
                 topic_id = await ensure_topic_for_vip(message.from_user)
             except Exception:
                 topic_id = None
+
             if topic_id is not None:
                 try:
                     await bot.request(
@@ -502,54 +511,37 @@ async def handle_start(message: types.Message):
 
             return
 
-        # 🔔 Notification dans le TOPIC du client (et plus dans le bot)
-                 
-
-
-        # === Cas B : /start=vipcdan (retour après paiement VIP) ===
+    # === Cas B : /start=vipcdan (retour après paiement VIP) ===
     if param == "vipcdan":
-        # 1) On marque le user comme VIP côté bot
+        # 1) Le user devient VIP côté système (payeurs)
         authorized_users.add(user_id)
 
-        # 2) On crée / récupère le topic VIP pour ce client
+        # 2) On crée / récupère le topic pour ce client
         try:
             from vip_topics import ensure_topic_for_vip
             topic_id = await ensure_topic_for_vip(message.from_user)
         except Exception as e:
-            # On log mais ON NE BLOQUE PAS l'envoi des médias
             print(f"[VIP] Erreur ensure_topic_for_vip pour {user_id}: {e}")
             topic_id = None  # pour éviter un NameError plus loin
 
-        # 3) On envoie le pack VIP (2 photos + 1 vidéo)
-        await bot.send_message(
-            user_id,
-            "✨ Bienvenue dans le VIP mon coeur 💕! Et voici ton cadeau 🎁:"
-        )
-
-        # 2 photos VIP
-        await bot.send_photo(
-            chat_id=user_id,
-            photo="AgACAgQAAxkBAAJoVGjQEl41mcOenWoUHd0wBApWeIgAA43KMRtXEIBSXkjHysPuAYMBAAMCAAN4AAM2BA"
-        )
-        await bot.send_photo(
-            chat_id=user_id,
-            photo="AgACAgQAAxkBAAJoVWjQEl4aYR_CKOnekikxufzd6PHlAAKOyjEbVxCAUvKJA0Awx7TdAQADAgADeAADNgQ"
-        )
-
-        # 1 vidéo VIP
-        await bot.send_video(
-            chat_id=user_id,
-            video="BAACAgQAAxkBAAJoWGjQEoDBkbxuCtL-jigfwNWNtEGBAAIDHQACVxCAUsgVHeltOHHgNgQ"
-        )
-
-        # 4) Logs Airtable
+        # 3) Log Airtable en tant que VIP (sans envoyer de cadeau auto au client)
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
             type_acces="VIP",
-            montant=9.0,
-            contenu="Pack 2 photos + 1 vidéo + accès VIP"
+            montant=9.0,  # adapte si besoin selon ton lien Stripe VIP
+            contenu="Accès VIP confirmé via Stripe"
         )
+
+        # 4) Notifier tous les admins (mais pas le client)
+        for adm in authorized_admin_ids:
+            try:
+                await bot.send_message(
+                    adm,
+                    f"🌟 Nouveau VIP confirmé : {message.from_user.username or message.from_user.first_name} (paiement VIP)."
+                )
+            except Exception:
+                pass
 
         # 5) Notification dans le TOPIC du client (si on a réussi à le récupérer)
         if topic_id is not None:
@@ -571,9 +563,9 @@ async def handle_start(message: types.Message):
             except Exception as e:
                 print(f"[VIP_TOPICS] Erreur envoi notif VIP dans topic {topic_id} : {e}")
 
+        # ⚠️ Important : on NE renvoie RIEN au client ici.
+        # Il continue à parler normalement, il recevra seulement les contenus que l'admin lui vend.
         return  # on sort ici pour ne pas passer à l’accueil normal
-
-
 
     # === Cas C : /start simple (accueil normal) ===
     if is_admin(user_id):
@@ -584,14 +576,14 @@ async def handle_start(message: types.Message):
         )
         return
 
-    # 1) Texte d’accueil
+    # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
         "🟢 Jessie est en ligne",
         reply_markup=keyboard
     )
 
-    # 2) Vidéo de présentation + bouton VIP
+    # 2) Vidéo de présentation + bouton VIP (lien Stripe VIP)
     vip_kb = InlineKeyboardMarkup().add(
         InlineKeyboardButton("💎 Deviens un VIP", url=VIP_URL)
     )
@@ -613,6 +605,7 @@ async def handle_start(message: types.Message):
         await bot.send_message(DIRECTEUR_ID, texte_alerte_directeur, parse_mode="Markdown")
     except Exception as e:
         print(f"Erreur envoi directeur : {e}")
+
 
 # TEST A SUPPRIMER DEBUT
 
@@ -977,10 +970,15 @@ STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
     content_types=types.ContentType.ANY
 )
 async def relay_from_client(message: types.Message):
+    """
+    Tous les clients (VIP ou non) sont transférés dans un topic dédié
+    dans le STAFF_GROUP. Le statut VIP sert uniquement aux stats / envois groupés.
+    """
     user_id = message.from_user.id
 
     print(f"[RELAY] message from {user_id} (chat {message.chat.id}), authorized={user_id in authorized_users}")
 
+    # 1) Vérifier la ban_list
     for admin_id, clients_bannis in ban_list.items():
         if user_id in clients_bannis:
             try:
@@ -988,25 +986,15 @@ async def relay_from_client(message: types.Message):
             except Exception:
                 pass
             try:
-                await bot.send_message(user_id, "🚫 You have been banned. You can no longer send messages.")
+                await bot.send_message(
+                    user_id,
+                    "🚫 Tu as été banni, tu ne peux plus envoyer de messages."
+                )
             except Exception:
                 pass
             return
 
-    if user_id not in authorized_users:
-        try:
-            # Forward to STAFF_GROUP so any admin can pick up
-            sent_msg = await bot.forward_message(
-                chat_id=STAFF_GROUP_ID,
-                from_chat_id=message.chat.id,
-                message_id=message.message_id
-            )
-            pending_replies[(STAFF_GROUP_ID, sent_msg.message_id)] = message.chat.id
-            print(f"✅ Message NON-VIP reçu de {message.chat.id} et transféré au staff (msg {sent_msg.message_id})")
-        except Exception as e:
-            print(f"❌ Erreur transfert message client NON-VIP : {e}")
-        return
-
+    # 2) Création / récupération du topic dédié pour ce client
     try:
         from vip_topics import ensure_topic_for_vip
 
@@ -1026,9 +1014,11 @@ async def relay_from_client(message: types.Message):
         if sent_msg_id:
             pending_replies[(STAFF_GROUP_ID, sent_msg_id)] = message.chat.id
 
-        print(f"✅ Message VIP reçu de {message.chat.id} et transféré dans le topic {topic_id}")
+        print(f"✅ Message client reçu de {message.chat.id} et transféré dans le topic {topic_id}")
     except Exception as e:
-        print(f"❌ Erreur transfert message VIP vers topic : {e}")
+        print(f"❌ Erreur transfert message client vers topic : {e}")
+
+
 
 
 # 1. code pour le bouton prendre en charge début

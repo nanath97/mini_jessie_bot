@@ -5,7 +5,6 @@ from aiogram.dispatcher.handler import CancelHandler
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ban_storage import ban_list  # Import de la ban_list
 
-import asyncio
 import time
 import os
 
@@ -27,12 +26,13 @@ BOUTONS_AUTORISES = [
     "✨Discuter en tant que VIP",
 ]
 
-# Lien VIP
-VIP_URL = "https://buy.stripe.com/5kQ9AS60J2ET9wxfi57AI0W"
+# Lien VIP (encore utilisé ailleurs éventuellement)
+VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
 
 # Anti-doublon
 _processed_keys = {}
 _PROCESSED_TTL = 60
+
 
 def _prune_processed(now: float):
     for k, ts in list(_processed_keys.items()):
@@ -42,6 +42,7 @@ def _prune_processed(now: float):
 
 class PaymentFilterMiddleware(BaseMiddleware):
     def __init__(self, authorized_users):
+        # authorized_users est encore passé, mais NE SERT PLUS à bloquer les messages.
         super(PaymentFilterMiddleware, self).__init__()
         self.authorized_users = authorized_users
 
@@ -85,7 +86,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             if text.startswith(b):
                 return
 
-        # Autoriser liens admin dans le staff
+        # Autoriser liens admin (filtrés) quand c'est toi en privé
         if user_id == ADMIN_ID and message.text:
             if lien_non_autorise(message.text):
                 try:
@@ -96,23 +97,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
                 raise CancelHandler()
             return
 
-        # 🔥 Règle finale : SEULS LES VIP peuvent envoyer des messages
-        if user_id not in self.authorized_users:    # NON-VIP
-            try:
-                await message.delete()
-            except:
-                pass
-
-            kb = InlineKeyboardMarkup().add(
-                InlineKeyboardButton("⭐ Devenir membre VIP", url=VIP_URL)
-            )
-
-            await message.answer(
-                "Désolée mon coeur, mais pour discuter librement avec moi, tu dois être un vip ! "
-                "Pour valider ton accès, tu n'as qu'à cliquer sur le lien juste ici ",
-                reply_markup=kb
-            )
-            raise CancelHandler()
-
-        # Si VIP → on laisse passer normalement
+        # 🔁 Nouvelle règle finale :
+        # On NE bloque plus les non-VIP ici.
+        # Le message passe, et c'est bott_webhook + vip_topics qui gèrent la suite (topics, réponses, etc.).
         return
