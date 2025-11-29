@@ -583,7 +583,10 @@ async def handle_start(message: types.Message):
         reply_markup=keyboard
     )
 
-    
+    # 2) Vidéo de présentation + bouton VIP (lien Stripe VIP)
+    vip_kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton
+    )
     await bot.send_video(
         chat_id=user_id,
         video=WELCOME_VIDEO_FILE_ID,
