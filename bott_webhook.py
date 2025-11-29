@@ -36,7 +36,7 @@ def is_admin(user_id: int) -> bool:
     return user_id in authorized_admin_ids or user_id == OWNER_ID
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
-VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
+
 WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJ94mkItI9fuZ9rKDxry1Ou0Gr53q0QAAL_GwACx-RIUIFWcMIrUxGqNgQ"
 
 
@@ -583,10 +583,7 @@ async def handle_start(message: types.Message):
         reply_markup=keyboard
     )
 
-    # 2) Vidéo de présentation + bouton VIP (lien Stripe VIP)
-    vip_kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("💎 Deviens un VIP", url=VIP_URL)
-    )
+    
     await bot.send_video(
         chat_id=user_id,
         video=WELCOME_VIDEO_FILE_ID,
