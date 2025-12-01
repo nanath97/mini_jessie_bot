@@ -120,12 +120,24 @@ def initialize_authorized_users():
         print(f"[ERROR] Impossible de charger les VIP depuis Airtable : {e}")
 # === 221097 FIN
 
-# === Statistiques ===
 
 # === Statistiques ===
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
+    admin_id = message.from_user.id
+    email = ADMIN_EMAILS.get(admin_id)
+
+    # Sécurité : on ne calcule des stats que pour un admin connu
+    if not email:
+        await bot.send_message(
+            message.chat.id,
+            "❌ Ton e-mail admin n’est pas configuré dans le bot. Parle à Nova Pulse pour le mettre à jour."
+        )
+        return
+
     await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
 
     try:
@@ -134,11 +146,16 @@ async def handle_stat(message: types.Message):
             "Authorization": f"Bearer {AIRTABLE_API_KEY}"
         }
 
-        response = requests.get(url, headers=headers)
+        # 🔑 On filtre uniquement les lignes qui appartiennent à CET admin
+        params = {
+            "filterByFormula": f"{{Email}} = '{email}'"
+        }
+
+        response = requests.get(url, headers=headers, params=params)
         data = response.json()
 
-        ventes_totales = 0
-        ventes_jour = 0
+        ventes_totales = 0.0
+        ventes_jour = 0.0
         contenus_vendus = 0
         vip_ids = set()
 
@@ -147,26 +164,29 @@ async def handle_stat(message: types.Message):
 
         for record in data.get("records", []):
             fields = record.get("fields", {})
+
             user_id = fields.get("ID Telegram", "")
-            type_acces = fields.get("Type acces", "").lower()
-            date_str = fields.get("Date", "")
-            mois = fields.get("Mois", "")
-            montant = float(fields.get("Montant", 0))
+            type_acces = (fields.get("Type acces", "") or "").lower()
+            date_str = fields.get("Date", "") or ""
+            mois = fields.get("Mois", "") or ""
 
-            
-            if type_acces == "vip":
-                vip_ids.add(user_id)
+            try:
+                montant = float(fields.get("Montant", 0) or 0)
+            except Exception:
+                montant = 0.0
 
-        
-            if mois == mois_courant:
+            # 💶 Ventes du mois (on ignore les lignes VIP “0 €”)
+            if mois == mois_courant and montant > 0 and type_acces != "vip":
                 ventes_totales += montant
 
-            if date_str.startswith(today):
+            # 📅 Ventes du jour + contenus vendus
+            if date_str.startswith(today) and montant > 0 and type_acces != "vip":
                 ventes_jour += montant
-                if type_acces != "vip":
-                    contenus_vendus += 1
+                contenus_vendus += 1
 
-            if type_acces == "vip" and user_id:
+            # 🌟 Clients VIP = clients qui ont payé au moins une fois
+            # (Type acces = "paiement" OU "vip") ET montant > 0
+            if user_id and montant > 0 and type_acces in ("paiement", "vip"):
                 vip_ids.add(user_id)
 
         clients_vip = len(vip_ids)
@@ -181,6 +201,7 @@ async def handle_stat(message: types.Message):
             f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
             f"_Le bénéfice tient compte d’une commission de 12 %._"
         )
+
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
@@ -189,6 +210,7 @@ async def handle_stat(message: types.Message):
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+
 
 
 
