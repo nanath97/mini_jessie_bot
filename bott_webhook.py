@@ -969,45 +969,85 @@ async def handle_admin_message(message: types.Message):
         await traiter_message_payant_groupé(message, admin_id=admin_id)
         return
 
-    # 3) SINON → c'est le comportement normal (réponse à un client)
-    user_id = None
+    # 3) SINON → comportement normal : réponse à UN client
 
-    if message.reply_to_message:
-        # 🔍 Ancien comportement : on se base sur le forward ou pending_replies
-        if message.reply_to_message.forward_from:
-            user_id = message.reply_to_message.forward_from.id
-        else:
-            user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
-    else:
-        # Pas de reply → si on est dans le supergroupe staff, on utilise le topic_id
-        if message.chat.id == STAFF_GROUP_ID and message.message_thread_id is not None:
-            user_id = get_user_id_by_topic_id(message.message_thread_id)
-        else:
-            print("❌ Pas de reply détecté (et pas dans un topic staff connu)")
-            return
-
-    if not user_id:
-        await bot.send_message(chat_id=admin_id, text="❗Impossible d'identifier le destinataire.")
+    # 🚫 Cas 1 : pas de reply → on bloque proprement
+    if not message.reply_to_message:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗ Pour répondre à un client, réponds directement au message transféré dans le groupe staff (en reply)."
+        )
         return
 
-    # ✅ Envoi normal (comme avant)
+    # 🚫 Cas 2 : reply mais pas dans le STAFF_GROUP → on bloque aussi
+    if message.chat.id != STAFF_GROUP_ID:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗ Pour répondre à un client, utilise le reply depuis le groupe staff, dans le topic du client."
+        )
+        return
+
+    # ✅ Cas normal : on utilise UNIQUEMENT pending_replies
+    replied_msg_id = message.reply_to_message.message_id
+    user_id = pending_replies.get((message.chat.id, replied_msg_id))
+
+    if not user_id:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗Impossible d'identifier le destinataire. Réponds bien au dernier message transféré du client dans son topic."
+        )
+        return
+
+    # 4) Envoi normal vers le client
     try:
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
+
         elif message.photo:
-            await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
+            await bot.send_photo(
+                chat_id=user_id,
+                photo=message.photo[-1].file_id,
+                caption=message.caption or ""
+            )
+
         elif message.video:
-            await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
+            await bot.send_video(
+                chat_id=user_id,
+                video=message.video.file_id,
+                caption=message.caption or ""
+            )
+
         elif message.document:
-            await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
+            await bot.send_document(
+                chat_id=user_id,
+                document=message.document.file_id,
+                caption=message.caption or ""
+            )
+
         elif message.voice:
-            await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
+            await bot.send_voice(
+                chat_id=user_id,
+                voice=message.voice.file_id
+            )
+
         elif message.audio:
-            await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
+            await bot.send_audio(
+                chat_id=user_id,
+                audio=message.audio.file_id,
+                caption=message.caption or ""
+            )
+
         else:
-            await bot.send_message(chat_id=admin_id, text="📂 Type de message non supporté.")
+            await bot.send_message(
+                chat_id=admin_id,
+                text="📂 Type de message non supporté."
+            )
+
     except Exception as e:
-        await bot.send_message(chat_id=admin_id, text=f"❗Erreur admin -> client : {e}")
+        await bot.send_message(
+            chat_id=admin_id,
+            text=f"❗Erreur admin -> client : {e}"
+        )
 
 
 
