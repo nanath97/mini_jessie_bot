@@ -945,10 +945,12 @@ async def handle_admin_message(message: types.Message):
     admin_id = message.from_user.id
     mode = admin_modes.get(admin_id)
 
-    # DEBUG
-    print(f"[ADMIN_MSG] from admin_id={admin_id}, chat_id={message.chat.id}, reply_to={getattr(message.reply_to_message, 'message_id', None)}")
+    print(
+        f"[ADMIN_MSG] from admin_id={admin_id}, chat_id={message.chat.id}, "
+        f"reply_to={getattr(message.reply_to_message, 'message_id', None)}"
+    )
 
-    # 1) Menu d’envoi groupé
+    # 1) MENU ENVOI GROUPÉ
     if message.text == "✉️ Message à tous les VIPs":
         kb = InlineKeyboardMarkup()
         kb.add(
@@ -961,46 +963,40 @@ async def handle_admin_message(message: types.Message):
         )
         return
 
-    # 2) Si on est en mode diffusion groupée → on traite puis on sort
+    # 2) MODE DIFFUSION GROUPÉE
     if mode == "en_attente_message":
         admin_modes[admin_id] = None
         await traiter_message_groupé(message, admin_id=admin_id)
         return
 
-    if mode == "en_attente_message_payant":
-        admin_modes[admin_id] = None
-        await traiter_message_payant_groupé(message, admin_id=admin_id)
-        return
+    # 3) RÉPONSE À UN CLIENT (COMPORTEMENT NORMAL)
 
-    # 3) Sinon : réponse à UN client
-
-    # 🚫 A. Si pas de reply → interdit
-    if not message.reply_to_message:
+    # 🔐 On oblige : reply + dans le STAFF_GROUP
+    if not message.reply_to_message or message.chat.id != STAFF_GROUP_ID:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Pour répondre à un client, réponds directement en *reply* au message transféré dans le groupe staff (dans son topic).",
+            text="❗Pour répondre à un client, réponds en *reply* au message transféré du client dans le groupe staff (dans son topic).",
             parse_mode="Markdown"
         )
         return
 
-    # 🚫 B. Si le message n’est pas dans le STAFF_GROUP_ID → interdit
-    if message.chat.id != STAFF_GROUP_ID:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❗ Pour répondre à un client, utilise le reply depuis le groupe staff, pas en message privé.",
-        )
-        return
-
-    # ✅ C. Cas normal : on se base UNIQUEMENT sur pending_replies
     replied_msg_id = message.reply_to_message.message_id
-    user_id = pending_replies.get((message.chat.id, replied_msg_id))
+    key = (message.chat.id, replied_msg_id)
+    user_id = pending_replies.get(key)
 
-    print(f"[ADMIN_MSG] lookup pending_replies key=({message.chat.id}, {replied_msg_id}) -> user_id={user_id}")
+    print(f"[ADMIN_MSG] lookup pending_replies key={key} -> user_id={user_id}")
 
-    if not user_id:
+    # 🔥 Sécurité : on refuse d'envoyer vers un admin
+    if (
+        not user_id
+        or user_id == admin_id
+        or user_id in authorized_admin_ids
+        or user_id == OWNER_ID
+    ):
         await bot.send_message(
             chat_id=admin_id,
-            text="❗Impossible d'identifier le destinataire. Réponds bien au *dernier message transféré du client* dans son topic.",
+            text="❗Impossible d'identifier le *client* destinataire. "
+                 "Réponds bien au **dernier message transféré du client** dans son topic.",
             parse_mode="Markdown"
         )
         return
