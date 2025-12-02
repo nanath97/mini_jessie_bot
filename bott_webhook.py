@@ -969,25 +969,37 @@ async def handle_admin_message(message: types.Message):
         await traiter_message_payant_groupé(message, admin_id=admin_id)
         return
 
-    # 3) SINON → c'est le comportement normal (réponse à un client)
+    # 3) À partir d'ici : COMPORTEMENT NORMAL = réponse à un client
+    # 👉 Reply OBLIGATOIRE
+    if not message.reply_to_message:
+        await bot.send_message(
+            chat_id=admin_id,
+            text=(
+                "❗ Pour répondre à un client, tu dois *obligatoirement* utiliser "
+                "la fonction « Répondre » sur le message transféré dans le groupe staff."
+            ),
+            parse_mode="Markdown"
+        )
+        return
+
     user_id = None
 
-    if message.reply_to_message:
-        # 🔍 Ancien comportement : on se base sur le forward ou pending_replies
-        if message.reply_to_message.forward_from:
-            user_id = message.reply_to_message.forward_from.id
-        else:
-            user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+    # Cas 1 : message transféré depuis le client (forward_from rempli)
+    if message.reply_to_message.forward_from:
+        user_id = message.reply_to_message.forward_from.id
     else:
-        # Pas de reply → si on est dans le supergroupe staff, on utilise le topic_id
-        if message.chat.id == STAFF_GROUP_ID and message.message_thread_id is not None:
-            user_id = get_user_id_by_topic_id(message.message_thread_id)
-        else:
-            print("❌ Pas de reply détecté (et pas dans un topic staff connu)")
-            return
+        # Cas 2 : on utilise la table pending_replies alimentée par relay_from_client()
+        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
 
     if not user_id:
-        await bot.send_message(chat_id=admin_id, text="❗Impossible d'identifier le destinataire.")
+        await bot.send_message(
+            chat_id=admin_id,
+            text=(
+                "❗ Impossible d'identifier le destinataire.\n"
+                "Vérifie bien que tu replies au *message transféré par le bot* dans le bon topic."
+            ),
+            parse_mode="Markdown"
+        )
         return
 
     # ✅ Envoi normal (comme avant)
@@ -995,19 +1007,39 @@ async def handle_admin_message(message: types.Message):
         if message.text:
             await bot.send_message(chat_id=user_id, text=message.text)
         elif message.photo:
-            await bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption or "")
+            await bot.send_photo(
+                chat_id=user_id,
+                photo=message.photo[-1].file_id,
+                caption=message.caption or ""
+            )
         elif message.video:
-            await bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption or "")
+            await bot.send_video(
+                chat_id=user_id,
+                video=message.video.file_id,
+                caption=message.caption or ""
+            )
         elif message.document:
-            await bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption or "")
+            await bot.send_document(
+                chat_id=user_id,
+                document=message.document.file_id,
+                caption=message.caption or ""
+            )
         elif message.voice:
             await bot.send_voice(chat_id=user_id, voice=message.voice.file_id)
         elif message.audio:
-            await bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption or "")
+            await bot.send_audio(
+                chat_id=user_id,
+                audio=message.audio.file_id,
+                caption=message.caption or ""
+            )
         else:
-            await bot.send_message(chat_id=admin_id, text="📂 Type de message non supporté.")
+            await bot.send_message(
+                chat_id=admin_id,
+                text="📂 Type de message non supporté pour une réponse client."
+            )
     except Exception as e:
         await bot.send_message(chat_id=admin_id, text=f"❗Erreur admin -> client : {e}")
+
 
 
 # ========== IMPORTS ESSENTIELS ==========
@@ -1418,28 +1450,39 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         await bot.send_message(telegram_id, "📭 Aucun enregistrement trouvé pour toi.")
         return
 
-    # Étape 1 : repérer les pseudos ayant AU MOINS une ligne Type acces = VIP
+    # Étape 1 : repérer les pseudos ayant AU MOINS un paiement > 0 (Type acces = paiement ou vip)
     pseudos_vip = set()
     for r in records:
         f = r.get("fields", {})
-        pseudo = f.get("Pseudo Telegram", "").strip()
-        type_acces = f.get("Type acces", "").strip().lower()
-        if pseudo and type_acces == "vip":
+        pseudo = (f.get("Pseudo Telegram", "") or "").strip()
+        type_acces = (f.get("Type acces", "") or "").strip().lower()
+        montant_raw = f.get("Montant")
+
+        try:
+            montant = float(montant_raw or 0)
+        except Exception:
+            montant = 0.0
+
+        if pseudo and montant > 0 and type_acces in ("paiement", "vip"):
             pseudos_vip.add(pseudo)
+
+    if not pseudos_vip:
+        await bot.send_message(telegram_id, "📭 Tu n'as encore aucun client VIP (aucun paiement enregistré).")
+        return
 
     # Étape 2 : additionner TOUS les montants (Paiement + VIP) de ces pseudos uniquement
     montants_par_pseudo = {}
     for r in records:
         f = r.get("fields", {})
-        pseudo = f.get("Pseudo Telegram", "").strip()
-        montant = f.get("Montant")
+        pseudo = (f.get("Pseudo Telegram", "") or "").strip()
+        montant_raw = f.get("Montant")
 
         if not pseudo or pseudo not in pseudos_vip:
             continue
 
         try:
-            montant_float = float(montant)
-        except:
+            montant_float = float(montant_raw or 0)
+        except Exception:
             montant_float = 0.0
 
         if pseudo not in montants_par_pseudo:
@@ -1464,12 +1507,13 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
                 emoji = place[i] if i < len(place) else f"#{i+1}"
                 message += f"{emoji} @{pseudo} — {round(total)} €\n"
 
-        await bot.send_message(telegram_id, message)
+        await bot.send_message(telegram_id, message, parse_mode="Markdown")
 
     except Exception as e:
         import traceback
         error_text = traceback.format_exc()
         print("❌ ERREUR DANS VIPS + TOP 3 :\n", error_text)
         await bot.send_message(telegram_id, "❌ Une erreur est survenue lors de l'affichage des VIPs.")
+
 
 #fin du 19 juillet 2025 mettre le tableau de vips
