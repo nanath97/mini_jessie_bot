@@ -695,6 +695,8 @@ async def handle_vip_note(message: types.Message):
 
     panel_message_id = info.get("panel_message_id")
     admin_name = info.get("admin_name") or "Aucun"
+    
+    full_note = info.get("note", note_text)
 
     if not panel_message_id:
         await message.reply("⚠️ Impossible de retrouver le panneau VIP pour ce client.")
@@ -703,7 +705,7 @@ async def handle_vip_note(message: types.Message):
     panel_text = (
         "🧐 PANEL DE CONTRÔLE VIP\n\n"
         f"👤 Client : {vip_user_id}\n"
-        f"📒 Notes : {note_text}\n"
+        f"📒 Notes : {full_note}\n"
         f"👤 Admin en charge : {admin_name}"
     )
 
@@ -792,12 +794,13 @@ async def envoyer_contenu_payant(message: types.Message):
                 or message.from_user.first_name
                 or str(admin_id)
             )
-
+            full_note = info.get("note", note_text)
+            
             if topic_id and panel_message_id:
                 panel_text = (
                     "🧐 PANEL DE CONTRÔLE VIP\n\n"
                     f"👤 Client : {vip_user_id}\n"
-                    f"📒 Notes : {note_text}\n"
+                    f"📒 Notes : {full_note}\n"
                     f"👤 Admin en charge : {admin_name}"
                 )
 
