@@ -307,8 +307,16 @@ def update_vip_info(user_id: int, note: str = None, admin_id: int = None, admin_
     changed = False
 
     if note is not None:
-        data["note"] = note
+        old = data.get("note")
+
+        # Si une note existe déjà, on ajoute la nouvelle en dessous
+        if old:
+            data["note"] = f"{old}\n{note}"
+        else:
+            data["note"] = note
+
         changed = True
+
 
     if admin_id is not None:
         data["admin_id"] = admin_id
