@@ -31,9 +31,19 @@ OWNER_ID = ADMIN_ID
 # ensemble des admins autorisés (modifie/add si besoin)
 authorized_admin_ids = {7334072965, 6545079601}
 
-
 def is_admin(user_id: int) -> bool:
     return user_id in authorized_admin_ids or user_id == OWNER_ID
+
+print("========== BOOT NOVA ==========")
+print(f"[BOOT] OWNER_ID = {OWNER_ID}")
+print(f"[BOOT] authorized_admin_ids = {authorized_admin_ids}")
+print(f"[BOOT] STAFF_GROUP_ID (env) = {os.getenv('STAFF_GROUP_ID')}")
+print("================================")
+
+
+
+
+
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
 VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
@@ -1121,6 +1131,27 @@ async def relay_from_client(message: types.Message):
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
 
+@dp.message_handler(lambda m: m.chat.id == STAFF_GROUP_ID, content_types=types.ContentType.ANY)
+async def debug_staff_messages(m: types.Message):
+    try:
+        print(
+            "[STAFF_DEBUG] from={uid} chat_id={cid} "
+            "is_admin={is_adm} "
+            "reply_to={reply} "
+            "text={txt!r} "
+            "mode={mode} "
+            "pending_note={pnote}".format(
+                uid=m.from_user.id,
+                cid=m.chat.id,
+                is_adm=is_admin(m.from_user.id),
+                reply=getattr(m.reply_to_message, 'message_id', None),
+                txt=(m.text or m.caption or ''),
+                mode=admin_modes.get(m.from_user.id),
+                pnote=(m.from_user.id in pending_notes),
+            )
+        )
+    except Exception as e:
+        print(f'[STAFF_DEBUG] error printing debug: {e}')
 
 
 # 1. code pour le bouton prendre en charge début
