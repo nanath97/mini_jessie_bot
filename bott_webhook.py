@@ -213,6 +213,45 @@ async def handle_stat(message: types.Message):
 
 
 
+import requests
+from datetime import datetime
+
+def get_vip_ids_for_admin_email(email: str):
+    """
+    Récupère les IDs Telegram des VIPs pour un admin donné,
+    en utilisant la même logique que /stat.
+    """
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+    }
+    params = {
+        "filterByFormula": f"{{Email}} = '{email}'"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+
+    vip_ids = set()
+
+    for record in data.get("records", []):
+        fields = record.get("fields", {})
+
+        user_id = fields.get("ID Telegram", "")
+        type_acces = (fields.get("Type acces", "") or "").lower()
+
+        try:
+            montant = float(fields.get("Montant", 0) or 0)
+        except Exception:
+            montant = 0.0
+
+        # 🌟 VIP = client qui a payé au moins une fois (paiement ou vip) avec montant > 0
+        if user_id and montant > 0 and type_acces in ("paiement", "vip"):
+            vip_ids.add(user_id)
+
+    return vip_ids
+
+
 
 # DEBUT de la fonction du proprietaire ! Ne pas toucher
 
@@ -910,8 +949,7 @@ async def handle_admin_message(message: types.Message):
     if message.text == "✉️ Message à tous les VIPs":
         kb = InlineKeyboardMarkup()
         kb.add(
-            InlineKeyboardButton("📩 Message gratuit", callback_data="vip_message_gratuit"),
-            InlineKeyboardButton("💸 Message payant", callback_data="vip_message_payant")
+            InlineKeyboardButton("📩 Message gratuit", callback_data="vip_message_gratuit")
         )
         await bot.send_message(
             chat_id=admin_id,
@@ -1175,30 +1213,29 @@ async def handle_annoter_vip(callback_query: types.CallbackQuery):
 
 # ========== CHOIX DANS LE MENU INLINE ==========
 
-@dp.callback_query_handler(lambda call: call.data in ["vip_message_gratuit", "vip_message_payant"])
+@dp.callback_query_handler(lambda call: call.data == "vip_message_gratuit")
 async def choix_type_message_vip(call: types.CallbackQuery):
     await call.answer()
     admin_id = call.from_user.id
-    if call.data == "vip_message_gratuit":
-        admin_modes[admin_id] = "en_attente_message"
-        await bot.send_message(
-            chat_id=admin_id,
-            text="✍️ Envoie maintenant le message (texte/photo/vidéo) à diffuser GRATUITEMENT à tous les VIPs."
-        )
-    else:
-        admin_modes[admin_id] = "en_attente_message_payant"
-        await bot.send_message(
-            chat_id=admin_id,
-            text="✍️ Envoie maintenant le message (texte/photo/vidéo) à diffuser PAYANT à tous les VIPs."
-        )
+
+    # On ne garde que le mode "en_attente_message" = gratuit
+    admin_modes[admin_id] = "en_attente_message"
+
+    await bot.send_message(
+        chat_id=admin_id,
+        text="✍️ Envoie maintenant le message (texte/photo/vidéo) à diffuser GRATUITEMENT à tous tes VIPs."
+    )
+
 
 # ========== TRAITEMENT MESSAGE GROUPÉ GRATUIT ==========
 
 async def traiter_message_groupé(message: types.Message, admin_id=None):
     admin_id = admin_id or message.from_user.id
+
     if message.text:
         pending_mass_message[admin_id] = {"type": "text", "content": message.text}
         preview = message.text
+
     elif message.photo:
         pending_mass_message[admin_id] = {
             "type": "photo",
@@ -1206,6 +1243,7 @@ async def traiter_message_groupé(message: types.Message, admin_id=None):
             "caption": message.caption or ""
         }
         preview = f"[Photo] {message.caption or ''}"
+
     elif message.video:
         pending_mass_message[admin_id] = {
             "type": "video",
@@ -1213,12 +1251,22 @@ async def traiter_message_groupé(message: types.Message, admin_id=None):
             "caption": message.caption or ""
         }
         preview = f"[Vidéo] {message.caption or ''}"
+
     elif message.audio:
-        pending_mass_message[admin_id] = {"type": "audio", "content": message.audio.file_id, "caption": message.caption or ""}
+        pending_mass_message[admin_id] = {
+            "type": "audio",
+            "content": message.audio.file_id,
+            "caption": message.caption or ""
+        }
         preview = f"[Audio] {message.caption or ''}"
+
     elif message.voice:
-        pending_mass_message[admin_id] = {"type": "voice", "content": message.voice.file_id}
+        pending_mass_message[admin_id] = {
+            "type": "voice",
+            "content": message.voice.file_id
+        }
         preview = "[Note vocale]"
+
     else:
         await message.reply("❌ Message non supporté.")
         return
@@ -1239,50 +1287,94 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     await call.answer()
     admin_id = call.from_user.id
     message_data = pending_mass_message.get(admin_id)
+
     if not message_data:
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    await bot.send_message(chat_id=admin_id, text="⏳ Envoi du message à tous les VIPs...")
+    # 1️⃣ Récupérer l'e-mail de cet admin
+    email = ADMIN_EMAILS.get(admin_id)
+    if not email:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Ton e-mail admin n’est pas configuré dans le bot. Parle à Nova Pulse pour le mettre à jour."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    # 2️⃣ Récupérer les VIPs de CET admin via Airtable
+    try:
+        vip_ids = list(get_vip_ids_for_admin_email(email))  # 🔹 helper à ajouter à côté de /stat
+    except Exception as e:
+        print(f"[MASS_VIP] Erreur en récupérant les VIPs pour {email} : {e}")
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Impossible de récupérer la liste de tes VIPs pour le moment."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    if not vip_ids:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="ℹ️ Aucun VIP trouvé pour toi. Rien à envoyer."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    await bot.send_message(
+        chat_id=admin_id,
+        text=f"⏳ Envoi du message à {len(vip_ids)} VIP(s)..."
+    )
 
     envoyes = 0
     erreurs = 0
 
-    for vip_id in list(authorized_users):
+    # 3️⃣ Envoi 100 % GRATUIT à ces VIPs
+    for vip_id in vip_ids:
         try:
             vip_id = int(vip_id)
 
-            # cas PAYANT → on envoie l'image floutée + le lien dans la légende
-            if message_data.get("payant"):
+            if message_data["type"] == "text":
+                await bot.send_message(chat_id=vip_id, text=message_data["content"])
+
+            elif message_data["type"] == "photo":
                 await bot.send_photo(
                     chat_id=vip_id,
-                    photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+                    photo=message_data["content"],
                     caption=message_data.get("caption", "")
                 )
-                await bot.send_message(
+
+            elif message_data["type"] == "video":
+                await bot.send_video(
                     chat_id=vip_id,
-                    text="_🔒 Ce contenu est verrouillé. Paie via le lien ci-dessus pour le débloquer._",
-                    parse_mode="Markdown"
+                    video=message_data["content"],
+                    caption=message_data.get("caption", "")
                 )
-            else:
-                # cas GRATUIT → on envoie tel quel
-                if message_data["type"] == "text":
-                    await bot.send_message(chat_id=vip_id, text=message_data["content"])
-                elif message_data["type"] == "photo":
-                    await bot.send_photo(chat_id=vip_id, photo=message_data["content"], caption=message_data.get("caption", ""))
-                elif message_data["type"] == "video":
-                    await bot.send_video(chat_id=vip_id, video=message_data["content"], caption=message_data.get("caption", ""))
-                elif message_data["type"] == "audio":
-                    await bot.send_audio(chat_id=vip_id, audio=message_data["content"], caption=message_data.get("caption", ""))
-                elif message_data["type"] == "voice":
-                    await bot.send_voice(chat_id=vip_id, voice=message_data["content"])
+
+            elif message_data["type"] == "audio":
+                await bot.send_audio(
+                    chat_id=vip_id,
+                    audio=message_data["content"],
+                    caption=message_data.get("caption", "")
+                )
+
+            elif message_data["type"] == "voice":
+                await bot.send_voice(
+                    chat_id=vip_id,
+                    voice=message_data["content"]
+                )
 
             envoyes += 1
+
         except Exception as e:
             print(f"❌ Erreur envoi à {vip_id} : {e}")
             erreurs += 1
 
-    await bot.send_message(chat_id=admin_id, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
+    await bot.send_message(
+        chat_id=admin_id,
+        text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}"
+    )
     pending_mass_message.pop(admin_id, None)
 
 
