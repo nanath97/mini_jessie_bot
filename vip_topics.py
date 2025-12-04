@@ -75,17 +75,20 @@ def load_vip_topics_from_disk():
 
             existing = _user_topics.get(user_id)
 
+            # FIX MERGE TOPIC ID
+            stored_topic = d.get("topic_id")
+            existing_topic = existing.get("topic_id") if existing else None
+            topic_to_use = stored_topic if stored_topic else existing_topic
+
             if not existing:
-                # Cas : JSON connaît ce VIP mais Airtable n'a pas encore été chargé
                 existing = {
-                    "topic_id": d.get("topic_id"),
+                    "topic_id": topic_to_use,
                     "panel_message_id": d.get("panel_message_id"),
                     "note": d.get("note", "Aucune note"),
                     "admin_id": d.get("admin_id"),
                     "admin_name": d.get("admin_name", "Aucun"),
                 }
             else:
-                # On fusionne uniquement les infos d'annotation
                 if "panel_message_id" in d:
                     existing["panel_message_id"] = d["panel_message_id"]
                 if "note" in d:
@@ -95,12 +98,13 @@ def load_vip_topics_from_disk():
                 if "admin_name" in d:
                     existing["admin_name"] = d["admin_name"]
 
+                existing["topic_id"] = topic_to_use
+
             _user_topics[user_id] = existing
 
-            # On complète aussi la map inverse si on connaît le topic_id
-            topic_id = existing.get("topic_id")
-            if topic_id is not None:
-                _topic_to_user[topic_id] = user_id
+            # Map inverse uniquement si topic valide
+            if topic_to_use:
+                _topic_to_user[topic_to_use] = user_id
 
             merged += 1
 
@@ -110,6 +114,81 @@ def load_vip_topics_from_disk():
         print("[VIP_TOPICS] Aucun fichier vip_topics.json à charger (normal si première exécution).")
     except Exception as e:
         print(f"[VIP_TOPICS] Erreur au chargement des annotations depuis JSON : {e}")
+
+
+
+
+# ============================================================
+# ========== CREATION TOPIC + PANEL REFACTO (FIX) ============
+# ============================================================
+
+async def create_topic_and_panel(user: types.User) -> int:
+    """
+    Création d'un nouveau topic + panneau admin.
+    Utilisé lors de la première création ou recréation auto.
+    """
+    user_id = user.id
+    title = f"VIP {user.username or user.first_name or str(user_id)}"
+
+    try:
+        res = await bot.request(
+            "createForumTopic",
+            {
+                "chat_id": STAFF_GROUP_ID,
+                "name": title
+            }
+        )
+    except Exception as e:
+        print(f"[VIP_TOPICS] ERREUR createForumTopic pour {user_id} : {e}")
+        return 0
+
+    topic_id = res.get("message_thread_id")
+    if not topic_id:
+        print(f"[VIP_TOPICS] Pas de message_thread_id dans la réponse pour {user_id} : {res}")
+        return 0
+
+    # Panneau
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{user_id}"),
+        InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_{user_id}")
+    )
+
+    panel_text = (
+        "🧐 PANEL DE CONTRÔLE VIP\n\n"
+        f"👤 Client : {user.username or user.first_name or str(user_id)}\n"
+        "📒 Notes : Aucune note\n"
+        "👤 Admin en charge : Aucun"
+    )
+
+    panel_message_id = None
+    try:
+        panel_res = await bot.request(
+            "sendMessage",
+            {
+                "chat_id": STAFF_GROUP_ID,
+                "text": panel_text,
+                "message_thread_id": topic_id,
+                "reply_markup": kb
+            }
+        )
+        panel_message_id = panel_res.get("message_id")
+    except Exception as e:
+        print(f"[VIP_TOPICS] Erreur envoi panneau pour {user_id} : {e}")
+
+    # Sauvegarde en mémoire
+    _user_topics[user_id] = {
+        "topic_id": topic_id,
+        "panel_message_id": panel_message_id,
+        "note": "Aucune note",
+        "admin_id": None,
+        "admin_name": "Aucun",
+    }
+    _topic_to_user[topic_id] = user_id
+    save_vip_topics()
+
+    return topic_id
+
 
 
 async def ensure_topic_for_vip(user: types.User) -> int:
@@ -124,10 +203,23 @@ async def ensure_topic_for_vip(user: types.User) -> int:
     print(f"[VIP_TOPICS] ensure_topic_for_vip() appelé pour user_id={user_id}")
 
     # Topic déjà existant pour ce user en mémoire
+        # FIX : user connu mais topic vide = correction auto
+        # Topic déjà existant pour ce user en mémoire
     if user_id in _user_topics:
         topic_id = _user_topics[user_id].get("topic_id")
+
+        # PROTECTION : si l'entrée existe mais avec None/0 => recréation
+        if not topic_id:
+            print(f"[VIP_TOPICS] {user_id} présent sans topic valide → recréation forcée.")
+            topic_id = await create_topic_and_panel(user)
+            if user_id in authorized_users:
+                # sync Airtable ici si tu veux
+                pass
+            return topic_id
+
         print(f"[VIP_TOPICS] Topic déjà connu pour {user_id} -> {topic_id}")
         return topic_id
+
 
     title = f"VIP {user.username or user.first_name or str(user_id)}"
 
