@@ -1106,7 +1106,7 @@ async def relay_from_client(message: types.Message):
         topic_id = await ensure_topic_for_vip(message.from_user)
 
         res = await bot.request(
-            "forwardMessage",
+            "copyMessage",
             {
                 "chat_id": STAFF_GROUP_ID,
                 "from_chat_id": message.chat.id,
