@@ -51,6 +51,36 @@ ADMIN_EMAILS = {
 # Mapping entre ID Telegram des admins et leur email dans Airtable 19juillet 2025 fin
 
 
+# 🔎 Détection des mots "call" ou "custom" sur les messages TEXTE uniquement
+@dp.message_handler(
+    lambda message: any(
+        mot in (message.text or "").lower() 
+        for mot in ("call", "custom")
+    ),
+    content_types=types.ContentType.TEXT  # ✅ seulement les messages texte
+)
+async def detecter_call_ou_custom(message: types.Message):
+    # Optionnel : éviter de recevoir une alerte quand c'est le directeur qui parle
+    if message.from_user.id == DIRECTEUR_ID:
+        return
+
+    texte = message.text or ""
+
+    try:
+        await bot.send_message(
+            DIRECTEUR_ID,
+            (
+                "📞 Mot clé détecté : *call/custom*\n\n"
+                f"👤 User : @{message.from_user.username or message.from_user.first_name}\n"
+                f"🆔 ID : `{message.from_user.id}`\n"
+                f"💬 Message : {texte}"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Erreur lors de l'avertissement du directeur : {e}")
+
+
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
 
