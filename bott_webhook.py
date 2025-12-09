@@ -357,6 +357,39 @@ async def verifier_les_liens_uniquement(message: types.Message):
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
 
+
+@dp.message_handler(
+    lambda message: (
+        message.chat.type == "private"
+        and not is_admin(message.from_user.id)
+        and (message.text or message.caption)
+    ),
+    content_types=types.ContentType.ANY
+)
+async def detect_call_custom(message: types.Message):
+    """
+    Détecte les mots 'call' ou 'custom' dans les messages privés des clients
+    et envoie une alerte au directeur, sans bloquer le flux normal.
+    """
+    raw_text = message.text or message.caption or ""
+    text = raw_text.lower()
+
+    # On cherche les mots entiers "call" ou "custom"
+    if not re.search(r"\b(call|custom)\b", text):
+        return  # rien à faire → on laisse les autres handlers bosser
+
+    try:
+        await bot.send_message(
+            DIRECTEUR_ID,
+            f"⚠️ Demande prioritaire détectée (call/custom)\n\n"
+            f"👤 User : {message.from_user.username or message.from_user.first_name}\n"
+            f"🆔 ID   : {message.from_user.id}\n"
+            f"💬 Message : {raw_text}"
+        )
+        print(f"[ALERT_KEYWORD] call/custom pour user_id={message.from_user.id}")
+    except Exception as e:
+        print(f"[ALERT_KEYWORD] Erreur envoi alerte call/custom : {e}")
+        
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
 def log_to_airtable(
