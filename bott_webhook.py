@@ -357,6 +357,41 @@ async def verifier_les_liens_uniquement(message: types.Message):
             print(f"Erreur lors de la suppression du lien interdit : {e}")
         raise CancelHandler()
 
+
+
+
+# ... tes autres imports, ton bot, ton dp, etc.
+
+# ========== DETECTION MOTS-CLES "CALL" / "CUSTOM" ==========
+
+@dp.message_handler(content_types=types.ContentType.ANY)
+async def detecter_mots_importants(message: types.Message):
+    # On récupère le texte ou la légende du média
+    text_to_check = message.text or message.caption or ""
+    if not text_to_check:
+        return  # aucun texte, on ignore
+
+    # On évite de notifier si c'est déjà le directeur qui parle
+    if message.from_user.id == DIRECTEUR_ID:
+        return
+
+    # Recherche des mots "call" ou "custom" comme mots distincts (insensible à la casse)
+    # \b = frontière de mot, pour éviter de détecter "recall", "customer", etc.
+    if re.search(r"\b(call|custom)\b", text_to_check, flags=re.IGNORECASE):
+        try:
+            await bot.send_message(
+                DIRECTEUR_ID,
+                (
+                    "📣 *Mot-clé important détecté !*\n\n"
+                    f"👤 User : {message.from_user.username or message.from_user.first_name}\n"
+                    f"🆔 ID : `{message.from_user.id}`\n"
+                    f"💬 Message : {text_to_check}"
+                ),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"Erreur lors de l'envoi de la notif au directeur : {e}")
+
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
 
 def log_to_airtable(
