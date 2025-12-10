@@ -348,6 +348,21 @@ async def scheduler_loop():
         await asyncio.sleep(60)
 
 #101
+from aiogram import types
+
+@dp.message_handler(lambda m: is_admin(m.from_user.id) and m.text == "/test_scheduler")
+async def cmd_test_scheduler(message: types.Message):
+    """
+    Commande admin pour lancer manuellement un cycle de scheduler.
+    """
+    await message.reply("⏳ Test du scheduler en cours...")
+    try:
+        await process_due_programmations_once()
+        await message.reply("✅ Scheduler exécuté une fois. Vérifie Airtable et les logs.")
+    except Exception as e:
+        await message.reply(f"❌ Erreur dans le scheduler : {e}")
+        print(f"[SCHEDULE] Erreur via /test_scheduler : {e}")
+#101
 
 
 
