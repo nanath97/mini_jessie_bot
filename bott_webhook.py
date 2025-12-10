@@ -54,6 +54,14 @@ ADMIN_EMAILS = {
 # Paiements validés par Stripe, stockés temporairement
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
 
+
+
+
+
+
+
+
+
 # ====== LIENS PAIEMENT GLOBALS (utilisés pour /env et pour l'envoi groupé payant) ======
 liens_paiement = {
     "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
@@ -119,6 +127,63 @@ def initialize_authorized_users():
     except Exception as e:
         print(f"[ERROR] Impossible de charger les VIP depuis Airtable : {e}")
 # === 221097 FIN
+
+
+
+# 100 Pour la programmation d'envoi
+pending_programmation = {}  # admin_id -> {"jour": "Lundi"}
+
+JOUR_TO_WEEKDAY = {
+    "Lundi": 0,
+    "Mardi": 1,
+    "Mercredi": 2,
+    "Jeudi": 3,
+    "Vendredi": 4,
+    "Samedi": 5,
+    "Dimanche": 6,
+}
+
+HEURE_REGEX = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
+def compute_next_run_utc(jour: str, heure_str: str) -> datetime:
+    """
+    jour : 'Lundi' ... 'Dimanche'
+    heure_str : 'HH:MM' au format 24h
+    Retourne un datetime UTC approx (on considère que l'heure donnée est en UTC pour l'instant).
+    """
+    now_utc = datetime.utcnow()
+
+    match = HEURE_REGEX.match(heure_str.strip())
+    if not match:
+        raise ValueError(f"Heure invalide: {heure_str}")
+
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+
+    target_weekday = JOUR_TO_WEEKDAY[jour]
+
+    # nombre de jours jusqu'au prochain 'jour'
+    days_ahead = (target_weekday - now_utc.weekday()) % 7
+
+    candidate = now_utc.replace(
+        hour=hour,
+        minute=minute,
+        second=0,
+        microsecond=0,
+    )
+
+    # si c'est aujourd'hui mais heure déjà passée → semaine prochaine
+    if days_ahead == 0 and candidate <= now_utc:
+        days_ahead = 7
+
+    if days_ahead != 0:
+        candidate = candidate + timedelta(days=days_ahead)
+
+    return candidate  # datetime en UTC
+
+# 100 FIN
+
+
+
 
 
 # === Statistiques ===
@@ -954,6 +1019,70 @@ async def handle_admin_message(message: types.Message):
         f"reply_to={getattr(message.reply_to_message, 'message_id', None)}"
     )
 
+# 100   
+        # 0) MODE SAISIE HEURE POUR PROGRAMMATION
+    if mode == "en_attente_heure_prog":
+        if not message.text:
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❌ Merci d'envoyer uniquement l'heure au format 24h, par ex. 10:00."
+            )
+            return
+
+        heure_str = message.text.strip()
+
+        if not HEURE_REGEX.match(heure_str):
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❌ Format invalide. Exemples valides : 09:30, 14:05, 21:00."
+            )
+            return
+
+        prog_ctx = pending_programmation.get(admin_id)
+        message_data = pending_mass_message.get(admin_id)
+
+        if not prog_ctx or not message_data:
+            # plus de contexte → on reset
+            admin_modes[admin_id] = None
+            pending_programmation.pop(admin_id, None)
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❌ Plus aucun message en attente de programmation."
+            )
+            return
+
+        jour = prog_ctx["jour"]
+
+        try:
+            run_at_utc_dt = compute_next_run_utc(jour, heure_str)
+        except Exception as e:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=f"❌ Erreur lors du calcul de la date d'envoi : {e}"
+            )
+            return
+
+        # On ne touche PAS encore à Airtable : on fait juste une confirmation
+        run_at_utc_str = run_at_utc_dt.strftime("%Y-%m-%d %H:%M UTC")
+
+        # Reset des états liés à la programmation
+        admin_modes[admin_id] = None
+        pending_programmation.pop(admin_id, None)
+        pending_mass_message.pop(admin_id, None)
+
+        await bot.send_message(
+            chat_id=admin_id,
+            text=(
+                "📅 *Programmation enregistrée (en mémoire pour l'instant).* \n\n"
+                f"• Jour choisi : *{jour}*\n"
+                f"• Heure saisie : *{heure_str}*\n"
+                f"• Prochaine exécution (UTC approximative) : *{run_at_utc_str}*\n\n"
+                "_Prochaine étape : on enregistrera ça dans Airtable pour l'envoi automatique._"
+            ),
+            parse_mode="Markdown"
+        )
+        return
+# 100
     # 1) MENU ENVOI GROUPÉ
     if message.text == "✉️ Message à tous les VIPs":
         kb = InlineKeyboardMarkup()
@@ -1343,6 +1472,7 @@ async def traiter_message_groupé(message: types.Message, admin_id=None):
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton("✅ Confirmer l’envoi", callback_data="confirmer_envoi_groupé"),
+        InlineKeyboardButton("📅 Programmer l’envoi", callback_data="programmer_envoi_groupé"),
         InlineKeyboardButton("❌ Annuler l’envoi", callback_data="annuler_envoi_groupé")
     )
     await message.reply(f"Prévisualisation :\n\n{preview}", reply_markup=kb)
@@ -1350,6 +1480,69 @@ async def traiter_message_groupé(message: types.Message, admin_id=None):
 
 
 # ========== CALLBACKS ENVOI / ANNULATION GROUPÉ ==========
+
+# 100
+@dp.callback_query_handler(lambda call: call.data == "programmer_envoi_groupé")
+async def programmer_envoi_groupé(call: types.CallbackQuery):
+    await call.answer()
+    admin_id = call.from_user.id
+
+    message_data = pending_mass_message.get(admin_id)
+    if not message_data:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Aucun message en attente à programmer."
+        )
+        return
+
+    # 1) On demande d'abord le jour
+    kb = InlineKeyboardMarkup(row_width=2)
+    for jour in ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]:
+        kb.insert(
+            InlineKeyboardButton(jour, callback_data=f"prog_jour_{jour.lower()}")
+        )
+
+    kb.add(InlineKeyboardButton("❌ Annuler", callback_data="annuler_envoi_groupé"))
+
+    await bot.send_message(
+        chat_id=admin_id,
+        text="🗓 Choisis le jour d’envoi pour ce message :",
+        reply_markup=kb
+    )
+
+# 100
+# 100
+@dp.callback_query_handler(lambda call: call.data.startswith("prog_jour_"))
+async def choisir_jour_programmation(call: types.CallbackQuery):
+    await call.answer()
+    admin_id = call.from_user.id
+
+    jour_code = call.data.replace("prog_jour_", "")  # 'lundi'
+    jour_label = jour_code.capitalize()              # 'Lundi'
+
+    if jour_label not in JOUR_TO_WEEKDAY:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Jour invalide, recommence."
+        )
+        return
+
+    # On mémorise le jour choisi pour cet admin
+    pending_programmation[admin_id] = {"jour": jour_label}
+
+    # On passe en mode "en_attente_heure_prog"
+    admin_modes[admin_id] = "en_attente_heure_prog"
+
+    await bot.send_message(
+        chat_id=admin_id,
+        text=(
+            f"⏰ À quelle heure veux-tu envoyer ce message le {jour_label} ?\n\n"
+            "Format 24h, par ex : `10:00` ou `21:30`."
+        ),
+        parse_mode="Markdown"
+    )
+
+# 100
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
