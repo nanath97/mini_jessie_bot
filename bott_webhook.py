@@ -162,6 +162,7 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
 
 
 
+
 #100
 
 
@@ -1084,7 +1085,7 @@ async def handle_admin_message(message: types.Message):
     )
 
 # 100   
-        # 0) MODE SAISIE HEURE POUR PROGRAMMATION
+            # 0) MODE SAISIE HEURE POUR PROGRAMMATION
     if mode == "en_attente_heure_prog":
         if not message.text:
             await bot.send_message(
@@ -1117,7 +1118,17 @@ async def handle_admin_message(message: types.Message):
 
         jour = prog_ctx["jour"]
 
-                # 👉 On ENREGISTRE maintenant dans Airtable
+        # 🕒 1) On calcule la prochaine date d'exécution en UTC
+        try:
+            run_at_utc = compute_next_run_utc(jour, heure_str)
+        except Exception as e:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=f"❌ Erreur lors du calcul de la date d'envoi : {e}"
+            )
+            return
+
+        # 🗄️ 2) On ENREGISTRE maintenant dans Airtable
         try:
             record_id = create_programmation_vip_record(
                 jour=jour,
@@ -1137,7 +1148,7 @@ async def handle_admin_message(message: types.Message):
             )
             return
 
-        # Reset des états liés à la programmation
+        # 3) Reset des états liés à la programmation
         admin_modes[admin_id] = None
         pending_programmation.pop(admin_id, None)
         pending_mass_message.pop(admin_id, None)
@@ -1157,6 +1168,7 @@ async def handle_admin_message(message: types.Message):
             parse_mode="Markdown"
         )
         return
+
 
 # 100
     # 1) MENU ENVOI GROUPÉ
