@@ -13,6 +13,7 @@ from ban_storage import ban_list
 from middlewares.payment_filter import PaymentFilterMiddleware
 from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_user, update_vip_info, _user_topics
 import re
+from urllib.parse import quote
 
 
 
@@ -96,7 +97,9 @@ ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME")
-SELLER_EMAIL = os.getenv("SELLER_EMAIL")  # ✅ ici
+SELLER_EMAIL = os.getenv("SELLER_EMAIL")
+AIRTABLE_TABLE_PROGRAMMATIONS = os.getenv("AIRTABLE_TABLE_PROGRAMMATIONS", "Programmations VIP")
+
 
 
 # ADMIN ID
@@ -107,6 +110,65 @@ DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
+
+
+
+
+
+#100
+
+def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data, admin_id):
+    """
+    Crée une ligne dans la table 'Programmations VIP'.
+    run_at_utc : datetime (UTC)
+    message_data : dict venant de pending_mass_message[admin_id]
+    """
+
+    if AIRTABLE_API_KEY is None or AIRTABLE_BASE_ID is None:
+        raise RuntimeError("AIRTABLE_API_KEY ou AIRTABLE_BASE_ID non configuré")
+
+    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{quote(AIRTABLE_TABLE_PROGRAMMATIONS)}"
+
+    # run_at_utc au format ISO 8601 (Airtable aime bien)
+    run_at_utc_iso = run_at_utc.isoformat().replace("+00:00", "Z")
+
+    fields = {
+        "Nom": f"{jour} {heure_locale}",
+        "Jour": jour,
+        "Heure locale": heure_locale,
+        "RunAtUTC": run_at_utc_iso,
+        "Type": message_data["type"],
+        "Content": message_data["content"],
+        "Caption": message_data.get("caption", ""),
+        "Status": "pending",
+        # Si un jour tu crées une colonne "AdminID" dans Airtable,
+        # tu peux décommenter cette ligne :
+        # "AdminID": str(admin_id),
+    }
+
+    payload = {"fields": fields}
+
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(url, headers=headers, json=payload)
+    data = resp.json()
+
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Airtable error {resp.status_code}: {data}")
+
+    return data.get("id")  # record_id
+
+
+#100
+
+
+
+
+
+
 
 # === 221097 DEBUT
 
@@ -1055,35 +1117,47 @@ async def handle_admin_message(message: types.Message):
 
         jour = prog_ctx["jour"]
 
+                # 👉 On ENREGISTRE maintenant dans Airtable
         try:
-            run_at_utc_dt = compute_next_run_utc(jour, heure_str)
+            record_id = create_programmation_vip_record(
+                jour=jour,
+                heure_locale=heure_str,
+                run_at_utc=run_at_utc_dt,
+                message_data=message_data,
+                admin_id=admin_id,
+            )
         except Exception as e:
+            print(f"[SCHEDULE] Erreur Airtable : {e}")
             await bot.send_message(
                 chat_id=admin_id,
-                text=f"❌ Erreur lors du calcul de la date d'envoi : {e}"
+                text=(
+                    "❌ Impossible d'enregistrer la programmation dans Airtable pour le moment.\n"
+                    "Réessaie plus tard ou contacte Nova Pulse."
+                )
             )
             return
-
-        # On ne touche PAS encore à Airtable : on fait juste une confirmation
-        run_at_utc_str = run_at_utc_dt.strftime("%Y-%m-%d %H:%M UTC")
 
         # Reset des états liés à la programmation
         admin_modes[admin_id] = None
         pending_programmation.pop(admin_id, None)
         pending_mass_message.pop(admin_id, None)
 
+        run_at_utc_str = run_at_utc_dt.strftime("%Y-%m-%d %H:%M UTC")
+
         await bot.send_message(
             chat_id=admin_id,
             text=(
-                "📅 *Programmation enregistrée (en mémoire pour l'instant).* \n\n"
-                f"• Jour choisi : *{jour}*\n"
-                f"• Heure saisie : *{heure_str}*\n"
-                f"• Prochaine exécution (UTC approximative) : *{run_at_utc_str}*\n\n"
-                "_Prochaine étape : on enregistrera ça dans Airtable pour l'envoi automatique._"
+                "📅 *Programmation créée avec succès !*\n\n"
+                f"• Jour : *{jour}*\n"
+                f"• Heure locale : *{heure_str}*\n"
+                f"• Exécution prévue (UTC) : *{run_at_utc_str}*\n\n"
+                "✅ Elle est maintenant enregistrée dans Airtable avec le statut *pending*.\n"
+                "Un prochain module se chargera de l'envoyer automatiquement à tous tes VIP. 🔥"
             ),
             parse_mode="Markdown"
         )
         return
+
 # 100
     # 1) MENU ENVOI GROUPÉ
     if message.text == "✉️ Message à tous les VIPs":
