@@ -14,6 +14,7 @@ from middlewares.payment_filter import PaymentFilterMiddleware
 from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_user, update_vip_info, _user_topics
 import re
 from urllib.parse import quote
+from datetime import datetime, timezone
 
 
 
@@ -160,13 +161,193 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
 
     return data.get("id")
 
-
-
-
 #100
+#101
 
 
+def get_due_programmations():
+    """
+    Récupère les programmations avec Status='pending'
+    et dont RunAtUTC est passée (<= maintenant UTC).
+    Retourne une liste de records Airtable complets.
+    """
+    if AIRTABLE_API_KEY is None or BASE_ID is None:
+        raise RuntimeError("AIRTABLE_API_KEY ou BASE_ID non configuré")
 
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PROGRAMMATIONS.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+    }
+
+    # On filtre côté Airtable sur Status = 'pending'
+    params = {
+        "filterByFormula": "{Status}='pending'",
+        "pageSize": 100,  # on limite à 100 par batch
+    }
+
+    resp = requests.get(url, headers=headers, params=params)
+    data = resp.json()
+
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Airtable error {resp.status_code}: {data}")
+
+    now_utc = datetime.now(timezone.utc)
+    due_records = []
+
+    for record in data.get("records", []):
+        fields = record.get("fields", {})
+        run_at_str = fields.get("RunAtUTC")
+
+        if not run_at_str:
+            continue
+
+        # Support des deux formats : ...Z ou avec offset
+        try:
+            if run_at_str.endswith("Z"):
+                run_at_dt = datetime.fromisoformat(run_at_str.replace("Z", "+00:00"))
+            else:
+                run_at_dt = datetime.fromisoformat(run_at_str)
+        except Exception as e:
+            print(f"[SCHEDULE] RunAtUTC invalide pour record {record.get('id')}: {e}")
+            continue
+
+        # Si la date/heure est passée → on ajoute
+        if run_at_dt <= now_utc:
+            due_records.append(record)
+
+    return due_records
+#101
+#101
+def mark_programmation_as_sent(record_id):
+    """
+    Met à jour Status='sent' et SentAt=now UTC pour une programmation.
+    """
+    if AIRTABLE_API_KEY is None or BASE_ID is None:
+        raise RuntimeError("AIRTABLE_API_KEY ou BASE_ID non configuré")
+
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PROGRAMMATIONS.replace(' ', '%20')}/{record_id}"
+
+    now_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    fields = {
+        "Status": "sent",
+        "SentAt": now_utc,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.patch(url, headers=headers, json={"fields": fields})
+    data = resp.json()
+
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Airtable error {resp.status_code}: {data}")
+
+    return data
+
+#101
+#101
+async def process_due_programmations_once():
+    """
+    1. Récupère les programmations dues (pending + RunAtUTC <= now)
+    2. Pour chacune, envoie le message à tous les VIPs
+    3. Marque la programmation comme sent
+    """
+    try:
+        due_records = get_due_programmations()
+    except Exception as e:
+        print(f"[SCHEDULE] Erreur en récupérant les programmations dues : {e}")
+        return
+
+    if not due_records:
+        return  # rien à faire
+
+    # On récupère les VIPs de CE bot (on réutilise ta logique)
+    try:
+        # Ici on part du principe que ce bot a un seul "admin vendeur"
+        # et que SELLER_EMAIL correspond à la table VIP de ce bot.
+        vip_ids = list(get_vip_ids_for_admin_email(SELLER_EMAIL))
+    except Exception as e:
+        print(f"[SCHEDULE] Erreur en récupérant les VIPs pour {SELLER_EMAIL} : {e}")
+        return
+
+    if not vip_ids:
+        print("[SCHEDULE] Aucun VIP trouvé, envoi annulé.")
+        return
+
+    for record in due_records:
+        record_id = record.get("id")
+        fields = record.get("fields", {})
+
+        msg_type = fields.get("Type")
+        content = fields.get("Content")
+        caption = fields.get("Caption", "")
+
+        if not msg_type or not content:
+            print(f"[SCHEDULE] Record {record_id} incomplet, skip.")
+            continue
+
+        envoyes = 0
+        erreurs = 0
+
+        for vip in vip_ids:
+            try:
+                vip_int = int(vip)
+
+                if msg_type == "text":
+                    await bot.send_message(chat_id=vip_int, text=content)
+
+                elif msg_type == "photo":
+                    await bot.send_photo(chat_id=vip_int, photo=content, caption=caption)
+
+                elif msg_type == "video":
+                    await bot.send_video(chat_id=vip_int, video=content, caption=caption)
+
+                elif msg_type == "audio":
+                    await bot.send_audio(chat_id=vip_int, audio=content, caption=caption)
+
+                elif msg_type == "voice":
+                    await bot.send_voice(chat_id=vip_int, voice=content)
+
+                elif msg_type == "document":
+                    await bot.send_document(chat_id=vip_int, document=content, caption=caption)
+
+                else:
+                    print(f"[SCHEDULE] Type inconnu '{msg_type}' pour record {record_id}")
+                    erreurs += 1
+                    continue
+
+                envoyes += 1
+
+            except Exception as e:
+                print(f"[SCHEDULE] Erreur envoi VIP {vip}: {e}")
+                erreurs += 1
+
+        print(f"[SCHEDULE] Programmation {record_id} envoyée à {envoyes} VIP(s), erreurs={erreurs}")
+
+        try:
+            mark_programmation_as_sent(record_id)
+        except Exception as e:
+            print(f"[SCHEDULE] Erreur mise à jour Status pour {record_id}: {e}")
+#101
+import asyncio
+
+async def scheduler_loop():
+    """
+    Boucle qui tourne en tâche de fond.
+    Toutes les 60s, elle tente d'envoyer les programmations dues.
+    """
+    print("[SCHEDULE] Scheduler démarré.")
+    while True:
+        try:
+            await process_due_programmations_once()
+        except Exception as e:
+            print(f"[SCHEDULE] Erreur dans scheduler_loop : {e}")
+        await asyncio.sleep(60)
+
+#101
 
 
 

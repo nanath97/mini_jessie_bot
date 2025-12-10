@@ -7,6 +7,8 @@ from core import bot, dp
 import bott_webhook
 from stripe_webhook import router as stripe_router
 from vip_topics import load_vip_topics_from_airtable, load_vip_topics_from_disk, restore_missing_panels, load_annotations_from_airtable 
+import asyncio
+
 
 
 load_dotenv()
@@ -50,9 +52,17 @@ async def startup_event():
         # 5) Recrée les panneaux manquants, avec note/admin si présents
         await restore_missing_panels()
 
+        # 6) Démarre le scheduler en tâche de fond
+        try:
+            asyncio.create_task(bott_webhook.scheduler_loop())
+            print("[STARTUP] Scheduler Loop démarré.")
+        except Exception as e:
+            print(f"[STARTUP] Impossible de démarrer le scheduler : {e}")
+
         print("[STARTUP] VIP + topics + annotations initialisés.")
     except Exception as e:
         print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
+
 
 
 
