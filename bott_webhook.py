@@ -1083,7 +1083,17 @@ async def handle_admin_message(message: types.Message):
         f"reply_to={getattr(message.reply_to_message, 'message_id', None)}"
     )
 
-# 100   
+# 100       # 0) COMMANDE DE TEST DU SCHEDULER
+    if message.text == "/test_scheduler":
+        await message.reply("⏳ Test du scheduler en cours...")
+        try:
+            await process_due_programmations_once()
+            await message.reply("✅ Scheduler exécuté une fois. Vérifie Airtable et les logs.")
+        except Exception as e:
+            await message.reply(f"❌ Erreur dans le scheduler : {e}")
+            print(f"[SCHEDULE] Erreur via /test_scheduler : {e}")
+        return
+    
             # 0) MODE SAISIE HEURE POUR PROGRAMMATION
     if mode == "en_attente_heure_prog":
         if not message.text:
@@ -1798,7 +1808,10 @@ async def process_due_programmations_once():
         except Exception as e:
             print(f"[SCHEDULE] Erreur mise à jour Status pour {record_id}: {e}")
 #101
+
 import asyncio
+from datetime import datetime, timezone
+# ... (le reste de tes imports)
 
 async def scheduler_loop():
     """
@@ -1808,26 +1821,19 @@ async def scheduler_loop():
     print("[SCHEDULE] Scheduler démarré.")
     while True:
         try:
+            now_utc = datetime.now(timezone.utc).isoformat()
+            print(f"[SCHEDULE] Tick - vérification des programmations à {now_utc}")
             await process_due_programmations_once()
+            print("[SCHEDULE] Tick terminé.")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print(f"[SCHEDULE] Erreur dans scheduler_loop : {e}")
         await asyncio.sleep(60)
 
-#101
-from aiogram import types
 
-@dp.message_handler(lambda m: is_admin(m.from_user.id) and m.text == "/test_scheduler")
-async def cmd_test_scheduler(message: types.Message):
-    """
-    Commande admin pour lancer manuellement un cycle de scheduler.
-    """
-    await message.reply("⏳ Test du scheduler en cours...")
-    try:
-        await process_due_programmations_once()
-        await message.reply("✅ Scheduler exécuté une fois. Vérifie Airtable et les logs.")
-    except Exception as e:
-        await message.reply(f"❌ Erreur dans le scheduler : {e}")
-        print(f"[SCHEDULE] Erreur via /test_scheduler : {e}")
+#101
+
 #101
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
