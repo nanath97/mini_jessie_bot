@@ -124,12 +124,13 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
     message_data : dict venant de pending_mass_message[admin_id]
     """
 
-    if AIRTABLE_API_KEY is None or AIRTABLE_BASE_ID is None:
-        raise RuntimeError("AIRTABLE_API_KEY ou AIRTABLE_BASE_ID non configuré")
+    if AIRTABLE_API_KEY is None or BASE_ID is None:
+        raise RuntimeError("AIRTABLE_API_KEY ou BASE_ID non configuré")
 
-    url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{quote(AIRTABLE_TABLE_PROGRAMMATIONS)}"
+    # URL vers la table "Programmations VIP"
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PROGRAMMATIONS.replace(' ', '%20')}"
 
-    # run_at_utc au format ISO 8601 (Airtable aime bien)
+    # Conversion en ISO 8601 pour Airtable
     run_at_utc_iso = run_at_utc.isoformat().replace("+00:00", "Z")
 
     fields = {
@@ -141,9 +142,7 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
         "Content": message_data["content"],
         "Caption": message_data.get("caption", ""),
         "Status": "pending",
-        # Si un jour tu crées une colonne "AdminID" dans Airtable,
-        # tu peux décommenter cette ligne :
-        # "AdminID": str(admin_id),
+        # "AdminID": str(admin_id),  # à activer si tu crées la colonne dans Airtable
     }
 
     payload = {"fields": fields}
@@ -159,7 +158,8 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
     if resp.status_code >= 300:
         raise RuntimeError(f"Airtable error {resp.status_code}: {data}")
 
-    return data.get("id")  # record_id
+    return data.get("id")
+
 
 
 #100
