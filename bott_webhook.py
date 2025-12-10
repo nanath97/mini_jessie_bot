@@ -1122,7 +1122,7 @@ async def handle_admin_message(message: types.Message):
             record_id = create_programmation_vip_record(
                 jour=jour,
                 heure_locale=heure_str,
-                run_at_utc=run_at_utc_dt,
+                run_at_utc=run_at_utc,
                 message_data=message_data,
                 admin_id=admin_id,
             )
@@ -1142,7 +1142,7 @@ async def handle_admin_message(message: types.Message):
         pending_programmation.pop(admin_id, None)
         pending_mass_message.pop(admin_id, None)
 
-        run_at_utc_str = run_at_utc_dt.strftime("%Y-%m-%d %H:%M UTC")
+        run_at_utc_str = run_at_utc.strftime("%Y-%m-%d %H:%M UTC")
 
         await bot.send_message(
             chat_id=admin_id,
