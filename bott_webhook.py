@@ -1171,8 +1171,7 @@ async def handle_admin_message(message: types.Message):
                 f"• Jour : *{jour}*\n"
                 f"• Heure locale : *{heure_str}*\n"
                 f"• Exécution prévue (UTC) : *{run_at_utc_str}*\n\n"
-                "✅ Elle est maintenant enregistrée dans Airtable avec le statut *pending*.\n"
-                "Un prochain module se chargera de l'envoyer automatiquement à tous tes VIP. 🔥"
+                "✅ Elle est maintenant enregistrée avec le statut *pending*.\n"
             ),
             parse_mode="Markdown"
         )
@@ -1807,6 +1806,30 @@ async def process_due_programmations_once():
             mark_programmation_as_sent(record_id)
         except Exception as e:
             print(f"[SCHEDULE] Erreur mise à jour Status pour {record_id}: {e}")
+        
+        # 🔔 Notification au Directeur
+        try:
+            jour = fields.get("Jour", "—")
+            heure_locale = fields.get("Heure locale", "—")
+
+            notif_text = (
+                "📤 *Programmation envoyée*\n\n"
+                f"• ID : `{record_id}`\n"
+                f"• Jour : *{jour}*\n"
+                f"• Heure locale : *{heure_locale}*\n"
+                f"• Type : *{msg_type}*\n"
+                f"• VIPs touchés : *{envoyes}*\n"
+                f"• Erreurs : *{erreurs}*\n\n"
+                "Statut : *sent* dans Airtable ✅"
+            )
+
+            await bot.send_message(
+                chat_id=DIRECTEUR_ID,
+                text=notif_text,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"[SCHEDULE] Erreur envoi notification Directeur pour {record_id}: {e}")
 #101
 
 import asyncio
