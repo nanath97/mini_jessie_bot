@@ -2,7 +2,17 @@ import json
 import datetime
 from ai_state_store import get_state, upsert_state
 from aiogram import types
-from config import STAFF_GROUP_ID
+import os
+
+
+
+
+
+
+
+
+STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
+
 
 COOLDOWN_SECONDS = 8
 
