@@ -10,7 +10,7 @@ from aiogram import types
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 COOLDOWN_SECONDS = 8
 
-# Tu as choisi de le garder à la racine -> OK
+# Exemple: "script_fr_v1.json" (à la racine) ou "scripts/script_fr_v1.json"
 SCRIPT_PATH = os.getenv("AI_SCRIPT_PATH", "script_fr_v1.json")
 
 BOT_PROFILE = {
@@ -18,7 +18,7 @@ BOT_PROFILE = {
     "city": "Haute-Savoie, dans les montagnes haha",
     "age": "23",
     "job": "créatrice de contenu et infirmière aussi haha",
-    "single": "célibataire malheureusement 😪"
+    "single": "célibataire malheureusement 😪",
 }
 
 SOFT_ACKS = [
@@ -30,6 +30,8 @@ SOFT_ACKS = [
     "J’aime bien 😌",
 ]
 
+
+# ---------------- Small helpers ----------------
 def pick_soft_ack(profile: dict) -> str:
     last = profile.get("__last_ack")
     choices = [a for a in SOFT_ACKS if a != last] or SOFT_ACKS
@@ -37,9 +39,10 @@ def pick_soft_ack(profile: dict) -> str:
     profile["__last_ack"] = ack
     return ack
 
-# ---------------- Utils ----------------
+
 def _utcnow() -> datetime.datetime:
     return datetime.datetime.utcnow()
+
 
 def _parse_airtable_dt(dt_str: str):
     if not dt_str:
@@ -49,11 +52,13 @@ def _parse_airtable_dt(dt_str: str):
     except Exception:
         return None
 
+
 def _safe_json_loads(s: str, default):
     try:
         return json.loads(s) if s else default
     except Exception:
         return default
+
 
 def _render(template: str, profile: dict) -> str:
     out = template
@@ -62,6 +67,7 @@ def _render(template: str, profile: dict) -> str:
             continue
         out = out.replace("{" + k + "}", str(v))
     return out
+
 
 def _extract_age(text: str):
     if not text:
@@ -73,6 +79,7 @@ def _extract_age(text: str):
     if 0 < age < 100:
         return age
     return None
+
 
 def _normalize_yes_no(text: str):
     if not text:
@@ -86,15 +93,52 @@ def _normalize_yes_no(text: str):
         return "non"
     return None
 
+
 def is_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
     return ("et toi" in t) or ("toi ?" in t) or ("toi aussi" in t)
+
 
 def is_pure_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
     t = re.sub(r"[^\w\s?]", "", t)
     t = t.strip()
     return t in {"et toi", "et toi ?", "toi ?", "toi", "toi aussi", "toi aussi ?"}
+
+
+def starts_like_et_toi(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return bool(re.match(r"^(et\s+toi|toi)\b", t))
+
+
+def detect_et_toi_target_slot(text: str) -> str | None:
+    """
+    Quand le client écrit "Et toi tu as quel âge ?" -> cible = "age"
+    """
+    t = (text or "").strip().lower()
+
+    # âge
+    if "âge" in t or "age" in t or "ans" in t:
+        return "age"
+
+    # ville / origine
+    if ("viens" in t or "originaire" in t) and ("où" in t or "ou" in t):
+        return "ville"
+
+    # métier
+    if "tu fais quoi" in t or "boulot" in t or "travail" in t or "métier" in t or "metier" in t:
+        return "metier"
+
+    # célibat
+    if "célib" in t or "celib" in t or "en couple" in t or "t'es pris" in t or "t’es pris" in t:
+        return "celibataire"
+
+    # prénom
+    if "prénom" in t or "prenom" in t or "tu t'appelles" in t or "tu t’appelles" in t or "ton nom" in t:
+        return "prenom"
+
+    return None
+
 
 def answer_et_toi(slot: str | None) -> str:
     if slot == "prenom":
@@ -109,10 +153,15 @@ def answer_et_toi(slot: str | None) -> str:
         return f"Je suis {BOT_PROFILE['single']} 😏"
     return f"Moi c’est {BOT_PROFILE['name']} 😌"
 
+
 def sanitize_slot_value(slot: str, text: str) -> str:
+    """
+    Ex: "Nathan et toi ?" -> "Nathan"
+    Ex: "Garagiste et toi ?" -> "Garagiste"
+    """
     t = (text or "").strip()
 
-    # enlève tout ce qui suit une forme "et toi"
+    # enlève tout ce qui suit une forme "et toi" / "toi aussi"
     t = re.split(r"\bet toi\b|\btoi aussi\b", t, flags=re.IGNORECASE)[0].strip()
 
     # enlève ponctuation finale
@@ -125,6 +174,7 @@ def sanitize_slot_value(slot: str, text: str) -> str:
 
     return t
 
+
 def remember_filled_slot(profile: dict, slot: str):
     profile["__last_filled_slot"] = slot
     filled = profile.get("__filled_slots")
@@ -133,6 +183,7 @@ def remember_filled_slot(profile: dict, slot: str):
     if slot not in filled:
         filled.append(slot)
     profile["__filled_slots"] = filled
+
 
 def pick_step_message(step: dict, profile: dict, mode: str = "ask") -> str:
     """
@@ -179,21 +230,27 @@ def pick_step_message(step: dict, profile: dict, mode: str = "ask") -> str:
     msgs = step.get("messages") or []
     return _render(random.choice(msgs) if msgs else "😌", profile)
 
+
 def _load_script():
     with open(SCRIPT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 async def _log_staff(bot, topic_id: int, text: str):
     if not STAFF_GROUP_ID or not topic_id:
         return
     try:
-        await bot.request("sendMessage", {
-            "chat_id": STAFF_GROUP_ID,
-            "message_thread_id": topic_id,
-            "text": text
-        })
+        await bot.request(
+            "sendMessage",
+            {
+                "chat_id": STAFF_GROUP_ID,
+                "message_thread_id": topic_id,
+                "text": text,
+            },
+        )
     except Exception as e:
         print(f"❌ [AI] log staff failed: {e}")
+
 
 # ---------------- Load script at startup ----------------
 try:
@@ -203,6 +260,7 @@ except Exception as e:
     SCRIPT = None
 
 
+# ---------------- MAIN ----------------
 async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     # 1) TEXT ONLY
     if message.content_type != types.ContentType.TEXT:
@@ -219,16 +277,19 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
     # 2) Create state if not exists
     if not state:
-        upsert_state(user_id, {
-            "Topic ID": str(topic_id),
-            "Script ID": SCRIPT.get("script_id", "script_fr_v1"),
-            "Step Index": 0,
-            "Profile JSON": "{}",
-            "Heat": 0,
-            "Pending Fillers JSON": "[]",
-            "Autopilot": "OFF",
-            "Cooldown Until": None
-        })
+        upsert_state(
+            user_id,
+            {
+                "Topic ID": str(topic_id),
+                "Script ID": SCRIPT.get("script_id", "script_fr_v1"),
+                "Step Index": 0,
+                "Profile JSON": "{}",
+                "Heat": 0,
+                "Pending Fillers JSON": "[]",
+                "Autopilot": "OFF",
+                "Cooldown Until": None,
+            },
+        )
         return
 
     fields = state.get("fields", {})
@@ -261,20 +322,53 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
     waiting_slot = profile.get("__waiting_slot")
 
-    # ---------------- A) On attend un slot ----------------
+    # ---------------- A) Waiting for a slot ----------------
     if waiting_slot:
         last_question_slot = profile.get("__last_question_slot") or waiting_slot
-
-        # Cas: "Et toi ?" envoyé en 2e message -> souvent il parle du slot PRÉCÉDENT (âge etc.)
         pending = profile.get("__pending_et_toi_slot")
 
-        # Cas: "et toi ?" seul -> on répond, puis on reformule la question actuelle
+        # ✅ Cas important : "Et toi ..." (pas forcément "pur") pendant qu'on attend une réponse au slot.
+        # Ex: "Et toi tu as quel âge ?" -> on répond à Jessie puis on REFORMULE la question EN COURS (waiting_slot)
+        if asked and starts_like_et_toi(user_text) and not pure_et_toi:
+            # Est-ce que le client a quand même répondu au slot en cours ?
+            # (ex: "Garagiste et toi ?" -> sanitize renverra "Garagiste" donc on ne passe pas ici)
+            clean_for_waiting = sanitize_slot_value(waiting_slot, user_text)
+
+            if not clean_for_waiting:
+                target = (
+                    detect_et_toi_target_slot(user_text)
+                    or pending
+                    or profile.get("__last_filled_slot")
+                    or last_question_slot
+                )
+
+                et_toi_reply = answer_et_toi(target)
+
+                current_step = steps[step_index]
+                msg_out = pick_step_message(current_step, profile, mode="reask")
+
+                final_out = f"{et_toi_reply} {msg_out}".strip()
+
+                await bot.send_message(user_id, final_out)
+                await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][FOLLOWUP][STEP {step_index}] → {final_out}")
+
+                # on consomme le pending si on vient de l'utiliser
+                profile.pop("__pending_et_toi_slot", None)
+
+                upsert_state(
+                    user_id,
+                    {
+                        "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                        "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                    },
+                )
+                return
+
+        # Cas: "et toi ?" seul -> on répond, puis on reformule la question actuelle (NE PAS avancer)
         if asked and pure_et_toi:
-            # priorité: s'il y a un pending (slot précédent), on répond dessus
             et_toi_slot = pending or last_question_slot
             et_toi_reply = answer_et_toi(et_toi_slot)
 
-            # on efface le pending si on vient de l'utiliser
             if pending:
                 profile.pop("__pending_et_toi_slot", None)
 
@@ -286,10 +380,13 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             await bot.send_message(user_id, final_out)
             await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][REASK][STEP {step_index}] → {final_out}")
 
-            upsert_state(user_id, {
-                "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
-            })
+            upsert_state(
+                user_id,
+                {
+                    "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                },
+            )
             return
 
         # Sinon: on essaie de remplir réellement le slot (réponse normale OU "xxx et toi ?")
@@ -311,11 +408,14 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
                 if age < 18:
                     await bot.send_message(user_id, "Désolé, je ne peux pas continuer.")
-                    upsert_state(user_id, {
-                        "Autopilot": "OFF",
-                        "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                        "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
-                    })
+                    upsert_state(
+                        user_id,
+                        {
+                            "Autopilot": "OFF",
+                            "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                            "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                        },
+                    )
                     return
 
         elif waiting_slot == "celibataire":
@@ -323,6 +423,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             profile["celibataire"] = yn if yn else user_text
             filled = True
             remember_filled_slot(profile, waiting_slot)
+
             if not asked:
                 profile["__pending_et_toi_slot"] = waiting_slot
             else:
@@ -334,6 +435,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
                 profile[waiting_slot] = clean
                 filled = True
                 remember_filled_slot(profile, waiting_slot)
+
                 if not asked:
                     profile["__pending_et_toi_slot"] = waiting_slot
                 else:
@@ -347,10 +449,13 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             await bot.send_message(user_id, msg_out)
             await _log_staff(bot, topic_id, f"[AUTO][REASK][STEP {step_index}] → {msg_out}")
 
-            upsert_state(user_id, {
-                "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
-            })
+            upsert_state(
+                user_id,
+                {
+                    "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                },
+            )
             return
 
         # ✅ Slot rempli -> prefix doux + éventuellement réponse "et toi ?" dans le même message
@@ -358,7 +463,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
         prefix_parts = []
         if asked:
-            # si "xxx et toi ?" dans le même message, on répond à propos du slot qu'on vient de remplir
+            # si "xxx et toi ?" dans le même message, on répond au sujet du slot qu'on vient de remplir
             prefix_parts.append(answer_et_toi(waiting_slot))
         prefix_parts.append(ack)
 
@@ -368,24 +473,27 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
         profile["__waiting_slot"] = None
         step_index = min(step_index + 1, len(steps) - 1)
 
-        upsert_state(user_id, {
-            "Profile JSON": json.dumps(profile, ensure_ascii=False),
-            "Step Index": step_index
-        })
+        upsert_state(
+            user_id,
+            {
+                "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                "Step Index": step_index,
+            },
+        )
 
-    # ---------------- B) Construire & envoyer la question courante ----------------
+    # ---------------- B) Build & send current step ----------------
     current_step = steps[step_index]
     slot = current_step.get("slot")
 
     msg_out = pick_step_message(current_step, profile, mode="ask")
 
-    # Préfixe stocké (réaction + éventuellement réponse et-toi)
+    # Préfixe stocké (réaction + éventuellement réponse et-toi dans le même message précédent)
     prefix = profile.pop("__prefix_next", None)
     if prefix:
         msg_out = f"{prefix} {msg_out}".strip()
         upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
 
-    # Si "et toi ?" hors waiting_slot, on répond sur la dernière info remplie
+    # Si "et toi ?" hors waiting_slot, on répond sur la dernière info remplie (ou la dernière question)
     final_out = msg_out
     if asked and not waiting_slot:
         et_toi_slot = profile.get("__last_filled_slot") or profile.get("__last_question_slot") or slot
@@ -398,14 +506,20 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     if slot:
         profile["__waiting_slot"] = slot
         profile["__last_question_slot"] = slot
-        upsert_state(user_id, {
-            "Profile JSON": json.dumps(profile, ensure_ascii=False),
-            "Step Index": step_index
-        })
+        upsert_state(
+            user_id,
+            {
+                "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                "Step Index": step_index,
+            },
+        )
     else:
         upsert_state(user_id, {"Step Index": step_index + 1})
 
     # Cooldown
-    upsert_state(user_id, {
-        "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
-    })
+    upsert_state(
+        user_id,
+        {
+            "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+        },
+    )
