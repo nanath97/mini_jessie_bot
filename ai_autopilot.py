@@ -10,8 +10,7 @@ from aiogram import types
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 COOLDOWN_SECONDS = 8
 
-# Si ton fichier est à la racine, laisse "script_fr_v1.json"
-# Si tu le mets dans un dossier: "scripts/script_fr_v1.json"
+# Tu as choisi de le garder à la racine -> OK
 SCRIPT_PATH = os.getenv("AI_SCRIPT_PATH", "script_fr_v1.json")
 
 BOT_PROFILE = {
@@ -73,7 +72,28 @@ def _normalize_yes_no(text: str):
 
 def is_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
+    # variantes simples
     return ("et toi" in t) or ("toi ?" in t) or ("toi aussi" in t)
+
+def is_pure_et_toi(text: str) -> bool:
+    t = (text or "").strip().lower()
+    # “et toi ?” sans autre info utile
+    t = re.sub(r"[^\w\s?]", "", t)  # enlève ponctuation sauf ?
+    t = t.strip()
+    return t in {"et toi", "et toi ?", "toi ?", "toi", "toi aussi", "toi aussi ?"}
+
+def answer_et_toi(last_slot: str | None) -> str:
+    if last_slot == "prenom":
+        return f"Moi c’est {BOT_PROFILE['name']} 😌"
+    if last_slot == "ville":
+        return f"Je suis de {BOT_PROFILE['city']}."
+    if last_slot == "age":
+        return f"J’ai {BOT_PROFILE['age']} ans."
+    if last_slot == "metier":
+        return f"Je suis {BOT_PROFILE['job']}."
+    if last_slot == "celibataire":
+        return f"Je suis {BOT_PROFILE['single']} 😏"
+    return f"Moi c’est {BOT_PROFILE['name']} 😌"
 
 def _load_script():
     with open(SCRIPT_PATH, "r", encoding="utf-8") as f:
@@ -87,8 +107,21 @@ except Exception as e:
     SCRIPT = None
 
 
+async def _log_staff(bot, topic_id: int, text: str):
+    if not STAFF_GROUP_ID or not topic_id:
+        return
+    try:
+        await bot.request("sendMessage", {
+            "chat_id": STAFF_GROUP_ID,
+            "message_thread_id": topic_id,
+            "text": text
+        })
+    except Exception as e:
+        print(f"❌ [AI] log staff failed: {e}")
+
+
 async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
-    # 1) TEXT ONLY (safe MVP)
+    # 1) TEXT ONLY
     if message.content_type != types.ContentType.TEXT:
         return
 
@@ -134,7 +167,6 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
     steps = SCRIPT["steps"]
     step_index = int(fields.get("Step Index") or 0)
-
     if step_index < 0:
         step_index = 0
     if step_index >= len(steps):
@@ -142,14 +174,42 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
     user_text = (message.text or "").strip()
     asked = is_et_toi(user_text)
+    pure_et_toi = is_pure_et_toi(user_text)
 
-    # 6) Fill slot if waiting
+    # 6) If waiting for a slot: handle answer (or “et toi ?” without answer)
     waiting_slot = profile.get("__waiting_slot")
+
     if waiting_slot:
+        # Si le client dit juste "et toi ?" sans répondre au slot -> on répond ET on repose la même question
+        if asked and pure_et_toi:
+            # “last question slot” = slot qu’on vient de demander
+            last_slot = profile.get("__last_question_slot") or waiting_slot
+            et_toi_reply = answer_et_toi(last_slot)
+
+            # on re-demande la question courante (même step, donc même slot)
+            current_step = steps[step_index]
+            messages = current_step.get("messages") or []
+            msg_out = random.choice(messages) if messages else "😌"
+            msg_out = _render(msg_out, profile)
+
+            final_out = f"{et_toi_reply} {msg_out}".strip()
+
+            await bot.send_message(user_id, final_out)
+            await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][STEP {step_index}] → {final_out}")
+
+            upsert_state(user_id, {
+                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
+            })
+            return
+
+        # Sinon: on essaie de remplir réellement le slot
+        filled = False
+
         if waiting_slot == "age":
             age = _extract_age(user_text)
             if age is not None:
                 profile["age"] = age
+                filled = True
                 if age < 18:
                     await bot.send_message(user_id, "Désolé, je ne peux pas continuer.")
                     upsert_state(user_id, {
@@ -158,63 +218,67 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
                         "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
                     })
                     return
-            else:
-                # pas d'âge détecté → on ne remplit pas (MVP)
-                pass
 
         elif waiting_slot == "celibataire":
             yn = _normalize_yes_no(user_text)
             profile["celibataire"] = yn if yn else user_text
+            filled = True
 
         else:
+            # prenom / ville / metier
+            # si message = juste "et toi ?" on ne remplit pas (déjà géré plus haut),
+            # sinon on prend le texte
             if user_text:
                 profile[waiting_slot] = user_text
+                filled = True
 
-        # stop waiting
+        # Si pas rempli (ex: âge non détecté), on reste sur la même question
+        if not filled:
+            current_step = steps[step_index]
+            messages = current_step.get("messages") or []
+            msg_out = random.choice(messages) if messages else "😌"
+            msg_out = _render(msg_out, profile)
+
+            await bot.send_message(user_id, msg_out)
+            await _log_staff(bot, topic_id, f"[AUTO][REASK][STEP {step_index}] → {msg_out}")
+
+            upsert_state(user_id, {
+                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
+            })
+            return
+
+        # Rempli -> on avance
         profile["__waiting_slot"] = None
-
-        # advance step
         step_index = min(step_index + 1, len(steps) - 1)
 
-        # persist now
         upsert_state(user_id, {
             "Profile JSON": json.dumps(profile, ensure_ascii=False),
             "Step Index": step_index
         })
 
-    # 7) Build step message
+    # 7) Build step message (current step)
     current_step = steps[step_index]
     slot = current_step.get("slot")
     messages = current_step.get("messages") or []
-
     msg_out = random.choice(messages) if messages else "😌"
     msg_out = _render(msg_out, profile)
 
-    # 8) PRIORITÉ "et toi ?" (version simple)
-    # Réponse courte + script ensuite
+    # 8) If asked “et toi ?” (and not pure-only handled earlier), answer contextually + continue
     final_out = msg_out
     if asked:
-    # version fluide (pas en 2 lignes)
-        final_out = f"Moi c’est {BOT_PROFILE['name']} 😌 {msg_out}"
+        last_slot = profile.get("__last_question_slot") or slot
+        final_out = f"{answer_et_toi(last_slot)} {msg_out}".strip()
 
-
-    # ✅ send to client
+    # send to client
     await bot.send_message(user_id, final_out)
 
-    # ✅ log in staff topic (compatible)
-    if STAFF_GROUP_ID and topic_id:
-        try:
-            await bot.request("sendMessage", {
-                "chat_id": STAFF_GROUP_ID,
-                "message_thread_id": topic_id,
-                "text": f"[AUTO][STEP {step_index}] → {final_out}"
-            })
-        except Exception as e:
-            print(f"❌ [AI] log staff failed: {e}")
+    # log staff
+    await _log_staff(bot, topic_id, f"[AUTO][STEP {step_index}] → {final_out}")
 
-    # 9) Update waiting slot / step index
+    # 9) Update waiting slot / last slot
     if slot:
         profile["__waiting_slot"] = slot
+        profile["__last_question_slot"] = slot
         upsert_state(user_id, {
             "Profile JSON": json.dumps(profile, ensure_ascii=False),
             "Step Index": step_index
