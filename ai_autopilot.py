@@ -20,6 +20,22 @@ BOT_PROFILE = {
     "job": "créatrice de contenu et infirmière aussi haha",
     "single": "célibataire malheureusment 😪"
 }
+SOFT_ACKS = [
+    "Ah ok 😌",
+    "Je vois 😊",
+    "D’accord 😌",
+    "Mmh… 😏",
+    "Intéressant 😉",
+    "J’aime bien 😌",
+]
+
+def pick_soft_ack(profile: dict) -> str:
+    # évite de répéter 2 fois la même réaction
+    last = profile.get("__last_ack")
+    choices = [a for a in SOFT_ACKS if a != last] or SOFT_ACKS
+    ack = random.choice(choices)
+    profile["__last_ack"] = ack
+    return ack
 
 # ---------------- Utils ----------------
 def _utcnow() -> datetime.datetime:
@@ -259,11 +275,18 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             })
             return
 
-        # ✅ Slot rempli -> si le message contenait aussi "et toi ?", on veut répondre AVANT d'enchaîner
-        if asked:
-            profile["__prefix_next"] = answer_et_toi(last_slot)
+        # ✅ Slot rempli -> on prépare un prefix doux (réaction humaine)
+        ack = pick_soft_ack(profile)
 
-        # Slot rempli -> on avance IMMEDIATEMENT et on continue dans le même tour
+        # si le message contenait aussi "et toi ?" (ex: "garagiste et toi ?")
+        # on répond d'abord à "et toi", puis on met l'ack, puis la question suivante.
+        prefix_parts = []
+        if asked:
+            prefix_parts.append(answer_et_toi(last_slot))
+        prefix_parts.append(ack)
+
+        profile["__prefix_next"] = " ".join(prefix_parts).strip()
+
         profile["__waiting_slot"] = None
         step_index = min(step_index + 1, len(steps) - 1)
 
@@ -271,6 +294,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             "Profile JSON": json.dumps(profile, ensure_ascii=False),
             "Step Index": step_index
         })
+
 
     # 7) Build step message (current step)
     current_step = steps[step_index]
