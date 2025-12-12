@@ -1,0 +1,13 @@
+{
+  "script_id": "script_fr_v1",
+  "steps": [
+    { "slot": "prenom", "messages": ["Coucou 😌 moi c’est Jessie. Et toi, ton prénom ?"] },
+    { "slot": "ville", "messages": ["Enchantée {prenom} 😌 Tu viens d’où ?"] },
+    { "slot": "age", "messages": ["Tu as quel âge ?"] },
+    { "slot": "metier", "messages": ["Tu fais quoi dans la vie ?"] },
+    { "slot": "celibataire", "messages": ["Et t’es célibataire ou t’es déjà pris ? 😏"] },
+
+    { "slot": null, "messages": ["Ok… je vois le style 😌 T’es plutôt sage ou joueur ?"] },
+    { "slot": null, "messages": ["Je peux être très tentante tu sais… 😇"] }
+  ]
+}
