@@ -72,12 +72,10 @@ def _normalize_yes_no(text: str):
 
 def is_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
-    # variantes simples
     return ("et toi" in t) or ("toi ?" in t) or ("toi aussi" in t)
 
 def is_pure_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
-    # “et toi ?” sans autre info utile
     t = re.sub(r"[^\w\s?]", "", t)  # enlève ponctuation sauf ?
     t = t.strip()
     return t in {"et toi", "et toi ?", "toi ?", "toi", "toi aussi", "toi aussi ?"}
@@ -99,14 +97,6 @@ def _load_script():
     with open(SCRIPT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
-# ---------------- Load script at startup ----------------
-try:
-    SCRIPT = _load_script()
-except Exception as e:
-    print(f"❌ [AI] Impossible de charger le script {SCRIPT_PATH}: {e}")
-    SCRIPT = None
-
-
 async def _log_staff(bot, topic_id: int, text: str):
     if not STAFF_GROUP_ID or not topic_id:
         return
@@ -119,7 +109,6 @@ async def _log_staff(bot, topic_id: int, text: str):
     except Exception as e:
         print(f"❌ [AI] log staff failed: {e}")
 
-
 def sanitize_slot_value(slot: str, text: str) -> str:
     t = (text or "").strip()
 
@@ -131,14 +120,19 @@ def sanitize_slot_value(slot: str, text: str) -> str:
 
     # règles spécifiques
     if slot == "prenom":
-        # garde seulement le premier "mot" (prénom)
         t = t.split()[0] if t else t
-        # majuscule propre
         if t:
             t = t[0].upper() + t[1:].lower()
 
     return t
 
+
+# ---------------- Load script at startup ----------------
+try:
+    SCRIPT = _load_script()
+except Exception as e:
+    print(f"❌ [AI] Impossible de charger le script {SCRIPT_PATH}: {e}")
+    SCRIPT = None
 
 
 async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
@@ -201,13 +195,12 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     waiting_slot = profile.get("__waiting_slot")
 
     if waiting_slot:
-        # Si le client dit juste "et toi ?" sans répondre au slot -> on répond ET on repose la même question
+        last_slot = profile.get("__last_question_slot") or waiting_slot
+
+        # Cas: "et toi ?" seul -> on répond ET on repose la même question (NE PAS avancer)
         if asked and pure_et_toi:
-            # “last question slot” = slot qu’on vient de demander
-            last_slot = profile.get("__last_question_slot") or waiting_slot
             et_toi_reply = answer_et_toi(last_slot)
 
-            # on re-demande la question courante (même step, donc même slot)
             current_step = steps[step_index]
             messages = current_step.get("messages") or []
             msg_out = random.choice(messages) if messages else "😌"
@@ -216,14 +209,14 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             final_out = f"{et_toi_reply} {msg_out}".strip()
 
             await bot.send_message(user_id, final_out)
-            await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][STEP {step_index}] → {final_out}")
+            await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][REASK][STEP {step_index}] → {final_out}")
 
             upsert_state(user_id, {
                 "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
             })
             return
 
-        # Sinon: on essaie de remplir réellement le slot
+        # Sinon: on essaie de remplir réellement le slot (réponse normale OU "xxx et toi ?")
         filled = False
 
         if waiting_slot == "age":
@@ -245,15 +238,13 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             profile["celibataire"] = yn if yn else user_text
             filled = True
 
-        
         else:
             clean = sanitize_slot_value(waiting_slot, user_text)
             if clean:
                 profile[waiting_slot] = clean
                 filled = True
 
-
-        # Si pas rempli (ex: âge non détecté), on reste sur la même question
+        # Si pas rempli, on repose la question (NE PAS avancer)
         if not filled:
             current_step = steps[step_index]
             messages = current_step.get("messages") or []
@@ -268,7 +259,11 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             })
             return
 
-        # Rempli -> on avance
+        # ✅ Slot rempli -> si le message contenait aussi "et toi ?", on veut répondre AVANT d'enchaîner
+        if asked:
+            profile["__prefix_next"] = answer_et_toi(last_slot)
+
+        # Slot rempli -> on avance IMMEDIATEMENT et on continue dans le même tour
         profile["__waiting_slot"] = None
         step_index = min(step_index + 1, len(steps) - 1)
 
@@ -284,9 +279,16 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     msg_out = random.choice(messages) if messages else "😌"
     msg_out = _render(msg_out, profile)
 
+    # ✅ Si on a une réponse “et toi ?” stockée (cas "xxx et toi ?"), on la préfixe ici
+    prefix = profile.pop("__prefix_next", None)
+    if prefix:
+        msg_out = f"{prefix} {msg_out}".strip()
+        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+
     # 8) If asked “et toi ?” (and not pure-only handled earlier), answer contextually + continue
+    # Ici on garde cette logique pour les messages HORS waiting_slot (ex: il est déjà en phase libre)
     final_out = msg_out
-    if asked:
+    if asked and not waiting_slot:
         last_slot = profile.get("__last_question_slot") or slot
         final_out = f"{answer_et_toi(last_slot)} {msg_out}".strip()
 
