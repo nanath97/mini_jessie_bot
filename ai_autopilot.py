@@ -15,10 +15,10 @@ SCRIPT_PATH = os.getenv("AI_SCRIPT_PATH", "script_fr_v1.json")
 
 BOT_PROFILE = {
     "name": "Jessie",
-    "city": "Paris",
+    "city": "Haute-Savoie, dans les montagnes haha",
     "age": "23",
-    "job": "créatrice",
-    "single": "célibataire"
+    "job": "créatrice de contenu et infirmière aussi haha",
+    "single": "célibataire malheureusment 😪"
 }
 
 # ---------------- Utils ----------------
