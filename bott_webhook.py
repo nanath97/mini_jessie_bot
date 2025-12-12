@@ -1360,7 +1360,7 @@ async def relay_from_client(message: types.Message):
         if sent_msg_id:
             pending_replies[(STAFF_GROUP_ID, sent_msg_id)] = message.chat.id
 
-        await maybe_run_autopilot(message, topic_id) #102
+        await maybe_run_autopilot(message, topic_id, bot) #102
 
 
         print(f"✅ Message client reçu de {message.chat.id} et transféré dans le topic {topic_id}")
