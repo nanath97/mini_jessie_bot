@@ -5,6 +5,8 @@ import re
 import datetime
 from ai_state_store import get_state, upsert_state
 from aiogram import types
+import asyncio
+import random
 
 # ---------------- CONFIG ----------------
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
@@ -27,7 +29,7 @@ SOFT_ACKS = [
     "D’accord 😌",
     "Mmh… 😏",
     "Intéressant 😉",
-    "J’aime bien 😌",
+    "J’aime bien 🤭",
 ]
 
 
@@ -349,6 +351,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
                 final_out = f"{et_toi_reply} {msg_out}".strip()
 
+                await human_delay()
                 await bot.send_message(user_id, final_out)
                 await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][FOLLOWUP][STEP {step_index}] → {final_out}")
 
@@ -376,7 +379,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             msg_out = pick_step_message(current_step, profile, mode="reask")
 
             final_out = f"{et_toi_reply} {msg_out}".strip()
-
+            await human_delay()
             await bot.send_message(user_id, final_out)
             await _log_staff(bot, topic_id, f"[AUTO][ET_TOI][REASK][STEP {step_index}] → {final_out}")
 
@@ -407,6 +410,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
                     profile.pop("__pending_et_toi_slot", None)
 
                 if age < 18:
+                    await human_delay()
                     await bot.send_message(user_id, "Désolé, je ne peux pas continuer.")
                     upsert_state(
                         user_id,
@@ -445,7 +449,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
         if not filled:
             current_step = steps[step_index]
             msg_out = pick_step_message(current_step, profile, mode="reask")
-
+            await human_delay()
             await bot.send_message(user_id, msg_out)
             await _log_staff(bot, topic_id, f"[AUTO][REASK][STEP {step_index}] → {msg_out}")
 
@@ -498,7 +502,7 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     if asked and not waiting_slot:
         et_toi_slot = profile.get("__last_filled_slot") or profile.get("__last_question_slot") or slot
         final_out = f"{answer_et_toi(et_toi_slot)} {msg_out}".strip()
-
+    await human_delay()
     await bot.send_message(user_id, final_out)
     await _log_staff(bot, topic_id, f"[AUTO][STEP {step_index}] → {final_out}")
 
