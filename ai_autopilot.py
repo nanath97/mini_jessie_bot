@@ -138,9 +138,12 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
 
     user_text = (message.text or "").strip()
 
-    # 6) Remplissage slot si on attend une réponse
+
+    # 6) IMPORTANT: on CONTINUE (pas de return) pour envoyer le step suivant dans le même tour
+
     waiting_slot = profile.get("__waiting_slot")
     if waiting_slot:
+        # 1) On remplit le slot
         if waiting_slot == "age":
             age = _extract_age(user_text)
             if age is not None:
@@ -152,21 +155,29 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
                         "Profile JSON": json.dumps(profile, ensure_ascii=False)
                     })
                     return
+            else:
+                # Si pas d'âge détecté, on redemande la même question
+                pass
+
         elif waiting_slot == "celibataire":
             yn = _normalize_yes_no(user_text)
             profile["celibataire"] = yn if yn else user_text
+
         else:
             profile[waiting_slot] = user_text
 
+        # 2) On stop l'attente du slot
         profile["__waiting_slot"] = None
 
+        # 3) On avance au step suivant
+        step_index = min(step_index + 1, len(steps) - 1)
+
+        # 4) On met à jour Airtable tout de suite
         upsert_state(user_id, {
             "Profile JSON": json.dumps(profile, ensure_ascii=False),
-            "Step Index": min(step_index + 1, len(steps) - 1)
+            "Step Index": step_index
         })
 
-        # 🔥 CRUCIAL : on sort ici
-        return
 
 
     # 7) Construire le message du step courant
