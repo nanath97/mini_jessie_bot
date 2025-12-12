@@ -1360,14 +1360,16 @@ async def relay_from_client(message: types.Message):
         if sent_msg_id:
             pending_replies[(STAFF_GROUP_ID, sent_msg_id)] = message.chat.id
 
-        await maybe_run_autopilot(message, topic_id, bot) #102
-
 
         print(f"✅ Message client reçu de {message.chat.id} et transféré dans le topic {topic_id}")
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
-
+# ✅ AUTOPILOT : hors du try/except du transfert 102
+    try:
+        await maybe_run_autopilot(message, topic_id, bot)  # #102
+    except Exception as e:
+        print(f"❌ Erreur autopilot : {e}")
 
 # 1. code pour le bouton prendre en charge début
 

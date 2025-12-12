@@ -183,13 +183,15 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     msg_out = _render(msg_out, profile)
 
     # 8) Envoyer au client + log staff
-    await bot.send_message(user_id, msg_out)
-    if STAFF_GROUP_ID and topic_id:
-        await bot.send_message(
-            chat_id=STAFF_GROUP_ID,
-            message_thread_id=topic_id,
-            text=f"[AUTO][STEP {step_index}] → {msg_out}"
-        )
+    try:
+        await bot.request("sendMessage", {
+        "chat_id": STAFF_GROUP_ID,
+        "message_thread_id": topic_id,
+        "text": f"[AUTO][STEP {step_index}] → {msg_out}"
+    })
+    except Exception as e:
+        print(f"❌ [AI] log staff failed: {e}")
+
 
     # 9) Si step = slot, on attend la réponse et on ne bouge pas l’index
     if slot:
