@@ -120,6 +120,27 @@ async def _log_staff(bot, topic_id: int, text: str):
         print(f"❌ [AI] log staff failed: {e}")
 
 
+def sanitize_slot_value(slot: str, text: str) -> str:
+    t = (text or "").strip()
+
+    # enlève tout ce qui suit une forme "et toi"
+    t = re.split(r"\bet toi\b|\btoi aussi\b", t, flags=re.IGNORECASE)[0].strip()
+
+    # enlève ponctuation finale
+    t = re.sub(r"[?!.,;:]+$", "", t).strip()
+
+    # règles spécifiques
+    if slot == "prenom":
+        # garde seulement le premier "mot" (prénom)
+        t = t.split()[0] if t else t
+        # majuscule propre
+        if t:
+            t = t[0].upper() + t[1:].lower()
+
+    return t
+
+
+
 async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     # 1) TEXT ONLY
     if message.content_type != types.ContentType.TEXT:
@@ -224,13 +245,13 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
             profile["celibataire"] = yn if yn else user_text
             filled = True
 
+        
         else:
-            # prenom / ville / metier
-            # si message = juste "et toi ?" on ne remplit pas (déjà géré plus haut),
-            # sinon on prend le texte
-            if user_text:
-                profile[waiting_slot] = user_text
+            clean = sanitize_slot_value(waiting_slot, user_text)
+            if clean:
+                profile[waiting_slot] = clean
                 filled = True
+
 
         # Si pas rempli (ex: âge non détecté), on reste sur la même question
         if not filled:
