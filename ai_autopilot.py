@@ -141,42 +141,33 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     # 6) Remplissage slot si on attend une réponse
     waiting_slot = profile.get("__waiting_slot")
     if waiting_slot:
-        # On essaye de parser proprement selon le slot
         if waiting_slot == "age":
             age = _extract_age(user_text)
             if age is not None:
                 profile["age"] = age
-                # Blocage si mineur
                 if age < 18:
                     await bot.send_message(user_id, "Désolé, je ne peux pas continuer.")
                     upsert_state(user_id, {
                         "Autopilot": "OFF",
-                        "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                        "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
+                        "Profile JSON": json.dumps(profile, ensure_ascii=False)
                     })
                     return
-            else:
-                # si pas d’âge détecté, on ne change pas le slot et on repose la question
-                pass
-
         elif waiting_slot == "celibataire":
             yn = _normalize_yes_no(user_text)
-            if yn:
-                profile["celibataire"] = yn
-            else:
-                # On stock brut si pas clair (MVP)
-                profile["celibataire"] = user_text
-
+            profile["celibataire"] = yn if yn else user_text
         else:
-            # prenom, ville, metier...
-            if user_text:
-                profile[waiting_slot] = user_text
+            profile[waiting_slot] = user_text
 
-        # On arrête d'attendre et on passe au step suivant
         profile["__waiting_slot"] = None
-        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
 
-        step_index = min(step_index + 1, len(steps) - 1)
+        upsert_state(user_id, {
+            "Profile JSON": json.dumps(profile, ensure_ascii=False),
+            "Step Index": min(step_index + 1, len(steps) - 1)
+        })
+
+        # 🔥 CRUCIAL : on sort ici
+        return
+
 
     # 7) Construire le message du step courant
     current_step = steps[step_index]
