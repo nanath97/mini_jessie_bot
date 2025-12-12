@@ -8,6 +8,12 @@ from aiogram import types
 import asyncio
 import random
 
+
+
+
+async def human_delay(min_s=6, max_s=15):
+    await asyncio.sleep(random.uniform(min_s, max_s))
+
 # ---------------- CONFIG ----------------
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 COOLDOWN_SECONDS = 8
