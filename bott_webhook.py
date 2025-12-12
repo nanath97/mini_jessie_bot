@@ -15,6 +15,8 @@ from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_
 import re
 from urllib.parse import quote
 from datetime import datetime, timezone
+from ai_autopilot import maybe_run_autopilot
+
 
 
 
@@ -162,13 +164,6 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
     return data.get("id")
 
 #100
-#101
-
-
-
-
-
-
 
 # === 221097 DEBUT
 
@@ -1365,6 +1360,9 @@ async def relay_from_client(message: types.Message):
         if sent_msg_id:
             pending_replies[(STAFF_GROUP_ID, sent_msg_id)] = message.chat.id
 
+        await maybe_run_autopilot(message, topic_id) #102
+
+
         print(f"✅ Message client reçu de {message.chat.id} et transféré dans le topic {topic_id}")
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
@@ -1857,7 +1855,6 @@ async def scheduler_loop():
 
 #101
 
-#101
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
