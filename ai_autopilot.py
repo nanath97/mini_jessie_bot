@@ -23,6 +23,9 @@ LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "20"))
 # Debounce: regroupe les rafales de messages en une seule réponse
 DEBOUNCE_SECONDS = float(os.getenv("AI_DEBOUNCE_SECONDS", "2.2"))
 
+# Watchdog anti-silence (si aucune réponse n'est envoyée)
+WATCHDOG_SECONDS = float(os.getenv("AI_WATCHDOG_SECONDS", "25"))
+
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
@@ -49,6 +52,7 @@ BOT_PROFILE = {
 
 # ---- In-memory debounce task manager (anti-double send) ----
 _DEBOUNCE_TASKS: dict[int, asyncio.Task] = {}
+_WATCHDOG_TASKS: dict[int, asyncio.Task] = {}
 
 
 # ---------------- Small helpers ----------------
@@ -146,6 +150,7 @@ def detect_et_toi_target_slot(text: str) -> str | None:
 
 
 def answer_et_toi(slot: str | None) -> str:
+    # Répond seulement au slot demandé explicitement
     if slot == "prenom":
         return f"Moi c’est {BOT_PROFILE['name']} 😌"
     if slot == "ville":
@@ -266,6 +271,9 @@ async def llm_generate(intent: str, slot: str | None, profile: dict, last_user_t
     have = ", ".join([f"{k}={v}" for k, v in user_profile.items()]) or "rien pour l’instant"
     target = _slot_label(slot) if slot else "rien"
 
+    # Anti-répétition: on interdit de répéter le dernier message bot (fort)
+    last_bot_text = (profile.get("__last_bot_text") or "").strip()
+
     system = (
         "Tu t’appelles Jessie. "
         "Tu parles comme une vraie femme sur Telegram: naturelle, calme, un peu taquine. "
@@ -274,7 +282,8 @@ async def llm_generate(intent: str, slot: str | None, profile: dict, last_user_t
         "Quand tu poses une question, elle est assumée, courte, sans détour. "
         "Tu ne poses jamais plus d’une question. "
         "Style: 1 phrase, parfois 2 maximum, pas de répétitions, 0 à 1 emoji. "
-        "Interdit: mentionner IA, bot, script, paiement, prix."
+        "Interdit: mentionner IA, bot, script, paiement, prix. "
+        f"INTERDIT de répéter exactement cette phrase: « {last_bot_text} »"
     )
 
     if intent == "ask_slot":
@@ -355,6 +364,7 @@ def fallback_slot_question(slot: str, mode: str = "ask") -> str:
 async def _send_once(bot, user_id: int, topic_id: int, profile: dict, text: str):
     """
     Envoi protégé anti-doublon (même message) + mémorisation.
+    Si doublon détecté, on tente un fallback "nudge" court.
     """
     msg = (text or "").strip()
     if not msg:
@@ -362,15 +372,64 @@ async def _send_once(bot, user_id: int, topic_id: int, profile: dict, text: str)
 
     last_bot = _norm_msg(profile.get("__last_bot_text", ""))
     if _norm_msg(msg) == last_bot:
-        # anti-répétition stricte
-        return False
+        # nudge différent (ultra court) pour éviter le silence
+        nudges = ["Hmm 😌", "Haha 😌", "Oh ok 😌", "Je vois 😌"]
+        alt = random.choice([n for n in nudges if _norm_msg(n) != last_bot] or nudges)
+        msg = alt
 
     await human_delay()
     await bot.send_message(user_id, msg)
 
     profile["__last_bot_text"] = msg
+    profile["__last_bot_send_ts"] = _utcnow().isoformat()
     await _log_staff(bot, topic_id, f"[AUTO] → {msg}")
     return True
+
+
+async def _watchdog_ping(user_id: int, topic_id: int, bot, token: str):
+    """
+    Anti-silence: si aucune réponse n'est envoyée après WATCHDOG_SECONDS,
+    on envoie un ping humain (une fois), seulement si le token est encore le bon.
+    """
+    try:
+        await asyncio.sleep(WATCHDOG_SECONDS)
+    except asyncio.CancelledError:
+        return
+
+    state = get_state(user_id)
+    if not state:
+        return
+    fields = state.get("fields", {})
+    if fields.get("Autopilot") != "ON":
+        return
+
+    profile = _safe_json_loads(fields.get("Profile JSON"), {})
+    if not isinstance(profile, dict):
+        return
+
+    if profile.get("__debounce_token") != token:
+        return
+
+    last_bot_send = _parse_airtable_dt(profile.get("__last_bot_send_ts")) if profile.get("__last_bot_send_ts") else None
+    now = _utcnow()
+    if last_bot_send and (now - last_bot_send).total_seconds() < WATCHDOG_SECONDS:
+        return
+
+    try:
+        await bot.send_message(user_id, "Hmm 😌")
+        profile["__last_bot_text"] = "Hmm 😌"
+        profile["__last_bot_send_ts"] = now.isoformat()
+        await _log_staff(bot, topic_id, "[AUTO][WATCHDOG] ping sent")
+
+        upsert_state(
+            user_id,
+            {
+                "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+            },
+        )
+    except Exception as e:
+        print("❌ [WATCHDOG] failed:", e)
 
 
 # ---------------- Debounce runner ----------------
@@ -463,10 +522,12 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
         last_question_slot = profile.get("__last_question_slot") or waiting_slot
         pending = profile.get("__pending_et_toi_slot")
 
-        # gérer "et toi ?" proprement
+        # gérer "et toi ?" proprement -> uniquement slot explicite si détecté
         if asked and pure_et_toi:
-            et_toi_slot = pending or last_question_slot
+            explicit_slot = detect_et_toi_target_slot(last_user_text)
+            et_toi_slot = explicit_slot or pending or last_question_slot
             et_toi_reply = answer_et_toi(et_toi_slot)
+
             msg_out = await llm_generate("reask_slot", waiting_slot, profile, last_user_text) or fallback_slot_question(waiting_slot, "reask")
             final_out = f"{et_toi_reply} {msg_out}".strip()
 
@@ -541,8 +602,13 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
         profile["__last_question_slot"] = next_slot or profile.get("__last_question_slot")
 
         msg_out = await llm_generate("react_only", None, profile, last_user_text) or "Ah ok 😊"
+
+        # Si "et toi" existe mais pas explicit, on ne répond pas avec BOT_PROFILE hors contexte
+        # Donc on ne préfixe rien ici sauf si explicit_slot détecté
         if asked:
-            msg_out = f"{answer_et_toi(waiting_slot)} {msg_out}".strip()
+            explicit_slot = detect_et_toi_target_slot(last_user_text)
+            if explicit_slot:
+                msg_out = f"{answer_et_toi(explicit_slot)} {msg_out}".strip()
 
         sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
         upsert_state(
@@ -576,13 +642,11 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
 
     # Smalltalk natural
     msg_out = await llm_generate("smalltalk", None, profile, last_user_text) or "Coucou 😊"
-    
-    if asked:
-        explicit_slot = detect_et_toi_target_slot(last_user_text)
 
+    # Fix: explicit_slot toujours défini
+    explicit_slot = detect_et_toi_target_slot(last_user_text) if asked else None
     if explicit_slot:
         msg_out = f"{answer_et_toi(explicit_slot)} {msg_out}".strip()
-    # sinon: on ne répond PAS par un slot, juste la réponse naturelle
 
     sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
     upsert_state(
@@ -654,5 +718,19 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
     if old and not old.done():
         old.cancel()
 
+    # annule watchdog précédent
+    wold = _WATCHDOG_TASKS.get(user_id)
+    if wold and not wold.done():
+        wold.cancel()
+
     task = asyncio.create_task(_debounced_autopilot_run(user_id, topic_id, bot, token))
     _DEBOUNCE_TASKS[user_id] = task
+
+    wtask = asyncio.create_task(_watchdog_ping(user_id, topic_id, bot, token))
+    _WATCHDOG_TASKS[user_id] = wtask
+
+    # nettoyage dict (optionnel)
+    if task.done():
+        _DEBOUNCE_TASKS.pop(user_id, None)
+    if wtask.done():
+        _WATCHDOG_TASKS.pop(user_id, None)
