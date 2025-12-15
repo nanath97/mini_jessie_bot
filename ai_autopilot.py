@@ -36,8 +36,8 @@ COOLDOWN_SECONDS = 8
 
 SCRIPT_PATH = os.getenv("AI_SCRIPT_PATH", "script_fr_v1.json")
 
-SAFE_TURNS_LIMIT = 15
-COOLDOWN_MINUTES_ON_SAFE_LIMIT = 30
+SAFE_TURNS_LIMIT = 99999
+COOLDOWN_MINUTES_ON_SAFE_LIMIT = 1
 
 BOT_PROFILE = {
     "name": "Jessie",
@@ -576,9 +576,13 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
 
     # Smalltalk natural
     msg_out = await llm_generate("smalltalk", None, profile, last_user_text) or "Coucou 😊"
+    
     if asked:
-        et_toi_slot = profile.get("__last_filled_slot") or profile.get("__last_question_slot")
-        msg_out = f"{answer_et_toi(et_toi_slot)} {msg_out}".strip()
+        explicit_slot = detect_et_toi_target_slot(last_user_text)
+
+    if explicit_slot:
+        msg_out = f"{answer_et_toi(explicit_slot)} {msg_out}".strip()
+    # sinon: on ne répond PAS par un slot, juste la réponse naturelle
 
     sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
     upsert_state(
