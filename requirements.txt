@@ -5,5 +5,6 @@ uvicorn
 python-dotenv
 requests
 stripe
-openai
+openai>=1.0.0
+
 
