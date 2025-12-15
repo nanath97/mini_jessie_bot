@@ -47,6 +47,9 @@ BOT_PROFILE = {
     "single": "célibataire malheureusement 😪",
 }
 
+# ---- In-memory debounce task manager (anti-double send) ----
+_DEBOUNCE_TASKS: dict[int, asyncio.Task] = {}
+
 
 # ---------------- Small helpers ----------------
 def _utcnow() -> datetime.datetime:
@@ -69,10 +72,19 @@ def _safe_json_loads(s: str, default):
         return default
 
 
+def _norm_msg(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip().lower())
+
+
 def _is_greeting(text: str) -> bool:
     t = (text or "").strip().lower()
     t = re.sub(r"[^\w\s]", "", t)
-    return t in {"salut", "coucou", "hey", "yo", "hello", "cc", "slt", "bonjour"} or len(t) <= 3
+    return t in {"salut", "coucou", "hey", "yo", "hello", "cc", "slt"} or (len(t) <= 6 and t in {"bonjour"})
+
+
+def _looks_like_direct_age_question(text: str) -> bool:
+    t = (text or "").lower()
+    return ("quel âge" in t) or ("quelle age" in t) or re.search(r"\btu\s+as\s+(\d{1,2})\s*ans\b", t) is not None
 
 
 # ---------------- Signal detection ----------------
@@ -111,6 +123,11 @@ def is_pure_et_toi(text: str) -> bool:
     t = (text or "").strip().lower()
     t = re.sub(r"[^\w\s?]", "", t).strip()
     return t in {"et toi", "et toi ?", "toi ?", "toi", "toi aussi", "toi aussi ?"}
+
+
+def starts_like_et_toi(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return bool(re.match(r"^(et\s+toi|toi)\b", t))
 
 
 def detect_et_toi_target_slot(text: str) -> str | None:
@@ -237,11 +254,10 @@ def _slot_label(slot: str) -> str:
 async def llm_generate(intent: str, slot: str | None, profile: dict, last_user_text: str) -> str | None:
     """
     intent:
-      - presence: réponse humaine SANS question (Phase 0)
-      - ask_slot: UNE question directe pour obtenir un slot
-      - reask_slot: relance directe (pas de détour)
-      - react_only: réponse humaine SANS question (après remplissage)
-      - smalltalk: réponse libre (max 1 question)
+      - ask_slot: question simple et directe pour obtenir le slot
+      - reask_slot: relance simple (pas de contournement bizarre)
+      - react_only: réponse humaine SANS question (obligatoire après slot rempli)
+      - smalltalk: réponse humaine libre (peut contenir une question max)
     """
     if not client:
         return None
@@ -252,39 +268,34 @@ async def llm_generate(intent: str, slot: str | None, profile: dict, last_user_t
 
     system = (
         "Tu t’appelles Jessie. "
-        "Tu écris comme une vraie femme sur Telegram: naturelle, chaleureuse, un peu taquine (jamais robotique). "
-        "Tu ne fais pas de détours bizarres. "
-        "Style: 1 phrase, parfois 2 maximum. Pas de listes. 0 à 1 emoji. "
-        "Interdit: mentionner IA/bot/script/API, paiement/prix/offre. "
-        "Très important: ne fais pas d’affirmation sur une info que tu n’as pas."
+        "Tu parles comme une vraie femme sur Telegram: naturelle, calme, un peu taquine. "
+        "Tu crées une présence avant de chercher des infos. "
+        "Chaque message doit contenir une présence/réaction; et éventuellement UNE question simple et directe. "
+        "Quand tu poses une question, elle est assumée, courte, sans détour. "
+        "Tu ne poses jamais plus d’une question. "
+        "Style: 1 phrase, parfois 2 maximum, pas de répétitions, 0 à 1 emoji. "
+        "Interdit: mentionner IA, bot, script, paiement, prix."
     )
 
-    if intent == "presence":
+    if intent == "ask_slot":
         instruction = (
-            "Réponds de façon douce et humaine à un premier message. "
-            "Interdit de poser une question. "
-            f"Tu sais déjà: {have}."
-        )
-    elif intent == "ask_slot":
-        instruction = (
-            f"Pose UNE question simple, directe, assumée pour obtenir {target}. "
-            "Pas de détour, pas de sous-questions. "
-            f"Tu sais déjà: {have}."
+            f"Pose UNE question simple pour obtenir {target}. "
+            f"Tu sais déjà: {have}. "
+            "Ne tourne pas autour du pot."
         )
     elif intent == "reask_slot":
         instruction = (
-            f"Relance UNE fois pour obtenir {target}, simplement. "
-            "Pas de détour, pas de justification. "
+            f"Relance UNE fois pour obtenir {target}, simplement, sans détour. "
             f"Tu sais déjà: {have}."
         )
     elif intent == "react_only":
         instruction = (
-            "Réponds de façon humaine à son message SANS poser de question. "
+            "Réponds de façon humaine à son dernier message SANS poser de question. "
             f"Tu sais déjà: {have}."
         )
     else:
         instruction = (
-            "Réponds naturellement; si tu poses une question, UNE seule, vraiment naturelle. "
+            f"Réponds naturellement et tu peux ajouter UNE question max si c’est vraiment naturel. "
             f"Tu sais déjà: {have}."
         )
 
@@ -329,7 +340,7 @@ def fallback_slot_question(slot: str, mode: str = "ask") -> str:
         return "Dis-m’en un peu plus 😊"
 
     if slot == "prenom":
-        return "Au fait, tu t’appelles comment ? 😊"
+        return "Tu t’appelles comment ? 😊"
     if slot == "ville":
         return "Tu es de quelle ville ? 😊"
     if slot == "age":
@@ -341,34 +352,25 @@ def fallback_slot_question(slot: str, mode: str = "ask") -> str:
     return "Dis-m’en un peu plus 😊"
 
 
-# ---------------- Core flow helpers ----------------
-SLOT_ORDER = ["prenom", "ville", "age", "metier", "celibataire"]
+async def _send_once(bot, user_id: int, topic_id: int, profile: dict, text: str):
+    """
+    Envoi protégé anti-doublon (même message) + mémorisation.
+    """
+    msg = (text or "").strip()
+    if not msg:
+        return False
 
+    last_bot = _norm_msg(profile.get("__last_bot_text", ""))
+    if _norm_msg(msg) == last_bot:
+        # anti-répétition stricte
+        return False
 
-def _next_missing_slot(profile: dict) -> str | None:
-    for s in SLOT_ORDER:
-        if s not in profile:
-            return s
-    return None
+    await human_delay()
+    await bot.send_message(user_id, msg)
 
-
-def _inc_ai_turn(profile: dict):
-    profile["__ai_turns"] = int(profile.get("__ai_turns") or 0) + 1
-
-
-def _question_allowed(profile: dict) -> bool:
-    # cooldown anti-interrogatoire: après une question, on force 1 tour sans question
-    return int(profile.get("__q_cooldown") or 0) <= 0
-
-
-def _set_question_cooldown(profile: dict, turns: int = 1):
-    profile["__q_cooldown"] = turns
-
-
-def _tick_question_cooldown(profile: dict):
-    cd = int(profile.get("__q_cooldown") or 0)
-    if cd > 0:
-        profile["__q_cooldown"] = cd - 1
+    profile["__last_bot_text"] = msg
+    await _log_staff(bot, topic_id, f"[AUTO] → {msg}")
+    return True
 
 
 # ---------------- Debounce runner ----------------
@@ -376,7 +378,10 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
     """
     Attend la fin d'une rafale de messages, puis répond UNE seule fois.
     """
-    await asyncio.sleep(DEBOUNCE_SECONDS)
+    try:
+        await asyncio.sleep(DEBOUNCE_SECONDS)
+    except asyncio.CancelledError:
+        return
 
     state = get_state(user_id)
     if not state:
@@ -401,7 +406,6 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
     if cd_time and now < cd_time:
         return
 
-    # texte agrégé depuis la rafale
     bundle = profile.get("__bundle_text", "")
     last_user_text = (bundle or profile.get("__last_user_text") or "").strip()
     if not last_user_text:
@@ -410,8 +414,10 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
     # nettoyage bundle
     profile["__bundle_text"] = ""
 
-    # sécurité: limite de tours "sans signal"
     profile.setdefault("safe_turns", 0)
+    profile.setdefault("phase", "ACQ")
+    profile.setdefault("palier", 1)
+
     desire_signal = detect_desire_signal(last_user_text)
     buyer_signal = detect_buyer_signal(last_user_text)
     if desire_signal or buyer_signal:
@@ -432,67 +438,49 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
     asked = is_et_toi(last_user_text)
     pure_et_toi = is_pure_et_toi(last_user_text)
 
-    # tick anti-question
-    _tick_question_cooldown(profile)
-
-    # ---------------- PHASE PILOTED BY HANDLER ----------------
-    # Règle dure : si prénom pas connu -> 2 messages présence (sans question),
-    # puis 3e message bot = demande prénom DIRECTE.
-    ai_turns = int(profile.get("__ai_turns") or 0)
-
-    # Force Phase 0 / Phase 1 prénom
-    if "prenom" not in profile:
-        if ai_turns < 2:
-            # Phase 0: présence (aucune question)
-            msg_out = await llm_generate("presence", None, profile, last_user_text)
-            if not msg_out:
-                msg_out = "Coucou toi 😊" if _is_greeting(last_user_text) else "Hmm je vois 😊"
-
-            await human_delay()
-            await bot.send_message(user_id, msg_out)
-            await _log_staff(bot, topic_id, f"[AUTO][P0][PRESENCE] → {msg_out}")
-
-            _inc_ai_turn(profile)
-            upsert_state(
-                user_id,
-                {
-                    "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
-                },
-            )
-            return
-
-        # 3e message bot: demander le prénom (FIXE, pas LLM)
+    # init slots: on ne force PAS sur un simple "salut"
+    if "__waiting_slot" not in profile and "prenom" not in profile and not _is_greeting(last_user_text):
         profile["__waiting_slot"] = "prenom"
         profile["__last_question_slot"] = "prenom"
-        _set_question_cooldown(profile, 1)
 
-        # si le client dit "et toi ?" tout seul, on répond Jessie + demande prénom
-        prefix = ""
-        if asked and pure_et_toi:
-            prefix = f"{answer_et_toi('prenom')} "
+    waiting_slot = profile.get("__waiting_slot")
 
-        msg_out = prefix + fallback_slot_question("prenom", "ask")
-
-        await human_delay()
-        await bot.send_message(user_id, msg_out)
-        await _log_staff(bot, topic_id, f"[AUTO][P1][ASK_PRENOM] → {msg_out}")
-
-        _inc_ai_turn(profile)
+    # Si salut: réponse humaine, pas de slot-question direct
+    if _is_greeting(last_user_text) and not waiting_slot:
+        msg_out = await llm_generate("smalltalk", None, profile, last_user_text) or "Coucou 😊"
+        sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
         upsert_state(
             user_id,
             {
                 "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
             },
         )
         return
 
-    # ---------------- NORMAL SLOT FLOW (Phase 2) ----------------
-    # 1) si on attend un slot, essayer de le remplir
-    waiting_slot = profile.get("__waiting_slot")
-
+    # ---------------- A) Waiting for a slot ----------------
     if waiting_slot:
+        last_question_slot = profile.get("__last_question_slot") or waiting_slot
+        pending = profile.get("__pending_et_toi_slot")
+
+        # gérer "et toi ?" proprement
+        if asked and pure_et_toi:
+            et_toi_slot = pending or last_question_slot
+            et_toi_reply = answer_et_toi(et_toi_slot)
+            msg_out = await llm_generate("reask_slot", waiting_slot, profile, last_user_text) or fallback_slot_question(waiting_slot, "reask")
+            final_out = f"{et_toi_reply} {msg_out}".strip()
+
+            sent = await _send_once(bot, user_id, topic_id, profile, final_out)
+            upsert_state(
+                user_id,
+                {
+                    "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
+                },
+            )
+            return
+
+        # Try to fill slot
         filled = False
 
         if waiting_slot == "age":
@@ -527,100 +515,77 @@ async def _debounced_autopilot_run(user_id: int, topic_id: int, bot, token: str)
                 filled = True
                 remember_filled_slot(profile, waiting_slot)
 
+        # Not filled -> reask simple
         if not filled:
-            # relance simple (pas de détour)
             msg_out = await llm_generate("reask_slot", waiting_slot, profile, last_user_text) or fallback_slot_question(waiting_slot, "reask")
-
-            # si "et toi ?" -> répondre Jessie + relancer slot
-            if asked and pure_et_toi:
-                msg_out = f"{answer_et_toi(detect_et_toi_target_slot(last_user_text) or profile.get('__last_question_slot'))} {msg_out}".strip()
-
-            await human_delay()
-            await bot.send_message(user_id, msg_out)
-            await _log_staff(bot, topic_id, f"[AUTO][REASK][{waiting_slot}] → {msg_out}")
-
-            _inc_ai_turn(profile)
-            _set_question_cooldown(profile, 1)
-
+            sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
             upsert_state(
                 user_id,
                 {
                     "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
                 },
             )
             return
 
-        # slot rempli -> réaction humaine SANS question
-        next_slot = _next_missing_slot(profile)
+        # Slot rempli -> réaction humaine d'abord (sans question)
+        profile["__ask_after_turns"] = int(profile.get("__ask_after_turns") or 0) + 1
+
+        order = ["prenom", "ville", "age", "metier", "celibataire"]
+        next_slot = None
+        for s in order:
+            if s not in profile:
+                next_slot = s
+                break
         profile["__waiting_slot"] = next_slot
         profile["__last_question_slot"] = next_slot or profile.get("__last_question_slot")
 
         msg_out = await llm_generate("react_only", None, profile, last_user_text) or "Ah ok 😊"
-        if asked and pure_et_toi:
+        if asked:
             msg_out = f"{answer_et_toi(waiting_slot)} {msg_out}".strip()
 
-        await human_delay()
-        await bot.send_message(user_id, msg_out)
-        await _log_staff(bot, topic_id, f"[AUTO][FILLED][{waiting_slot}][REACT_ONLY] → {msg_out}")
-
-        _inc_ai_turn(profile)
-
+        sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
         upsert_state(
             user_id,
             {
                 "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
             },
         )
         return
 
-    # 2) si pas de waiting_slot: décider si on pose une question (slot manquant)
-    missing = _next_missing_slot(profile)
-    if missing and _question_allowed(profile) and not _is_greeting(last_user_text):
-        profile["__waiting_slot"] = missing
-        profile["__last_question_slot"] = missing
+    # ---------------- B) Ask slot only if allowed ----------------
+    waiting_slot = profile.get("__waiting_slot")
+    ask_after = int(profile.get("__ask_after_turns") or 0)
 
-        # Question slot = LLM (direct) sauf prénom (déjà acquis ici)
-        msg_out = await llm_generate("ask_slot", missing, profile, last_user_text) or fallback_slot_question(missing, "ask")
+    if waiting_slot and not _is_greeting(last_user_text):
+        if ask_after >= 2:
+            profile["__ask_after_turns"] = 0
+            msg_out = await llm_generate("ask_slot", waiting_slot, profile, last_user_text) or fallback_slot_question(waiting_slot, "ask")
+            sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
+            upsert_state(
+                user_id,
+                {
+                    "Profile JSON": json.dumps(profile, ensure_ascii=False),
+                    "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
+                },
+            )
+            return
+        else:
+            profile["__ask_after_turns"] = ask_after + 1
 
-        # si "et toi ?" -> répondre Jessie + poser la question slot
-        if asked and pure_et_toi:
-            msg_out = f"{answer_et_toi(detect_et_toi_target_slot(last_user_text) or profile.get('__last_question_slot'))} {msg_out}".strip()
-
-        await human_delay()
-        await bot.send_message(user_id, msg_out)
-        await _log_staff(bot, topic_id, f"[AUTO][ASK_SLOT][{missing}] → {msg_out}")
-
-        _inc_ai_turn(profile)
-        _set_question_cooldown(profile, 1)
-
-        upsert_state(
-            user_id,
-            {
-                "Profile JSON": json.dumps(profile, ensure_ascii=False),
-                "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
-            },
-        )
-        return
-
-    # 3) sinon: smalltalk
-    msg_out = await llm_generate("smalltalk", None, profile, last_user_text) or ("Coucou 😊" if _is_greeting(last_user_text) else "Hmm je vois 😊")
-    if asked and pure_et_toi:
+    # Smalltalk natural
+    msg_out = await llm_generate("smalltalk", None, profile, last_user_text) or "Coucou 😊"
+    if asked:
         et_toi_slot = profile.get("__last_filled_slot") or profile.get("__last_question_slot")
         msg_out = f"{answer_et_toi(et_toi_slot)} {msg_out}".strip()
 
-    await human_delay()
-    await bot.send_message(user_id, msg_out)
-    await _log_staff(bot, topic_id, f"[AUTO][SMALLTALK] → {msg_out}")
-
-    _inc_ai_turn(profile)
-
+    sent = await _send_once(bot, user_id, topic_id, profile, msg_out)
     upsert_state(
         user_id,
         {
             "Profile JSON": json.dumps(profile, ensure_ascii=False),
-            "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat(),
+            "Cooldown Until": (now + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat() if sent else fields.get("Cooldown Until"),
         },
     )
 
@@ -680,5 +645,10 @@ async def maybe_run_autopilot(message: types.Message, topic_id: int, bot):
         },
     )
 
-    # démarre une tâche: seule la dernière (token) répondra
-    asyncio.create_task(_debounced_autopilot_run(user_id, topic_id, bot, token))
+    # ✅ HARD FIX: annule la tâche précédente -> une seule réponse possible
+    old = _DEBOUNCE_TASKS.get(user_id)
+    if old and not old.done():
+        old.cancel()
+
+    task = asyncio.create_task(_debounced_autopilot_run(user_id, topic_id, bot, token))
+    _DEBOUNCE_TASKS[user_id] = task
