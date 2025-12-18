@@ -193,19 +193,19 @@ def initialize_authorized_users():
 pending_programmation = {}  # admin_id -> {"jour": "Lundi"}
 
 JOUR_TO_WEEKDAY = {
-    "Lundi": 0,
-    "Mardi": 1,
-    "Mercredi": 2,
-    "Jeudi": 3,
-    "Vendredi": 4,
-    "Samedi": 5,
-    "Dimanche": 6,
+    "Monday": 0,
+    "Tuesday": 1,
+    "Wednesday": 2,
+    "Thursday": 3,
+    "Friday": 4,
+    "Saturday": 5,
+    "Sunday": 6,
 }
 
 HEURE_REGEX = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 def compute_next_run_utc(jour: str, heure_str: str) -> datetime:
     """
-    jour : 'Lundi' ... 'Dimanche'
+    jour : 'Monday' ... 'Sunday'
     heure_str : 'HH:MM' au format 24h
     Retourne un datetime UTC approx (on considère que l'heure donnée est en UTC pour l'instant).
     """
@@ -1593,7 +1593,7 @@ async def programmer_envoi_groupé(call: types.CallbackQuery):
 
     # 1) On demande d'abord le jour
     kb = InlineKeyboardMarkup(row_width=2)
-    for jour in ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]:
+    for jour in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
         kb.insert(
             InlineKeyboardButton(jour, callback_data=f"prog_jour_{jour.lower()}")
         )
