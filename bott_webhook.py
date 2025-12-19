@@ -1338,11 +1338,41 @@ async def relay_from_client(message: types.Message):
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
+
+
 # ✅ AUTOPILOT : hors du try/except du transfert 102
+
+async def run_autopilot_safe(message, topic_id, bot):
     try:
-        await maybe_run_autopilot(message.from_user.id, topic_id, bot)  # #102
+        user_id = message.from_user.id
+    except Exception:
+        return  # pas de from_user => on sort
+
+    # Stocke le texte pour l'autopilot
+    txt = (message.text or "").strip()
+    if txt:
+        state = get_state(user_id) or {}
+        fields = state.get("fields", {})
+        try:
+            profile = json.loads(fields.get("Profile JSON") or "{}")
+            if not isinstance(profile, dict):
+                profile = {}
+        except Exception:
+            profile = {}
+
+        prev = (profile.get("__bundle_text") or "").strip()
+        profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
+        profile["__last_user_text"] = txt
+
+        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+
+    # Lance l'autopilot
+    try:
+        await maybe_run_autopilot(user_id, topic_id, bot)
     except Exception as e:
         print(f"❌ Erreur autopilot : {e}")
+
+
 
 # 1. code pour le bouton prendre en charge début
 
