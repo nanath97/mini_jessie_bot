@@ -282,11 +282,6 @@ async def _script_engine(bot, user_id: int, topic_id: int, fields: Dict[str, Any
         profile["__script_active"] = False
         return
 
-
-print("[DBG] maybe_run_autopilot: user_id=", user_id)
-print("[DBG] user_text=", repr(user_text))
-print("[DBG] Autopilot=", repr(fields.get("Autopilot")), "Heat=", repr(fields.get("Heat")), "Script=", repr(fields.get("Script")))
-
 async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
     """
     Appelé depuis bott_webhook.run_autopilot_safe()
@@ -296,6 +291,12 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
         return
 
     fields = st.get("fields", {})
+
+    # ✅ DEBUG (OK ici: user_id + fields existent)
+    print("[DBG] maybe_run_autopilot: user_id=", user_id)
+    print("[DBG] Autopilot=", repr(fields.get("Autopilot")),
+          "Heat=", repr(fields.get("Heat")),
+          "Script=", repr(fields.get("Script")))
 
     # 1) Autopilot switch
     if (fields.get("Autopilot") or "").strip().upper() != "ON":
@@ -308,6 +309,9 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
 
     profile = _ensure_profile(fields)
     user_text = (profile.get("__last_user_text") or "").strip()
+
+    # ✅ DEBUG (OK ici: user_text existe)
+    print("[DBG] user_text=", repr(user_text))
 
     # 3) Update heat
     current_heat = int(fields.get("Heat") or 0)
@@ -322,9 +326,7 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
 
     # 6) Trigger script
     if (not profile.get("__script_active")) and new_heat >= HEAT_SCRIPT_THRESHOLD:
-        # activer script
         profile["__script_active"] = True
-        # script à utiliser : soit AI_STATE.Script, soit fallback
         profile["__script_id"] = fields.get("Script") or fields.get("Script ID") or fields.get("Script...") or "script_fr_v1"
         profile["__script_phase"] = "presex"
         profile["__step_index"] = 0
@@ -332,7 +334,12 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
         profile["__messages_since_step"] = 0
         profile["__waiting_until_messages"] = None
 
-    # 7) Si script actif -> ScriptEngine, sinon (MVP) ne rien faire
+    print("[DBG] new_heat=", new_heat,
+          "script_active=", profile.get("__script_active"),
+          "script_id=", profile.get("__script_id"),
+          "step=", profile.get("__step_index"))
+
+    # 7) Si script actif -> ScriptEngine
     if profile.get("__script_active"):
         await _script_engine(bot, user_id, topic_id, fields, profile, user_text)
 
