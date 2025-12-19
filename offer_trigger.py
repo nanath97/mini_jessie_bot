@@ -9,9 +9,13 @@ from core import DEFAULT_FLOU_IMAGE_FILE_ID
 
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 
-async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
+
+async def trigger_offer(bot, user_id: int, offer_code: str, origin: str = "AI") -> bool:
     """
     Déclenche une offre NovaPulse (équivalent /envXX, sans texte).
+    - Envoie une image floutée + lien de paiement
+    - Met à jour Airtable (AI_STATE)
+    - Notifie le staff dans le topic du client (si dispo)
     """
     state = get_state(user_id)
     if not state:
@@ -28,7 +32,8 @@ async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
     if not lien:
         return False
 
-    # Topic client
+    # Topic client (pour notif staff)
+    topic_id = None
     try:
         dummy_user = types.User(id=user_id, is_bot=False, first_name=str(user_id))
         topic_id = await ensure_topic_for_vip(dummy_user)
@@ -40,7 +45,7 @@ async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
         f"👉 Débloque ici : {lien}"
     )
 
-    # 1️⃣ Image floutée + lien
+    # 1) Image floutée + lien
     await bot.send_photo(
         chat_id=user_id,
         photo=DEFAULT_FLOU_IMAGE_FILE_ID,
@@ -48,24 +53,27 @@ async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
         parse_mode="Markdown"
     )
 
-    # 2️⃣ Message complémentaire
+    # 2) Message complémentaire
     await bot.send_message(
         chat_id=user_id,
         text=f"_💡 Offre {offer_code}€ – disponible maintenant._",
         parse_mode="Markdown"
     )
 
-    # 3️⃣ Update Airtable
+    # 3) Update Airtable
+    # ⚠️ IMPORTANT : JustUnlocked est une checkbox => bool OK
     upsert_state(
         user_id,
         {
             "Offers Sent": offers_sent + 1,
             "Last Offer Code": str(offer_code),
-            "Last Offer At": datetime.datetime.utcnow().isoformat() + "Z"
+            "Last Offer At": datetime.datetime.utcnow().isoformat() + "Z",
+            # Utile pour debug / suivi : à toi de garder ou non
+            "Last Offer Step": fields.get("Step Index")
         }
     )
 
-    # 4️⃣ Notif staff (topic)
+    # 4) Notif staff (topic)
     if STAFF_GROUP_ID and topic_id:
         try:
             await bot.request(
@@ -86,14 +94,3 @@ async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
             pass
 
     return True
-
-
-upsert_state(
-    user_id,
-    {
-        "Offers Sent": offers_sent + 1,
-        "Last Offer Code": str(offer_code),
-        "Last Offer At": datetime.datetime.utcnow().isoformat() + "Z",
-        "Last Offer Step": fields.get("Step Index")
-    }
-)
