@@ -299,51 +299,17 @@ async def _script_engine(bot, user_id: int, topic_id: int, fields: Dict[str, Any
 
 async def _core_reply(bot, user_id: int, fields: dict, profile: dict, user_text: str):
     """
-    Réponse simple tant que le script n'est pas actif.
-    1-2 phrases, naturel, 1 question max.
+    CORE reply simple (sans OpenAI) pour valider le flow.
     """
-    # Mini fallback si tu veux ultra simple (sans OpenAI) :
-    # await bot.send_message(user_id, "Hey 😇 oui je suis là... tu fais quoi là ?")
+    # Évite de spammer
+    if profile.get("__last_core_reply") == user_text:
+        return
 
-    # Version OpenAI (recommandée)
-    script_id = fields.get("Script") or fields.get("Script ID") or "script_fr_v1"
-    script_json = get_script_json(script_id) or {}
-    persona = (script_json.get("persona") or {})
-    name = persona.get("name", "Jessie")
-    tone = persona.get("tone", "naturel, teasing, réponses courtes")
+    reply = "Hey 😇 oui je suis là… tu fais quoi là ?"
 
-    bundle = (profile.get("__bundle_text") or "").strip()
-    bundle_tail = "\n".join(bundle.splitlines()[-8:]).strip()
+    await bot.send_message(user_id, reply)
+    profile["__last_core_reply"] = user_text
 
-    system = (
-        f"Tu es {name}, une créatrice de contenu sur Telegram.\n"
-        f"Style: {tone}.\n"
-        f"Règles: jamais dire que tu es une IA. 1 question max. Réponse courte (1-2 phrases).\n"
-        f"Si l'utilisateur pose une question, réponds d'abord, puis enchaîne.\n"
-    )
-
-    user_prompt = (
-        f"Contexte (derniers messages):\n{bundle_tail}\n\n"
-        f"Message utilisateur: {user_text}\n\n"
-        f"Réponds maintenant."
-    )
-
-    try:
-        resp = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.9,
-            max_tokens=120,
-        )
-        reply = (resp.choices[0].message.content or "").strip()
-        if reply:
-            await bot.send_message(user_id, reply)
-            profile["__last_ai_text"] = reply
-    except Exception as e:
-        print(f"[CORE_REPLY] error: {e}")
 
 
 
