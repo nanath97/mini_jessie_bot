@@ -19,6 +19,11 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+if r.status_code == 422:
+    print("❌ Airtable payload rejected")
+    print(json.dumps(payload, indent=2))
+    print(r.text)
+
 def _ensure_cfg():
     if not AIRTABLE_API_KEY or not BASE_ID:
         raise RuntimeError("Airtable config missing: set AIRTABLE_API_KEY and BASE_ID env vars.")
