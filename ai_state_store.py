@@ -23,43 +23,66 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+
 def _ensure_cfg():
     if not AIRTABLE_API_KEY or not BASE_ID:
         raise RuntimeError("AIRTABLE_API_KEY ou BASE_ID manquant")
 
+
 def _table_url(name: str) -> str:
     return name.replace(" ", "%20")
+
 
 def _get_first_record(table: str, formula: str) -> Optional[Dict[str, Any]]:
     _ensure_cfg()
     url = f"{BASE_URL}/{_table_url(table)}"
     params = {"filterByFormula": formula, "maxRecords": 1}
     r = requests.get(url, headers=HEADERS, params=params, timeout=20)
+    if not r.ok:
+        print("[AIRTABLE GET ERROR]", r.status_code, r.text)
     r.raise_for_status()
     recs = r.json().get("records", [])
     return recs[0] if recs else None
+
 
 def _get_records(table: str, formula: str, max_records: int = 50) -> List[Dict[str, Any]]:
     _ensure_cfg()
     url = f"{BASE_URL}/{_table_url(table)}"
     params = {"filterByFormula": formula, "pageSize": min(max_records, 100)}
     r = requests.get(url, headers=HEADERS, params=params, timeout=20)
+    if not r.ok:
+        print("[AIRTABLE GET ERROR]", r.status_code, r.text)
     r.raise_for_status()
     return r.json().get("records", [])[:max_records]
+
 
 def _patch_record(table: str, record_id: str, fields: Dict[str, Any]) -> None:
     _ensure_cfg()
     url = f"{BASE_URL}/{_table_url(table)}/{record_id}"
     payload = {"fields": fields}
+
+    # ✅ DEBUG utile (pour comprendre les 422)
+    print("[AIRTABLE PATCH] table=", table, "record_id=", record_id, "fields=", fields)
+
     r = requests.patch(url, headers=HEADERS, data=json.dumps(payload), timeout=20)
+    if not r.ok:
+        print("[AIRTABLE PATCH ERROR]", r.status_code, r.text)
     r.raise_for_status()
+
 
 def _create_record(table: str, fields: Dict[str, Any]) -> None:
     _ensure_cfg()
     url = f"{BASE_URL}/{_table_url(table)}"
     payload = {"fields": fields}
+
+    # ✅ DEBUG utile (pour comprendre les 422)
+    print("[AIRTABLE CREATE] table=", table, "fields=", fields)
+
     r = requests.post(url, headers=HEADERS, data=json.dumps(payload), timeout=20)
+    if not r.ok:
+        print("[AIRTABLE CREATE ERROR]", r.status_code, r.text)
     r.raise_for_status()
+
 
 # ================== AI STATE ==================
 
@@ -72,6 +95,7 @@ def get_state(user_id: int) -> Optional[Dict[str, Any]]:
         return None
     return {"id": rec["id"], "fields": rec.get("fields", {})}
 
+
 def upsert_state(user_id: int, updates: Dict[str, Any]) -> None:
     """
     Crée la ligne si absente puis patch.
@@ -82,7 +106,9 @@ def upsert_state(user_id: int, updates: Dict[str, Any]) -> None:
         base_fields.update(updates)
         _create_record(AI_STATE_TABLE, base_fields)
         return
+
     _patch_record(AI_STATE_TABLE, st["id"], updates)
+
 
 # ================== SCRIPTS ==================
 
@@ -101,6 +127,7 @@ def get_script_json(script_id: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
+
 # ================== MEDIA ==================
 
 def get_media_candidates(list_id: str, stage: Optional[str] = None, limit: int = 25) -> List[Dict[str, Any]]:
@@ -114,6 +141,7 @@ def get_media_candidates(list_id: str, stage: Optional[str] = None, limit: int =
     - Stage
     - Media ID
     - Desc Short
+    - Price Code (optionnel)
     """
     if not list_id:
         return []
