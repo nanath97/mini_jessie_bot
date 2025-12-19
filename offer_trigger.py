@@ -61,7 +61,7 @@ async def trigger_offer(bot, user_id: int, offer_code: str, origin="AI"):
         {
             "Offers Sent": offers_sent + 1,
             "Last Offer Code": str(offer_code),
-            "Last Offer At": datetime.datetime.utcnow().isoformat()
+            "Last Offer At": datetime.datetime.utcnow().isoformat() + "Z"
         }
     )
 
@@ -93,7 +93,7 @@ upsert_state(
     {
         "Offers Sent": offers_sent + 1,
         "Last Offer Code": str(offer_code),
-        "Last Offer At": datetime.datetime.utcnow().isoformat(),
+        "Last Offer At": datetime.datetime.utcnow().isoformat() + "Z",
         "Last Offer Step": fields.get("Step Index")
     }
 )
