@@ -1340,7 +1340,7 @@ async def relay_from_client(message: types.Message):
 
 # ✅ AUTOPILOT : hors du try/except du transfert 102
     try:
-        await maybe_run_autopilot(message, topic_id, bot)  # #102
+        await maybe_run_autopilot(message.from_user.id, topic_id, bot)  # #102
     except Exception as e:
         print(f"❌ Erreur autopilot : {e}")
 
