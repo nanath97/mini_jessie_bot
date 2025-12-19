@@ -301,15 +301,24 @@ def _parse_json_safe(raw: str) -> dict:
     return obj if isinstance(obj, dict) else {}
 
 
-def _get_script_obj(fields: dict) -> dict:
-    """Get script JSON from Airtable if available, else fallback to local SCRIPT."""
-    script_id = str(fields.get("Script ID") or (SCRIPT or {}).get("script_id", "script_fr_v1"))
-    if get_script_json:
-        raw = get_script_json(script_id)
-        obj = _parse_json_safe(raw)
-        if obj:
-            return obj
-    return SCRIPT or {}
+def get_script_json(script_id: str):
+    """
+    Récupère le script depuis Airtable (table ScriptOFM)
+    """
+    from ai_state_store import get_script_from_airtable
+
+    record = get_script_from_airtable(script_id)
+    if not record:
+        print(f"❌ [AI] Script introuvable dans Airtable : {script_id}")
+        return None
+
+    script_json = record.get("Script JSON")
+    if not script_json:
+        print(f"❌ [AI] Champ Script JSON vide pour {script_id}")
+        return None
+
+    return script_json
+
 
 
 def _pick_presex_message(script_obj: dict) -> str:

@@ -61,14 +61,14 @@ def get_script_record(script_id: str) -> Optional[Dict[str, Any]]:
         return None
     return _get_first_record(SCRIPT_TABLE, f"{{Script ID}}='{script_id}'")
 
-def get_script_json(script_id: str) -> Optional[str]:
-    """Return the script JSON text stored in the script table, if present."""
-    rec = get_script_record(script_id)
-    if not rec:
-        return None
-    fields = rec.get("fields", {})
-    for key in ("Script JSON", "JSON", "Script", "script_json"):
-        v = fields.get(key)
-        if isinstance(v, str) and v.strip():
-            return v
-    return None
+def get_script_from_airtable(script_id: str):
+    url = f"{AIRTABLE_BASE_URL}/ScriptOFM"
+    params = {
+        "filterByFormula": f"{{Script ID}}='{script_id}'"
+    }
+    r = requests.get(url, headers=HEADERS, params=params)
+    r.raise_for_status()
+    records = r.json().get("records", [])
+    return records[0]["fields"] if records else None
+
+
