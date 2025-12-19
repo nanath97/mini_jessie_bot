@@ -91,6 +91,39 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 
 
 
+# --- AUTOPILOT SAFE (GLOBAL) ---#102
+async def run_autopilot_safe(message, topic_id, bot):
+    user_id = getattr(message.from_user, "id", None)
+    print(f"[AUTOPILOT_SAFE] called user_id={user_id} topic_id={topic_id} text={repr(getattr(message, 'text', None))}")
+
+    if not user_id:
+        print("[AUTOPILOT_SAFE] no user_id -> return")
+        return
+
+    txt = (message.text or "").strip()
+    if txt:
+        state = get_state(user_id) or {}
+        fields = (state or {}).get("fields", {})
+
+        try:
+            profile = json.loads(fields.get("Profile JSON") or "{}")
+            if not isinstance(profile, dict):
+                profile = {}
+        except Exception:
+            profile = {}
+
+        prev = (profile.get("__bundle_text") or "").strip()
+        profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
+        profile["__last_user_text"] = txt
+
+        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+        print("[AUTOPILOT_SAFE] upsert_state OK")
+
+    await maybe_run_autopilot(user_id, topic_id, bot)
+    print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
+#102
+
+
 
 #100
 
@@ -1336,7 +1369,7 @@ async def relay_from_client(message: types.Message):
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
-    # ✅ AUTOPILOT : appel (même si transfert a échoué)
+    # ✅ AUTOPILOT : appel (même si transfert a échoué)102 DEBUT
     if topic_id:
         try:
             await run_autopilot_safe(message, topic_id, bot)
