@@ -1344,16 +1344,24 @@ async def relay_from_client(message: types.Message):
 # ✅ AUTOPILOT : hors du try/except du transfert 102 DEBUT
 
 async def run_autopilot_safe(message, topic_id, bot):
-    try:
-        user_id = message.from_user.id
-    except Exception:
-        return  # pas de from_user => on sort
+    user_id = getattr(message.from_user, "id", None)
+    print(f"[AUTOPILOT_SAFE] called user_id={user_id} topic_id={topic_id} text={repr(getattr(message, 'text', None))}")
 
-    # Stocke le texte pour l'autopilot
+    if not user_id:
+        print("[AUTOPILOT_SAFE] no user_id -> return")
+        return
+
     txt = (message.text or "").strip()
     if txt:
-        state = get_state(user_id) or {}
-        fields = state.get("fields", {})
+        try:
+            state = get_state(user_id)
+            print(f"[AUTOPILOT_SAFE] get_state -> {'FOUND' if state else 'NONE'}")
+        except Exception as e:
+            print(f"[AUTOPILOT_SAFE] get_state ERROR: {e}")
+            state = None
+
+        fields = (state or {}).get("fields", {})
+
         try:
             profile = json.loads(fields.get("Profile JSON") or "{}")
             if not isinstance(profile, dict):
@@ -1365,13 +1373,19 @@ async def run_autopilot_safe(message, topic_id, bot):
         profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
         profile["__last_user_text"] = txt
 
-        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+        try:
+            upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+            print("[AUTOPILOT_SAFE] upsert_state OK")
+        except Exception as e:
+            print(f"[AUTOPILOT_SAFE] upsert_state ERROR: {e}")
+            return
 
-    # Lance l'autopilot
     try:
         await maybe_run_autopilot(user_id, topic_id, bot)
+        print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
     except Exception as e:
         print(f"❌ Erreur autopilot : {e}")
+
 
 # ✅ AUTOPILOT : hors du try/except du transfert 102 FIN
 
