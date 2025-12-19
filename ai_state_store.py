@@ -33,6 +33,11 @@ def _table_url(name: str) -> str:
     return name.replace(" ", "%20")
 
 
+def _airtable_escape_str(s: str) -> str:
+    # Airtable filterByFormula uses single quotes; escape them by doubling.
+    return s.replace("'", "''")
+
+
 def _get_first_record(table: str, formula: str) -> Optional[Dict[str, Any]]:
     _ensure_cfg()
     url = f"{BASE_URL}/{_table_url(table)}"
@@ -61,7 +66,6 @@ def _patch_record(table: str, record_id: str, fields: Dict[str, Any]) -> None:
     url = f"{BASE_URL}/{_table_url(table)}/{record_id}"
     payload = {"fields": fields}
 
-    # ✅ DEBUG utile (pour comprendre les 422)
     print("[AIRTABLE PATCH] table=", table, "record_id=", record_id, "fields=", fields)
 
     r = requests.patch(url, headers=HEADERS, data=json.dumps(payload), timeout=20)
@@ -75,7 +79,6 @@ def _create_record(table: str, fields: Dict[str, Any]) -> None:
     url = f"{BASE_URL}/{_table_url(table)}"
     payload = {"fields": fields}
 
-    # ✅ DEBUG utile (pour comprendre les 422)
     print("[AIRTABLE CREATE] table=", table, "fields=", fields)
 
     r = requests.post(url, headers=HEADERS, data=json.dumps(payload), timeout=20)
@@ -89,20 +92,34 @@ def _create_record(table: str, fields: Dict[str, Any]) -> None:
 def get_state(user_id: int) -> Optional[Dict[str, Any]]:
     """
     Retourne {"id": airtable_record_id, "fields": {...}} ou None
+
+    ✅ On cherche Telegram ID en texte (robuste si colonne = Single line text)
     """
+    uid = str(user_id)
+    uid_esc = _airtable_escape_str(uid)
+
+    # Priorité: match texte
+    rec = _get_first_record(AI_STATE_TABLE, f"{{Telegram ID}}='{uid_esc}'")
+    if rec:
+        return {"id": rec["id"], "fields": rec.get("fields", {})}
+
+    # Fallback (si jamais colonne est bien Number chez certains clients)
     rec = _get_first_record(AI_STATE_TABLE, f"{{Telegram ID}}={int(user_id)}")
     if not rec:
         return None
+
     return {"id": rec["id"], "fields": rec.get("fields", {})}
 
 
 def upsert_state(user_id: int, updates: Dict[str, Any]) -> None:
     """
     Crée la ligne si absente puis patch.
+
+    ✅ On écrit Telegram ID en string pour éviter INVALID_VALUE_FOR_COLUMN
     """
     st = get_state(user_id)
     if st is None:
-        base_fields = {"Telegram ID": int(user_id)}
+        base_fields = {"Telegram ID": str(user_id)}
         base_fields.update(updates)
         _create_record(AI_STATE_TABLE, base_fields)
         return
@@ -113,7 +130,7 @@ def upsert_state(user_id: int, updates: Dict[str, Any]) -> None:
 # ================== SCRIPTS ==================
 
 def get_script_json(script_id: str) -> Optional[Dict[str, Any]]:
-    rec = _get_first_record(SCRIPT_TABLE, f"{{Script ID}}='{script_id}'")
+    rec = _get_first_record(SCRIPT_TABLE, f"{{Script ID}}='{_airtable_escape_str(script_id)}'")
     if not rec:
         return None
     fields = rec.get("fields", {})
@@ -146,9 +163,10 @@ def get_media_candidates(list_id: str, stage: Optional[str] = None, limit: int =
     if not list_id:
         return []
 
-    parts = [f"{{List ID}}='{list_id}'", "{Active}=TRUE()"]
+    list_id_esc = _airtable_escape_str(list_id)
+    parts = [f"{{List ID}}='{list_id_esc}'", "{Active}=TRUE()"]
     if stage:
-        parts.append(f"{{Stage}}='{stage}'")
+        parts.append(f"{{Stage}}='{_airtable_escape_str(stage)}'")
     formula = "AND(" + ",".join(parts) + ")"
 
     recs = _get_records(MEDIA_ITEMS_TABLE, formula, max_records=limit)
