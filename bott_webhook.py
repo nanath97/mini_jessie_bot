@@ -118,11 +118,20 @@ async def run_autopilot_safe(message, topic_id, bot):
         profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
         profile["__last_user_text"] = txt
 
-        upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
+        updates = {
+            "Profile JSON": json.dumps(profile, ensure_ascii=False)
+        }
+
+        # ✅ Autopilot OFF par défaut (comme avant)
+        if not (fields.get("Autopilot") or "").strip():
+            updates["Autopilot"] = "OFF"
+
+        upsert_state(user_id, updates)
         print("[AUTOPILOT_SAFE] upsert_state OK")
 
     await maybe_run_autopilot(user_id, topic_id, bot)
     print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
+
 #102
 
 
