@@ -1275,11 +1275,9 @@ async def relay_from_client(message: types.Message):
     dans le STAFF_GROUP. Le statut VIP sert uniquement aux stats / envois groupés.
     """
     user_id = message.from_user.id
-
     print(f"[RELAY] message from {user_id} (chat {message.chat.id}), authorized={user_id in authorized_users}")
 
     # 1) Vérifier la ban_list
-    from ban_storage import ban_list  # (si pas déjà importé en haut)
     for admin_id, clients_bannis in ban_list.items():
         if user_id in clients_bannis:
             try:
@@ -1298,7 +1296,6 @@ async def relay_from_client(message: types.Message):
     # 2) 🔎 Détection des mots "call" / "custom" (UNIQUEMENT TEXTE)
     if message.content_type == types.ContentType.TEXT:
         texte = (message.text or "").lower()
-
         if any(mot in texte for mot in ("call", "custom")):
             try:
                 await bot.send_message(
@@ -1314,10 +1311,10 @@ async def relay_from_client(message: types.Message):
             except Exception as e:
                 print(f"Erreur lors de l'avertissement du directeur : {e}")
 
-    # 3) Création / récupération du topic dédié pour ce client
+    # 3) Création / récupération du topic dédié pour ce client + transfert
+    topic_id = None
     try:
         from vip_topics import ensure_topic_for_vip
-
         topic_id = await ensure_topic_for_vip(message.from_user)
 
         res = await bot.request(
@@ -1334,57 +1331,20 @@ async def relay_from_client(message: types.Message):
         if sent_msg_id:
             pending_replies[(STAFF_GROUP_ID, sent_msg_id)] = message.chat.id
 
-
         print(f"✅ Message client reçu de {message.chat.id} et transféré dans le topic {topic_id}")
+
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
-
-
-# ✅ AUTOPILOT : hors du try/except du transfert 102 DEBUT
-
-async def run_autopilot_safe(message, topic_id, bot):
-    user_id = getattr(message.from_user, "id", None)
-    print(f"[AUTOPILOT_SAFE] called user_id={user_id} topic_id={topic_id} text={repr(getattr(message, 'text', None))}")
-
-    if not user_id:
-        print("[AUTOPILOT_SAFE] no user_id -> return")
-        return
-
-    txt = (message.text or "").strip()
-    if txt:
+    # ✅ AUTOPILOT : appel (même si transfert a échoué)
+    if topic_id:
         try:
-            state = get_state(user_id)
-            print(f"[AUTOPILOT_SAFE] get_state -> {'FOUND' if state else 'NONE'}")
+            await run_autopilot_safe(message, topic_id, bot)
         except Exception as e:
-            print(f"[AUTOPILOT_SAFE] get_state ERROR: {e}")
-            state = None
+            print(f"❌ Erreur run_autopilot_safe : {e}")
+    else:
+        print("[AUTOPILOT_SAFE] topic_id missing -> skip")
 
-        fields = (state or {}).get("fields", {})
-
-        try:
-            profile = json.loads(fields.get("Profile JSON") or "{}")
-            if not isinstance(profile, dict):
-                profile = {}
-        except Exception:
-            profile = {}
-
-        prev = (profile.get("__bundle_text") or "").strip()
-        profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
-        profile["__last_user_text"] = txt
-
-        try:
-            upsert_state(user_id, {"Profile JSON": json.dumps(profile, ensure_ascii=False)})
-            print("[AUTOPILOT_SAFE] upsert_state OK")
-        except Exception as e:
-            print(f"[AUTOPILOT_SAFE] upsert_state ERROR: {e}")
-            return
-
-    try:
-        await maybe_run_autopilot(user_id, topic_id, bot)
-        print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
-    except Exception as e:
-        print(f"❌ Erreur autopilot : {e}")
 
 
 # ✅ AUTOPILOT : hors du try/except du transfert 102 FIN
