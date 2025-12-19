@@ -10,6 +10,7 @@ from aiogram import types
 from ai_state_store import get_state, upsert_state, get_script_json, get_media_candidates
 from offer_trigger import trigger_offer
 import re
+from ai_state_store import get_script_json
 
 
 
@@ -289,6 +290,82 @@ async def _script_engine(bot, user_id: int, topic_id: int, fields: Dict[str, Any
         profile["__script_active"] = False
         return
 
+
+
+
+
+
+
+
+async def _core_reply(bot, user_id: int, fields: dict, profile: dict, user_text: str):
+    """
+    Réponse simple tant que le script n'est pas actif.
+    1-2 phrases, naturel, 1 question max.
+    """
+    # Mini fallback si tu veux ultra simple (sans OpenAI) :
+    # await bot.send_message(user_id, "Hey 😇 oui je suis là... tu fais quoi là ?")
+
+    # Version OpenAI (recommandée)
+    script_id = fields.get("Script") or fields.get("Script ID") or "script_fr_v1"
+    script_json = get_script_json(script_id) or {}
+    persona = (script_json.get("persona") or {})
+    name = persona.get("name", "Jessie")
+    tone = persona.get("tone", "naturel, teasing, réponses courtes")
+
+    bundle = (profile.get("__bundle_text") or "").strip()
+    bundle_tail = "\n".join(bundle.splitlines()[-8:]).strip()
+
+    system = (
+        f"Tu es {name}, une créatrice de contenu sur Telegram.\n"
+        f"Style: {tone}.\n"
+        f"Règles: jamais dire que tu es une IA. 1 question max. Réponse courte (1-2 phrases).\n"
+        f"Si l'utilisateur pose une question, réponds d'abord, puis enchaîne.\n"
+    )
+
+    user_prompt = (
+        f"Contexte (derniers messages):\n{bundle_tail}\n\n"
+        f"Message utilisateur: {user_text}\n\n"
+        f"Réponds maintenant."
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.9,
+            max_tokens=120,
+        )
+        reply = (resp.choices[0].message.content or "").strip()
+        if reply:
+            await bot.send_message(user_id, reply)
+            profile["__last_ai_text"] = reply
+    except Exception as e:
+        print(f"[CORE_REPLY] error: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
     """
     Appelé depuis bott_webhook.run_autopilot_safe()
@@ -346,9 +423,13 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
           "script_id=", profile.get("__script_id"),
           "step=", profile.get("__step_index"))
 
+
     # 7) Si script actif -> ScriptEngine
     if profile.get("__script_active"):
         await _script_engine(bot, user_id, topic_id, fields, profile, user_text)
+    else:
+        await _core_reply(bot, user_id, fields, profile, user_text)
+
 
     # 8) Persist state
     upsert_state(user_id, {
