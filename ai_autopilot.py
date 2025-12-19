@@ -7,6 +7,8 @@ import asyncio
 import uuid
 from ai_state_store import get_state, upsert_state
 from aiogram import types
+from typing import Optional
+
 
 # Script fetch (Airtable ScriptOFM)
 try:
