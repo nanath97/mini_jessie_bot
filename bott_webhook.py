@@ -17,6 +17,7 @@ from urllib.parse import quote
 from datetime import datetime, timezone
 from ai_autopilot import maybe_run_autopilot
 from payment_links import liens_paiement
+from ai_state_store import get_state, upsert_state
 
 
 
@@ -1340,7 +1341,7 @@ async def relay_from_client(message: types.Message):
 
 
 
-# ✅ AUTOPILOT : hors du try/except du transfert 102
+# ✅ AUTOPILOT : hors du try/except du transfert 102 DEBUT
 
 async def run_autopilot_safe(message, topic_id, bot):
     try:
@@ -1372,7 +1373,7 @@ async def run_autopilot_safe(message, topic_id, bot):
     except Exception as e:
         print(f"❌ Erreur autopilot : {e}")
 
-
+# ✅ AUTOPILOT : hors du try/except du transfert 102 FIN
 
 # 1. code pour le bouton prendre en charge début
 
