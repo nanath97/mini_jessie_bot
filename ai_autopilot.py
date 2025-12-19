@@ -282,6 +282,11 @@ async def _script_engine(bot, user_id: int, topic_id: int, fields: Dict[str, Any
         profile["__script_active"] = False
         return
 
+
+print("[DBG] maybe_run_autopilot: user_id=", user_id)
+print("[DBG] user_text=", repr(user_text))
+print("[DBG] Autopilot=", repr(fields.get("Autopilot")), "Heat=", repr(fields.get("Heat")), "Script=", repr(fields.get("Script")))
+
 async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
     """
     Appelé depuis bott_webhook.run_autopilot_safe()

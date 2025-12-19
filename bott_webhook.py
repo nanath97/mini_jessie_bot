@@ -128,6 +128,12 @@ async def run_autopilot_safe(message, topic_id, bot):
         print("[AUTOPILOT_SAFE] upsert_state OK")
 
     # 4) Lancer le moteur
+    state = get_state(user_id) or {}
+    fields = (state or {}).get("fields", {})
+    print("[DBG] Autopilot field =", repr(fields.get("Autopilot")))
+    print("[DBG] Heat field =", repr(fields.get("Heat")))
+    print("[DBG] Script field =", repr(fields.get("Script")))
+
     await maybe_run_autopilot(user_id, topic_id, bot)
     print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
 
