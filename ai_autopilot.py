@@ -9,6 +9,13 @@ from aiogram import types
 
 from ai_state_store import get_state, upsert_state, get_script_json, get_media_candidates
 from offer_trigger import trigger_offer
+import re
+
+
+
+
+def _now_utc():
+    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
 # --------- CONFIG ----------
 COOLDOWN_SECONDS = int(os.getenv("AI_COOLDOWN_SECONDS", "8"))
@@ -304,7 +311,7 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
 
     # 2) Cooldown global
     cd = _parse_iso(fields.get("Cooldown Until"))
-    if cd and datetime.datetime.utcnow() < cd:
+    if cd and _now_utc() < cd:
         return
 
     profile = _ensure_profile(fields)
@@ -347,5 +354,6 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
     upsert_state(user_id, {
         "Heat": new_heat,
         "Profile JSON": json.dumps(profile, ensure_ascii=False),
-        "Cooldown Until": (datetime.datetime.utcnow() + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
+        "Cooldown Until": (_now_utc() + datetime.timedelta(seconds=COOLDOWN_SECONDS)).isoformat()
+
     })
