@@ -103,34 +103,34 @@ async def run_autopilot_safe(message, topic_id, bot):
         return
 
     txt = (message.text or "").strip()
-    if txt:
-        state = get_state(user_id) or {}
-        fields = (state or {}).get("fields", {})
 
-        try:
-            profile = json.loads(fields.get("Profile JSON") or "{}")
-            if not isinstance(profile, dict):
-                profile = {}
-        except Exception:
+    # 1) Charger state
+    state = get_state(user_id) or {}
+    fields = (state or {}).get("fields", {})
+
+    # 2) Charger profile JSON
+    try:
+        profile = json.loads(fields.get("Profile JSON") or "{}")
+        if not isinstance(profile, dict):
             profile = {}
+    except Exception:
+        profile = {}
 
+    # 3) Mettre à jour uniquement ce qu’on doit tracker
+    if txt:
         prev = (profile.get("__bundle_text") or "").strip()
         profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
         profile["__last_user_text"] = txt
 
-        updates = {
+        upsert_state(user_id, {
             "Profile JSON": json.dumps(profile, ensure_ascii=False)
-        }
-
-        # ✅ Autopilot OFF par défaut (comme avant)
-        if not (fields.get("Autopilot") or "").strip():
-            updates["Autopilot"] = "OFF"
-
-        upsert_state(user_id, updates)
+        })
         print("[AUTOPILOT_SAFE] upsert_state OK")
 
+    # 4) Lancer le moteur
     await maybe_run_autopilot(user_id, topic_id, bot)
     print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
+
 
 #102
 
