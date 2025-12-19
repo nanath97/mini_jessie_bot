@@ -5,10 +5,11 @@ from ai_state_store import get_state, upsert_state
 from payment_links import liens_paiement
 from vip_topics import ensure_topic_for_vip
 from aiogram import types
-from core import DEFAULT_FLOU_IMAGE_FILE_ID
+
 
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 
+DEFAULT_FLOU_IMAGE_FILE_ID = os.getenv("DEFAULT_FLOU_IMAGE_FILE_ID", "")
 
 async def trigger_offer(bot, user_id: int, offer_code: str, origin: str = "AI") -> bool:
     """
