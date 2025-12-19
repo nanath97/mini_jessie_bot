@@ -410,7 +410,8 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
 
     # 2) Cooldown global
     cd = _parse_iso(fields.get("Cooldown Until"))
-    if cd and _now_utc() < cd:
+    last_processed = (profile.get("__last_processed_text") or "").strip()
+    if cd and _now_utc() < cd and user_text and user_text == last_processed:
         return
 
     profile = _ensure_profile(fields)
@@ -454,6 +455,8 @@ async def maybe_run_autopilot(user_id: int, topic_id: int, bot):
 
 
     # 8) Persist state
+    profile["__last_processed_text"] = user_text
+
     upsert_state(user_id, {
         "Heat": new_heat,
         "Profile JSON": json.dumps(profile, ensure_ascii=False),
