@@ -1,13 +1,1 @@
-{
-  "script_id": "script_fr_v1",
-  "steps": [
-    { "slot": "prenom", "messages": ["Coucou 😌,  moi c’est Jessie et toi  ?"] },
-    { "slot": "ville", "messages": ["et tu viens d’où ?"] },
-    { "slot": "age", "messages": ["Et tu as quel âge si ce n'est pas indiscret haha ?"] },
-    { "slot": "metier", "messages": ["Et sinon, tu fais quoi dans la vie mon petit {prenom} ?"] },
-    { "slot": "celibataire", "messages": ["Mais attends, t’es célibataire ou t’es déjà pris ? 😏"] },
 
-    { "slot": null, "messages": ["Ok… je vois le style 😌 alors ça veut dire tu n'es pas contre le fait de t'amuser un peu haha 🔞 ?"] },
-    { "slot": null, "messages": ["Je peux être très tentante tu sais… 😇"] }
-  ]
-}

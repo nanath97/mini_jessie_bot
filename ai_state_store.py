@@ -1,43 +1,74 @@
 import os
 import requests
+from typing import Any, Dict, Optional
 
-AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-BASE_ID = os.getenv("BASE_ID")
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY", "")
+BASE_ID = os.getenv("BASE_ID", "")
 
+# Tables
 AI_STATE_TABLE = os.getenv("AIRTABLE_TABLE_AI_STATE", "AI_STATE")
-AI_STATE_TABLE_URL = AI_STATE_TABLE.replace(" ", "%20")
+SCRIPT_TABLE = os.getenv("AIRTABLE_TABLE_SCRIPTS", "ScriptOFM")  # visible in your base
 
-BASE_URL = f"https://api.airtable.com/v0/{BASE_ID}/{AI_STATE_TABLE_URL}"
+def _table_url(table_name: str) -> str:
+    return table_name.replace(" ", "%20")
+
+BASE_URL = f"https://api.airtable.com/v0/{BASE_ID}"
 
 HEADERS = {
     "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
-def get_state(telegram_id: int):
-    formula = f"{{Telegram ID}}='{telegram_id}'"
-    r = requests.get(BASE_URL, headers=HEADERS, params={
-        "filterByFormula": formula,
-        "maxRecords": 1
-    })
+def _ensure_cfg():
+    if not AIRTABLE_API_KEY or not BASE_ID:
+        raise RuntimeError("Airtable config missing: set AIRTABLE_API_KEY and BASE_ID env vars.")
+
+def _get_first_record(table: str, formula: str) -> Optional[Dict[str, Any]]:
+    _ensure_cfg()
+    url = f"{BASE_URL}/{_table_url(table)}"
+    params = {"filterByFormula": formula, "maxRecords": 1}
+    r = requests.get(url, headers=HEADERS, params=params, timeout=20)
     r.raise_for_status()
-    records = r.json().get("records", [])
-    return records[0] if records else None
+    data = r.json()
+    recs = data.get("records", [])
+    return recs[0] if recs else None
 
+def get_state(telegram_id: int) -> Optional[Dict[str, Any]]:
+    """Return the Airtable AI_STATE record for this Telegram ID, or None."""
+    rec = _get_first_record(AI_STATE_TABLE, f"{{Telegram ID}}='{telegram_id}'")
+    return rec
 
-def upsert_state(telegram_id: int, fields: dict):
-    record = get_state(telegram_id)
-    payload = {
-        "fields": {
-            "Telegram ID": str(telegram_id),
-            **fields
-        }
-    }
+def upsert_state(telegram_id: int, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Upsert fields into AI_STATE for this Telegram ID."""
+    _ensure_cfg()
+    url = f"{BASE_URL}/{_table_url(AI_STATE_TABLE)}"
+    existing = get_state(telegram_id)
 
-    if record:
-        r = requests.patch(f"{BASE_URL}/{record['id']}", headers=HEADERS, json=payload)
+    payload = {"fields": {"Telegram ID": str(telegram_id), **fields}}
+
+    if existing:
+        rid = existing["id"]
+        r = requests.patch(f"{url}/{rid}", headers=HEADERS, json=payload, timeout=20)
     else:
-        r = requests.post(BASE_URL, headers=HEADERS, json=payload)
+        r = requests.post(url, headers=HEADERS, json=payload, timeout=20)
 
     r.raise_for_status()
     return r.json()
+
+def get_script_record(script_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch a ScriptOFM (or other script table) record by Script ID."""
+    if not script_id:
+        return None
+    return _get_first_record(SCRIPT_TABLE, f"{{Script ID}}='{script_id}'")
+
+def get_script_json(script_id: str) -> Optional[str]:
+    """Return the script JSON text stored in the script table, if present."""
+    rec = get_script_record(script_id)
+    if not rec:
+        return None
+    fields = rec.get("fields", {})
+    for key in ("Script JSON", "JSON", "Script", "script_json"):
+        v = fields.get(key)
+        if isinstance(v, str) and v.strip():
+            return v
+    return None

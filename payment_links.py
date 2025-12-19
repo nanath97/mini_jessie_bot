@@ -1,0 +1,19 @@
+# payment_links.py
+
+liens_paiement = {
+    "1": "https://buy.stripe.com/00g5ooedBfoK07u6oE",
+    "3": "https://buy.stripe.com/9B68wOdtb93hfUV1rf7AI0j",
+    "9": "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G",
+    "14": "https://buy.stripe.com/aEUeYYd9xfoKaM8bIL",
+    "19": "https://buy.stripe.com/5kAaIId9x90mbQc148",
+    "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
+    "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
+    "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
+    "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
+    "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
+    "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
+    "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
+    "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
+    "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
+    "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv"
+}
