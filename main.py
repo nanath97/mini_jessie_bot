@@ -1,26 +1,27 @@
 from fastapi import FastAPI, Request
-from aiogram import types
+from aiogram import types, Bot, Dispatcher   # <- ajoute Bot, Dispatcher
 from dotenv import load_dotenv
 import os
 
 from core import bot, dp
 import bott_webhook
 from stripe_webhook import router as stripe_router
-from vip_topics import load_vip_topics_from_airtable, load_vip_topics_from_disk, restore_missing_panels, load_annotations_from_airtable 
+from vip_topics import load_vip_topics_from_airtable, load_vip_topics_from_disk, restore_missing_panels, load_annotations_from_airtable
 import asyncio
 
-
-
 load_dotenv()
-
 app = FastAPI()
-
 
 @app.post(f"/bot/{os.getenv('BOT_TOKEN')}")
 async def telegram_webhook(request: Request):
     try:
         data = await request.json()
         update = types.Update(**data)
+
+        # ✅ FIX CONTEXT AIOGRAM
+        Bot.set_current(bot)
+        Dispatcher.set_current(dp)
+
         await dp.process_update(update)
     except Exception as e:
         print("Erreur dans webhook :", e)
