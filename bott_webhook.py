@@ -22,19 +22,6 @@ import json
 
 
 
-
-# Handler pour récupérer le file_id d'une photo
-@dp.message_handler(content_types=['photo'])
-async def get_photo_file_id(message: types.Message):
-    file_id = message.photo[-1].file_id  # on prend la meilleure résolution
-    await message.reply(f"📸 File ID de cette photo :\n{file_id}")
-
-# Handler pour récupérer le file_id d'une vidéo
-@dp.message_handler(content_types=['video'])
-async def get_video_file_id(message: types.Message):
-    file_id = message.video.file_id
-    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
-
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
@@ -58,7 +45,7 @@ def is_admin(user_id: int) -> bool:
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
 VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
-WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAJ94mkItI9fuZ9rKDxry1Ou0Gr53q0QAAL_GwACx-RIUIFWcMIrUxGqNgQ"
+WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAKfHGlUF4CauU-IFOkWxQk1nv6ZKCudAAJ6GwAChXmgUoWzlUIpZfdOOAQ"
 
 
 
