@@ -22,7 +22,11 @@ import json
 
 
 
-
+# Handler pour récupérer le file_id d'une vidéo
+@dp.message_handler(content_types=['video'])
+async def get_video_file_id(message: types.Message):
+    file_id = message.video.file_id
+    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
@@ -789,7 +793,7 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "🟢 Jessie est en ligne",
+        "🥳 Bienvenue dans le VIP mon coeur 💖 ",
         reply_markup=keyboard
     )
 
