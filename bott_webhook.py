@@ -23,6 +23,21 @@ from payment_links import liens_paiement
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
+
+# Handler pour récupérer le file_id d'une photo
+@dp.message_handler(content_types=['photo'])
+async def get_photo_file_id(message: types.Message):
+    file_id = message.photo[-1].file_id  # on prend la meilleure résolution
+    await message.reply(f"📸 File ID de cette photo :\n{file_id}")
+
+# Handler pour récupérer le file_id d'une vidéo
+@dp.message_handler(content_types=['video'])
+async def get_video_file_id(message: types.Message):
+    file_id = message.video.file_id
+    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
+
+
+
 # map (chat_id, message_id) -> chat_id du client
 pending_replies = {}
 
@@ -615,7 +630,7 @@ async def handle_start(message: types.Message):
             # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour ton paiement de {montant}€ 💖 ! Voici ton contenu...\n\n"
+                f"✅ Merci pour votre paiement de {montant}€ ! Voici ton document...\n\n"
                 f"_❗️Si tu as le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
                 parse_mode="Markdown"
             )
@@ -735,7 +750,7 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "🥳 Bienvenue dans le VIP mon coeur 💖 ",
+        "Bonjour, et bienvenue chez Karulang 📑! ",
         reply_markup=keyboard
     )
 
@@ -1314,7 +1329,7 @@ async def relay_from_client(message: types.Message):
         topic_id = await ensure_topic_for_vip(message.from_user)
 
         res = await bot.request(
-            "copyMessage",
+            "forwardMessage",
             {
                 "chat_id": STAFF_GROUP_ID,
                 "from_chat_id": message.chat.id,
