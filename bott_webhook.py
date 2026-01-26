@@ -15,10 +15,8 @@ from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_
 import re
 from urllib.parse import quote
 from datetime import datetime, timezone
-from ai_autopilot import maybe_run_autopilot
 from payment_links import liens_paiement
-from ai_state_store import get_state, upsert_state
-import json
+
 
 
 
@@ -87,56 +85,6 @@ DIRECTEUR_ID = 7334072965  # ID personnel au ceo pour avertir des fraudeurs
 contenus_en_attente = {}  # { user_id: {"file_id": ..., "type": ..., "caption": ...} }
 paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 # === FIN MEDIA EN ATTENTE ===
-
-
-
-
-# --- AUTOPILOT SAFE (GLOBAL) ---#102
-async def run_autopilot_safe(message, topic_id, bot):
-    user_id = getattr(message.from_user, "id", None)
-    print(f"[AUTOPILOT_SAFE] called user_id={user_id} topic_id={topic_id} text={repr(getattr(message, 'text', None))}")
-
-    if not user_id:
-        print("[AUTOPILOT_SAFE] no user_id -> return")
-        return
-
-    txt = (message.text or "").strip()
-
-    # 1) Charger state
-    state = get_state(user_id) or {}
-    fields = (state or {}).get("fields", {})
-
-    # 2) Charger profile JSON
-    try:
-        profile = json.loads(fields.get("Profile JSON") or "{}")
-        if not isinstance(profile, dict):
-            profile = {}
-    except Exception:
-        profile = {}
-
-    # 3) Mettre à jour uniquement ce qu’on doit tracker
-    if txt:
-        prev = (profile.get("__bundle_text") or "").strip()
-        profile["__bundle_text"] = (prev + "\n" + txt).strip() if prev else txt
-        profile["__last_user_text"] = txt
-
-        upsert_state(user_id, {
-            "Profile JSON": json.dumps(profile, ensure_ascii=False)
-        })
-        print("[AUTOPILOT_SAFE] upsert_state OK")
-
-    # 4) Lancer le moteur
-    state = get_state(user_id) or {}
-    fields = (state or {}).get("fields", {})
-    print("[DBG] Autopilot field =", repr(fields.get("Autopilot")))
-    print("[DBG] Heat field =", repr(fields.get("Heat")))
-    print("[DBG] Script field =", repr(fields.get("Script")))
-
-    await maybe_run_autopilot(user_id, topic_id, bot)
-    print("[AUTOPILOT_SAFE] maybe_run_autopilot OK")
-
-
-#102
 
 
 
@@ -1384,18 +1332,6 @@ async def relay_from_client(message: types.Message):
     except Exception as e:
         print(f"❌ Erreur transfert message client vers topic : {e}")
 
-    # ✅ AUTOPILOT : appel (même si transfert a échoué)102 DEBUT
-    if topic_id:
-        try:
-            await run_autopilot_safe(message, topic_id, bot)
-        except Exception as e:
-            print(f"❌ Erreur run_autopilot_safe : {e}")
-    else:
-        print("[AUTOPILOT_SAFE] topic_id missing -> skip")
-
-
-
-# ✅ AUTOPILOT : hors du try/except du transfert 102 FIN
 
 # 1. code pour le bouton prendre en charge début
 
