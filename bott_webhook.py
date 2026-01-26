@@ -23,8 +23,6 @@ from payment_links import liens_paiement
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 
-
-
 # map (chat_id, message_id) -> chat_id du client
 pending_replies = {}
 
@@ -617,8 +615,8 @@ async def handle_start(message: types.Message):
             # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour votre paiement de {montant}€ ! Voici ton document...\n\n"
-                f"_❗️Si tu as le moindre soucis avec ta commande, contacte-nous à novapulse.online@gmail.com_",
+                f"✅ Merci pour votre paiement de {montant}€ ! Voici votre document...\n\n"
+                f"_❗️Si vous avez le moindre soucis avec votre commande, contactez-nous directement ici_",
                 parse_mode="Markdown"
             )
 
@@ -737,7 +735,7 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "Bonjour, et bienvenue chez Karulang 📑! ",
+        "Bienvenue chez Karulang 📑! ",
         reply_markup=keyboard
     )
 
@@ -1001,7 +999,7 @@ async def envoyer_contenu_payant(message: types.Message):
     )
     await bot.send_message(
         chat_id=user_id,
-        text=f"_🔒 Ce contenu {code} € est verrouillé. Clique sur le lien ci-dessus pour le déverrouiller._",
+        text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le lien ci-dessus pour le déverrouiller._",
         parse_mode="Markdown"
     )
 
