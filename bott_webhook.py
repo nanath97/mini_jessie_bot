@@ -990,10 +990,12 @@ async def envoyer_contenu_payant(message: types.Message):
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
-        "🔒 */envxx* – Envoyer un contenu payant €\n"
+        "🔒 */envxx* – Envoyer un contenu payant ou juste le lien de paiment €\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
+        "_ou_\n\n"
+        "_Tape cette commande avec le bon montant (ex. /env14) sans images, ni videos ou fichiers. Ton client recevra directement son lien de paiment._\n\n"
         "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n\n"
-        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99\n\n"
+        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24.....\n\n"
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
 
