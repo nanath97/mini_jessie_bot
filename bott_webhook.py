@@ -991,11 +991,10 @@ async def envoyer_contenu_payant(message: types.Message):
             contenus_en_attente.pop(user_id, None)
             return
 
-    # 5) sinon → on envoie le flouté + lien
+    # 5) sinon → pas de média : simple lien de paiement
     await bot.send_photo(
         chat_id=user_id,
-        photo=DEFAULT_FLOU_IMAGE_FILE_ID,
-        caption=nouvelle_legende
+        text=nouvelle_legende
     )
     await bot.send_message(
         chat_id=user_id,
