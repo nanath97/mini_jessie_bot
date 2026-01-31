@@ -217,18 +217,17 @@ def compute_next_run_utc(jour: str, heure_str: str) -> datetime:
 
 # === Statistiques ===
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
+
     admin_id = message.from_user.id
     email = ADMIN_EMAILS.get(admin_id)
 
-    # Sécurité : on ne calcule des stats que pour un admin connu
+    # 🔒 Sécurité
     if not email:
         await bot.send_message(
             message.chat.id,
-            "❌ Ton e-mail admin n’est pas configuré dans le bot. Parle à Nova Pulse pour le mettre à jour."
+            "❌ Ton e-mail admin n’est pas configuré dans le bot."
         )
         return
 
@@ -236,26 +235,24 @@ async def handle_stat(message: types.Message):
 
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-        }
-
-        # 🔑 On filtre uniquement les lignes qui appartiennent à CET admin
-        params = {
-            "filterByFormula": f"{{Email}} = '{email}'"
-        }
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        params = {"filterByFormula": f"{{Email}} = '{email}'"}
 
         response = requests.get(url, headers=headers, params=params)
         data = response.json()
 
         ventes_totales = 0.0
         ventes_jour = 0.0
-        contenus_vendus = 0
+        nb_transactions_total = 0
+        contenus_vendus_jour = 0
         vip_ids = set()
 
         today = datetime.now().date().isoformat()
         mois_courant = datetime.now().strftime("%Y-%m")
 
+        # =========================
+        # PARSING AIRTABLE
+        # =========================
         for record in data.get("records", []):
             fields = record.get("fields", {})
 
@@ -266,43 +263,70 @@ async def handle_stat(message: types.Message):
 
             try:
                 montant = float(fields.get("Montant", 0) or 0)
-            except Exception:
+            except:
                 montant = 0.0
 
-            # 💶 Ventes du mois (on ignore les lignes VIP “0 €”)
+            # ===== ventes du mois =====
             if mois == mois_courant and montant > 0 and type_acces != "vip":
                 ventes_totales += montant
+                nb_transactions_total += 1
 
-            # 📅 Ventes du jour + contenus vendus
+            # ===== ventes du jour =====
             if date_str.startswith(today) and montant > 0 and type_acces != "vip":
                 ventes_jour += montant
-                contenus_vendus += 1
+                contenus_vendus_jour += 1
 
-            # 🌟 Clients VIP = clients qui ont payé au moins une fois
-            # (Type acces = "paiement" OU "vip") ET montant > 0
+            # ===== VIPs =====
             if user_id and montant > 0 and type_acces in ("paiement", "vip"):
                 vip_ids.add(user_id)
 
+        # =========================
+        # CALCUL STRIPE PROPRE
+        # =========================
+        FRAIS_STRIPE_PERCENT = 0.029
+        FRAIS_STRIPE_FIXE = 0.25
+
+        frais_stripe = round(
+            ventes_totales * FRAIS_STRIPE_PERCENT +
+            nb_transactions_total * FRAIS_STRIPE_FIXE,
+            2
+        )
+
+        benefice_net = round(ventes_totales - frais_stripe, 2)
+
         clients_vip = len(vip_ids)
-        benefice_net = round(ventes_totales * 0.88, 2)
+
+        # =========================
+        # MESSAGE FINAL
+        # =========================
         message_final = (
-    f"📊 Tes statistiques de vente :\n\n"
-    f"💰 Ventes du jour : {ventes_jour}€\n"
-    f"💶 Ventes totales : {ventes_totales}€\n"
-    f"📦 Contenus vendus total : {contenus_vendus}\n"
-    f"🌟 Clients VIP : {clients_vip}\n\n"
-    f"🏦 Frais bancaires Stripe estimés : {frais_stripe}€\n"
-    f"📈 Revenu net reçu : {benefice_net}€"
-)
+            f"📊 Tes statistiques de vente :\n\n"
+            f"💰 Ventes du jour : {ventes_jour}€\n"
+            f"💶 Ventes totales (mois) : {ventes_totales}€\n"
+            f"📦 Paiements du mois : {nb_transactions_total}\n"
+            f"🌟 Clients VIP : {clients_vip}\n\n"
+            f"🏦 Frais bancaires Stripe estimés : {frais_stripe}€\n"
+            f"📈 Revenu net reçu : {benefice_net}€"
+        )
 
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
-        await bot.send_message(message.chat.id, message_final, parse_mode="Markdown", reply_markup=vip_button)
+
+        await bot.send_message(
+            message.chat.id,
+            message_final,
+            parse_mode="Markdown",
+            reply_markup=vip_button
+        )
 
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
-        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors de la récupération des statistiques.")
+        await bot.send_message(
+            message.chat.id,
+            "❌ Une erreur est survenue lors de la récupération des statistiques."
+        )
+
 
 
 
@@ -343,72 +367,6 @@ def get_vip_ids_for_admin_email(email: str):
             vip_ids.add(user_id)
 
     return vip_ids
-
-
-
-# DEBUT de la fonction du proprietaire ! Ne pas toucher
-
-@dp.message_handler(commands=["nath"])
-async def handle_nath_global_stats(message: types.Message):
-    if message.from_user.id != int(ADMIN_ID):
-        await bot.send_message(message.chat.id, "❌ Timal, tu n'as pas la permission d'utiliser ce bouton.")
-        return
-
-    await bot.send_message(message.chat.id, "🕓 Récupération des statistiques globales en cours...")
-
-    try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-        }
-
-        response = requests.get(url, headers=headers)
-        data = response.json()
-
-        ventes_par_email = {}
-
-        for record in data.get("records", []):
-            fields = record.get("fields", {})
-            email = fields.get("Email", "")
-            montant = float(fields.get("Montant", 0))
-
-            if not email:
-                continue
-
-            if email not in ventes_par_email:
-                ventes_par_email[email] = 0
-            ventes_par_email[email] += montant
-
-        if not ventes_par_email:
-            await bot.send_message(message.chat.id, "Aucune donnée trouvée dans Airtable.")
-            return
-
-        lignes = ["📊 *Récapitulatif global des ventes :*\n"]
-        total_global = 0
-
-        for email, total in ventes_par_email.items():
-            benefice_vendeur = round(total * 0.88, 2)
-            benefice_nath = round(total * 0.12, 2)
-            total_global += total
-            lignes.append(
-                f"• {email} → {total:.2f} €  |  Vendeur : {benefice_vendeur:.2f} €  |  Toi (12 %) : {benefice_nath:.2f} €"
-            )
-
-        total_benefice_nath = round(total_global * 0.12, 2)
-        total_benefice_vendeurs = round(total_global * 0.88, 2)
-
-        lignes.append("\n💰 *Synthèse globale :*")
-        lignes.append(f"• Total des ventes : {total_global:.2f} €")
-        lignes.append(f"• Tes bénéfices (12 %) : {total_benefice_nath:.2f} €")
-        lignes.append(f"• Bénéfices vendeurs (88 %) : {total_benefice_vendeurs:.2f} €")
-
-        await bot.send_message(message.chat.id, "\n".join(lignes), parse_mode="Markdown")
-
-    except Exception as e:
-        print(f"Erreur dans /nath : {e}")
-        await bot.send_message(message.chat.id, "❌ Une erreur est survenue lors du traitement des statistiques.")
-
-# FIN de la fonction du propriétaire
 
 
 # Liste des prix autorisés
