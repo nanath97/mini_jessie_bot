@@ -828,29 +828,33 @@ async def handle_vip_note(message: types.Message):
 # TEST A SUPPRIMER FIN
 
 
-# Message et média personnel avec lien 
+# Message et média personnel avec lien
 
 import re
 
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
-    and admin_modes.get(message.from_user.id) is None   # ✅ Seulement si pas de diffusion en cours
+    and admin_modes.get(message.from_user.id) is None
     and (
-        (message.text and "/env" in message.text.lower()) or 
+        (message.text and "/env" in message.text.lower()) or
         (message.caption and "/env" in message.caption.lower())
     ),
-    content_types=[types.ContentType.TEXT, types.ContentType.PHOTO, 
-                   types.ContentType.VIDEO, types.ContentType.DOCUMENT]
+    content_types=[
+        types.ContentType.TEXT,
+        types.ContentType.PHOTO,
+        types.ContentType.VIDEO,
+        types.ContentType.DOCUMENT
+    ]
 )
 async def envoyer_contenu_payant(message: types.Message):
-    import re  # au cas où pas importé en haut
+
     admin_id = message.from_user.id
 
-    # 0) ⚠️ si on est en mode "envoi groupé payant", on NE FAIT RIEN
+    # 0) mode diffusion → stop
     if admin_modes.get(admin_id) == "en_attente_message_payant":
         return
 
-    # 1) ici c'est le mode NORMAL : on veut répondre à UN client
+    # 1) doit répondre à un client
     if not message.reply_to_message:
         await bot.send_message(
             chat_id=admin_id,
@@ -862,11 +866,14 @@ async def envoyer_contenu_payant(message: types.Message):
     if message.reply_to_message.forward_from:
         user_id = message.reply_to_message.forward_from.id
     else:
-        user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+        user_id = pending_replies.get(
+            (message.chat.id, message.reply_to_message.message_id)
+        )
 
-    # 🔥 CAS SPÉCIAL : si on n'a pas de user_id mais qu'on est en mode "note VIP"
+    # ================================
+    # CAS SPECIAL : notes VIP
+    # ================================
     if not user_id:
-        # si cet admin est en mode note, on utilise CE message comme note
         if admin_id in pending_notes:
             vip_user_id = pending_notes.pop(admin_id)
             note_text = (message.text or message.caption or "").strip()
@@ -874,23 +881,24 @@ async def envoyer_contenu_payant(message: types.Message):
             if not note_text:
                 await bot.send_message(
                     chat_id=admin_id,
-                    text="❗ Note vide, rien n'a été enregistrée."
+                    text="❗ Note vide."
                 )
                 return
 
-            # Mise à jour des infos VIP (note)
             info = update_vip_info(vip_user_id, note=note_text)
 
             topic_id = info.get("topic_id")
             panel_message_id = info.get("panel_message_id")
+
             admin_name = (
                 info.get("admin_name")
                 or message.from_user.username
                 or message.from_user.first_name
                 or str(admin_id)
             )
+
             full_note = info.get("note", note_text)
-            
+
             if topic_id and panel_message_id:
                 panel_text = (
                     "🧐 PANEL DE CONTRÔLE VIP\n\n"
@@ -912,42 +920,41 @@ async def envoyer_contenu_payant(message: types.Message):
                     reply_markup=kb
                 )
 
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text="✅ Note enregistrée et panneau mis à jour."
-                )
-                return
-            else:
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text="⚠️ Panneau VIP introuvable pour ce client."
-                )
-                return
+            await bot.send_message(chat_id=admin_id, text="✅ Note enregistrée.")
+            return
 
-        # 💬 CAS NORMAL (pas en mode note) → on garde ton comportement d'origine
         await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
         return
 
-    # 3) lire /envXX
+    # ================================
+    # 3) lecture /envXX
+    # ================================
     texte = message.caption or message.text or ""
+
     match = re.search(r"/env(\d+|vip)", texte.lower())
     if not match:
-        await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide détecté.")
+        await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
     code = match.group(1)
 
-    # ⚠️ on utilise le dict GLOBAL défini plus haut
     lien = liens_paiement.get(code)
     if not lien:
-        await bot.send_message(chat_id=admin_id, text="❗ Ce montant n'est pas reconnu dans les liens disponibles.")
+        await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
-    # on remplace /envXX par le vrai lien Stripe
-    nouvelle_legende = re.sub(r"/env(\d+|vip)", lien, texte, flags=re.IGNORECASE)
+    nouvelle_legende = re.sub(
+        r"/env(\d+|vip)",
+        lien,
+        texte,
+        flags=re.IGNORECASE
+    )
 
-    # 4) si l'admin a joint un média → on le stocke en "contenu en attente"
+    # =====================================================
+    # 4) MEDIA + /env  → BLUR + stockage contenu
+    # =====================================================
     if message.photo or message.video or message.document:
+
         if message.photo:
             file_id = message.photo[-1].file_id
             content_type = types.ContentType.PHOTO
@@ -961,9 +968,9 @@ async def envoyer_contenu_payant(message: types.Message):
         contenus_en_attente[user_id] = {
             "file_id": file_id,
             "type": content_type,
-            # on enlève le /envXX dans la caption envoyée après paiement
             "caption": re.sub(r"/env(\d+|vip)", "", texte, flags=re.IGNORECASE).strip()
         }
+
         from vip_topics import ensure_topic_for_vip
         dummy_user = types.User(id=user_id, is_bot=False, first_name=str(user_id))
         topic_id = await ensure_topic_for_vip(dummy_user)
@@ -973,29 +980,45 @@ async def envoyer_contenu_payant(message: types.Message):
             {
                 "chat_id": STAFF_GROUP_ID,
                 "message_thread_id": topic_id,
-                "text": f"✅ Contenu prêt pour l'utilisateur {user_id}."
+                "text": f"✅ Contenu prêt pour {user_id}"
             }
         )
 
-        # cas où le client avait déjà payé → on envoie direct
+        # déjà payé → envoyer vrai contenu
         if user_id in paiements_en_attente_par_user:
             contenu = contenus_en_attente[user_id]
+
             if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu.get("caption"))
+                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
             elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu.get("caption"))
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu.get("caption"))
+                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
+            else:
+                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
 
             paiements_en_attente_par_user.discard(user_id)
             contenus_en_attente.pop(user_id, None)
             return
 
-    # 5) sinon → pas de média : simple lien de paiement
-    await bot.send_message(
-        chat_id=user_id,
-        text=nouvelle_legende
-    )
+        # 🔥 ENVOI BLUR
+        await bot.send_photo(
+            chat_id=user_id,
+            photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+            caption=nouvelle_legende
+        )
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le lien ci-dessus pour le déverrouiller._",
+            parse_mode="Markdown"
+        )
+
+        return
+
+    # =====================================================
+    # 5) TEXTE SEUL + /env
+    # =====================================================
+    await bot.send_message(chat_id=user_id, text=nouvelle_legende)
+
     await bot.send_message(
         chat_id=user_id,
         text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le lien ci-dessus pour le déverrouiller._",
