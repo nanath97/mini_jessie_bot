@@ -419,7 +419,8 @@ prix_list = [1, 3, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
 WHITELIST_LINKS = [
     "https://novapulseonline.wixsite.com/",
     "https://buy.stripe.com/",
-    "https://t.me/NovaPulsetestbot?start=cdan" # 22 Rajouter à la ligne en bas le lien propre de l'admin
+    "https://t.me/NovaPulsetestbot?start=cdan"
+    "https://calendar.google.com/calendar/u/0/r" # 22 Rajouter à la ligne en bas le lien propre de l'admin
 ]
 
 
@@ -615,7 +616,7 @@ async def handle_start(message: types.Message):
             # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour votre paiement de {montant}€ ! Voici votre document...\n\n"
+                f"✅ Merci pour votre paiement de {montant}€ ! Votre facture vous sera transmis directement par mail\n\n"
                 f"_❗️Si vous avez le moindre soucis avec votre commande, contactez-nous directement ici_",
                 parse_mode="Markdown"
             )
@@ -657,7 +658,8 @@ async def handle_start(message: types.Message):
                                 f"💰 *Nouveau paiement contenu*\n\n"
                                 f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
                                 f"💶 Montant : {montant} €\n"
-                                f"📊 Paiement enregistré dans Airtable."
+                                f"📊 Paiement enregistré dans ton Dashbord Stripe."
+                                f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
                             ),
                             "parse_mode": "Markdown"
                         }
@@ -1021,7 +1023,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
     await bot.send_message(
         chat_id=user_id,
-        text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le lien ci-dessus pour le déverrouiller._",
+        text=f"_🔒 Ceci est un lien sécurisé Stripe._",
         parse_mode="Markdown"
     )
 
