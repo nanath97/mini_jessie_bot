@@ -992,7 +992,7 @@ async def envoyer_contenu_payant(message: types.Message):
             return
 
     # 5) sinon → pas de média : simple lien de paiement
-    await bot.send_photo(
+    await bot.send_message(
         chat_id=user_id,
         text=nouvelle_legende
     )
