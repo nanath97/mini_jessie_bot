@@ -285,16 +285,15 @@ async def handle_stat(message: types.Message):
 
         clients_vip = len(vip_ids)
         benefice_net = round(ventes_totales * 0.88, 2)
-
         message_final = (
-            f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales : {ventes_totales}€\n"
-            f"📦 Contenus vendus total : {contenus_vendus}\n"
-            f"🌟 Clients VIP : {clients_vip}\n"
-            f"📈 Bénéfice estimé net : {benefice_net}€\n\n"
-            f"_Le bénéfice tient compte d’une commission de 12 %._"
-        )
+    f"📊 Tes statistiques de vente :\n\n"
+    f"💰 Ventes du jour : {ventes_jour}€\n"
+    f"💶 Ventes totales : {ventes_totales}€\n"
+    f"📦 Contenus vendus total : {contenus_vendus}\n"
+    f"🌟 Clients VIP : {clients_vip}\n\n"
+    f"🏦 Frais bancaires Stripe estimés : {frais_stripe}€\n"
+    f"📈 Revenu net reçu : {benefice_net}€"
+)
 
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
@@ -616,7 +615,7 @@ async def handle_start(message: types.Message):
             # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour votre paiement de {montant}€ ! Votre facture vous sera transmis directement par mail\n\n"
+                f"✅ Merci pour votre paiement de {montant}€ ! Votre facture vous sera transmis directement par mail.\n\n"
                 f"_❗️Si vous avez le moindre soucis avec votre commande, contactez-nous directement ici_",
                 parse_mode="Markdown"
             )
@@ -658,7 +657,7 @@ async def handle_start(message: types.Message):
                                 f"💰 *Nouveau paiement contenu*\n\n"
                                 f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
                                 f"💶 Montant : {montant} €\n"
-                                f"📊 Paiement enregistré dans ton Dashbord Stripe."
+                                f"📊 Paiement enregistré dans ton Dashbord Stripe.\n"
                                 f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
                             ),
                             "parse_mode": "Markdown"
