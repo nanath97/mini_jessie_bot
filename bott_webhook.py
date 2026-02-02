@@ -693,8 +693,13 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "Bienvenue chez Consulting Internationnal 📈! ",
+        "Bienvenue chez NovaPulse 📈! ",
         reply_markup=keyboard
+    )
+    keyboard = ReplyKeyboardRemove()
+    inline_kb = InlineKeyboardMarkup()
+    inline_kb.add(
+        InlineKeyboardButton("📋 Voir mes services", callback_data="voir_services")
     )
 
        # 2) Vidéo de présentation + bouton VIP
@@ -702,6 +707,26 @@ async def handle_start(message: types.Message):
     chat_id=user_id,
     video=WELCOME_VIDEO_FILE_ID
 )
+@dp.callback_query_handler(lambda c: c.data == "voir_services")
+async def handle_services(call: types.CallbackQuery):
+
+    texte = (
+        "📋 *Nos services disponibles :*\n\n"
+        "• Traduction simple — 29€\n"
+        "• Traduction assermentée — 49€\n"
+        "• Dossier complet — 99€\n"
+        "• Consultation — 65€\n\n"
+        "Envoyez-nous un message pour réserver 😊"
+    )
+
+    await bot.send_message(
+        call.message.chat.id,
+        texte,
+        parse_mode="Markdown"
+    )
+
+    await call.answer()
+
 
     # Envoi à tous les admins (vendeurs)
     try:
