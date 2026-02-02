@@ -693,20 +693,27 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "Bienvenue chez NovaPulse 📈! ",
-        reply_markup=keyboard
+        "Bienvenue chez NovaPulse 📈!"
     )
-    keyboard = ReplyKeyboardRemove()
+
+    # 2️⃣ Bouton inline "Voir mes services"
     inline_kb = InlineKeyboardMarkup()
     inline_kb.add(
         InlineKeyboardButton("📋 Voir mes services", callback_data="voir_services")
     )
 
-       # 2) Vidéo de présentation + bouton VIP
+    # 3️⃣ Vidéo + bouton
     await bot.send_video(
-    chat_id=user_id,
-    video=WELCOME_VIDEO_FILE_ID
-)
+        chat_id=user_id,
+        video=WELCOME_VIDEO_FILE_ID,
+        caption="Découvrez nos prestations ci-dessous 👇",
+        reply_markup=inline_kb
+    )
+
+
+# =========================
+# BOUTON SERVICES
+# =========================
 @dp.callback_query_handler(lambda c: c.data == "voir_services")
 async def handle_services(call: types.CallbackQuery):
 
