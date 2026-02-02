@@ -18,7 +18,17 @@ from datetime import datetime, timezone
 from payment_links import liens_paiement
 
 
+# Handler pour récupérer le file_id d'une photo
+@dp.message_handler(content_types=['photo'])
+async def get_photo_file_id(message: types.Message):
+    file_id = message.photo[-1].file_id  # on prend la meilleure résolution
+    await message.reply(f"📸 File ID de cette photo :\n{file_id}")
 
+# Handler pour récupérer le file_id d'une vidéo
+@dp.message_handler(content_types=['video'])
+async def get_video_file_id(message: types.Message):
+    file_id = message.video.file_id
+    await message.reply(f"🎬 File ID de cette vidéo :\n{file_id}")
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
@@ -694,7 +704,7 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "Bienvenue chez Karulang 📑! ",
+        "Bienvenue chez Consulting Internationnal 📈! ",
         reply_markup=keyboard
     )
 
