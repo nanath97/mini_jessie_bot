@@ -720,10 +720,10 @@ async def handle_services(call: types.CallbackQuery):
     texte = (
         "📋 *Nos services disponibles :*\n\n"
         "• Traduction simple — 29€\n"
-        "• Traduction assermentée — 49€\n"
-        "• Dossier complet — 99€\n"
+        "• Lavage complet véhicule — 49€\n"
+        "• Dossier financement — 99€\n"
         "• Consultation — 65€\n\n"
-        "Envoyez-nous un message pour réserver 😊"
+        "Envoyez-nous un message pour réserver ou pour plus d'informations 😊"
     )
 
     await bot.send_message(
