@@ -611,10 +611,10 @@ async def handle_start(message: types.Message):
                             "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
                             "message_thread_id": topic_id,
                             "text": (
-                                f"💰 *Nouveau paiement contenu*\n\n"
+                                f"💰 *Nouveau paiement*\n\n"
                                 f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
                                 f"💶 Montant : {montant} €\n"
-                                f"📊 Paiement enregistré dans ton Dashbord Stripe.\n"
+                                f"📊 Paiement enregistré dans ton Dashbord.\n"
                                 f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
                             ),
                             "parse_mode": "Markdown"
@@ -693,7 +693,7 @@ async def handle_start(message: types.Message):
     # 1) Texte d’accueil pour un client qui arrive pour la première fois
     await bot.send_message(
         user_id,
-        "Bienvenue chez NovaPulse 📈!"
+        "Bienvenue chez NovaPulse !"
     )
 
     # 2️⃣ Bouton inline "Voir mes services"
