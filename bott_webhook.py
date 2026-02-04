@@ -1377,7 +1377,7 @@ async def handle_prendre_en_charge(callback_query: types.CallbackQuery):
     )
 
     panel_message_id = info.get("panel_message_id")
-    note_text = info.get("note", "Aucune note")
+    note_text = info.get("note", "")
 
     if not panel_message_id:
         await callback_query.answer("Panneau introuvable pour ce VIP.", show_alert=True)

@@ -157,7 +157,7 @@ async def create_topic_and_panel(user: types.User) -> int:
     panel_text = (
         "🧐 PANEL DE CONTRÔLE VIP\n\n"
         f"👤 Client : {user.username or user.first_name or str(user_id)}\n"
-        "📒 Notes : Aucune note\n"
+        "📒 Notes : \n"
         "👤 Admin en charge : Aucun"
     )
 
@@ -255,7 +255,7 @@ async def ensure_topic_for_vip(user: types.User) -> int:
     panel_text = (
         "🧐 PANEL DE CONTRÔLE VIP\n\n"
         f"👤 Client : {user.username or user.first_name or str(user_id)}\n"
-        "📒 Notes : Aucune note\n"
+        "📒 Notes : \n"
         "👤 Admin en charge : Aucun"
     )
 
