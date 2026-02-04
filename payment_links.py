@@ -9,11 +9,11 @@ liens_paiement = {
     "24": "https://buy.stripe.com/7sI2cc0mL90m2fC3ch",
     "29": "https://buy.stripe.com/9AQcQQ5H5gsOdYkeV0",
     "34": "https://buy.stripe.com/6oE044d9x90m5rOcMT",
-    "39": "https://buy.stripe.com/fZe8AA6L990m8E07sA",
+    "39": "https://buy.stripe.com/dRmbJ088Rcft8st0nb7AI2d",
     "49": "https://buy.stripe.com/9AQ6ss0mL7Wi2fCdR0",
     "59": "https://buy.stripe.com/3csdUUfhFdgC6vS7sD",
     "69": "https://buy.stripe.com/cN21880mLb8udYk00c",
     "79": "https://buy.stripe.com/6oE8AA1qPccyf2o28l",
     "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
-    "99": "https://buy.stripe.com/cN26ss0mL90m3jG4gv"
+    "99": "https://buy.stripe.com/bJe7sK3SBfrF2457PD7AI2c"
 }
