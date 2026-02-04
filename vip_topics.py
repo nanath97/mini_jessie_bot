@@ -84,7 +84,7 @@ def load_vip_topics_from_disk():
                 existing = {
                     "topic_id": topic_to_use,
                     "panel_message_id": d.get("panel_message_id"),
-                    "note": d.get("note", "Aucune note"),
+                    "note": d.get("note", ""),
                     "admin_id": d.get("admin_id"),
                     "admin_name": d.get("admin_name", "Aucun"),
                 }
@@ -180,7 +180,7 @@ async def create_topic_and_panel(user: types.User) -> int:
     _user_topics[user_id] = {
         "topic_id": topic_id,
         "panel_message_id": panel_message_id,
-        "note": "Aucune note",
+        "note": "",
         "admin_id": None,
         "admin_name": "Aucun",
     }
@@ -279,7 +279,7 @@ async def ensure_topic_for_vip(user: types.User) -> int:
     _user_topics[user_id] = {
         "topic_id": topic_id,
         "panel_message_id": panel_message_id,
-        "note": "Aucune note",
+        "note": "",
         "admin_id": None,
         "admin_name": "Aucun",
     }
@@ -425,7 +425,7 @@ def update_vip_info(user_id: int, note: str = None, admin_id: int = None, admin_
     # Si la configuration ANNOT_TABLE_NAME existe, sauvegarder aussi dans Airtable (upsert)
     if changed and ANNOT_TABLE_NAME:
         try:
-            save_annotation_to_airtable(user_id, data.get("note", "Aucune note"), data.get("admin_name", "Aucun"))
+            save_annotation_to_airtable(user_id, data.get("note", ""), data.get("admin_name", "Aucun"))
         except Exception as e:
             print(f"[ANNOTATION] Erreur sauvegarde Airtable dans update_vip_info : {e}")
 
@@ -470,7 +470,7 @@ async def load_vip_topics_from_airtable():
             _user_topics[telegram_id_int] = {
                 "topic_id": topic_id_int,
                 "panel_message_id": None,
-                "note": "Aucune note",
+                "note": "",
                 "admin_id": None,
                 "admin_name": "Aucun",
             }
@@ -588,7 +588,7 @@ def load_annotations_from_airtable():
         # Conserver topic_id/panel si présents
         existing.setdefault("topic_id", existing.get("topic_id"))
         existing.setdefault("panel_message_id", existing.get("panel_message_id"))
-        existing["note"] = note or "Aucune note"
+        existing["note"] = note or ""
         existing["admin_id"] = existing.get("admin_id")  # admin_id not stored in Airtable, keep existing
         existing["admin_name"] = admin or "Aucun"
 
@@ -619,7 +619,7 @@ async def restore_missing_panels():
             # On suppose que le panneau existe encore
             continue
 
-        note = info.get("note", "Aucune note")
+        note = info.get("note", "")
         admin_name = info.get("admin_name", "Aucun")
 
         kb = InlineKeyboardMarkup()
