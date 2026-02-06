@@ -50,8 +50,6 @@ async def startup_event():
         except Exception as e:
             print(f"[ANNOTATION] Échec chargement Airtable : {e}")
 
-        # 5) Recrée les panneaux manquants, avec note/admin si présents
-        await restore_missing_panels()
 
         # 6) Démarre le scheduler en tâche de fond
         try:
