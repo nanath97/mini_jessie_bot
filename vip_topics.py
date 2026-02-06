@@ -449,7 +449,7 @@ async def load_vip_topics_from_airtable():
 
     # ✅ On charge TOUTES les lignes ayant déjà un Topic ID
     params = {
-        "filterByFormula": "NOT({Topic ID}='')"
+        "filterByFormula": "NOT({Topic ID}=BLANK())"
     }
 
     response = requests.get(url, headers=headers, params=params)

@@ -160,7 +160,7 @@ def initialize_topics_from_airtable():
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
         params = {
-            "filterByFormula": "NOT({Topic ID}='')"
+            "filterByFormula": "NOT({Topic ID}=BLANK())"
         }
 
         response = requests.get(url, headers=headers, params=params)
