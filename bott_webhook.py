@@ -706,9 +706,11 @@ async def handle_start(message: types.Message):
     )
 
     # 3️⃣ Vidéo + bouton
-    await bot.send_video(
+    # 3️⃣ Vidéo + bouton
+    with open("assets/intro.mp4", "rb") as video_file:
+        await bot.send_video(
         chat_id=user_id,
-        video=WELCOME_VIDEO_FILE_ID,
+        video=video_file,
         caption="Découvrez nos prestations ci-dessous 👇",
         reply_markup=inline_kb
     )
