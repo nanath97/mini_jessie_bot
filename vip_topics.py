@@ -455,7 +455,8 @@ async def load_vip_topics_from_airtable():
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    params = {"filterByFormula": "AND({Topic ID}!='', {ID Telegram}!='')"}
+    params = {}
+
 
     try:
         resp = requests.get(url, headers=headers, params=params)
