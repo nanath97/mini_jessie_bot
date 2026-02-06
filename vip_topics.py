@@ -431,21 +431,45 @@ def update_vip_info(user_id: int, note: str = None, admin_id: int = None, admin_
 
     return data
 
-
-# ========= IMPORT TOPICS DEPUIS AIRTABLE TOPIC ID =========
+# ========= IMPORT TOPICS DEPUIS AIRTABLE (TOUS LES USERS AVEC TOPIC ID) =========
 
 async def load_vip_topics_from_airtable():
     """
-    Charge dans _user_topics et _topic_to_user tous les Topic ID enregistrés dans Airtable
-    pour les utilisateurs ayant Type acces = VIP.
+    Recharge tous les Topic ID existants depuis Airtable
+    afin d'éviter toute recréation de topic après redéploiement.
+    Chaque utilisateur ayant déjà un Topic ID conserve son historique.
     """
+
     if not (AIRTABLE_API_KEY and BASE_ID and TABLE_NAME):
         print("[VIP_TOPICS] Variables Airtable manquantes, impossible de charger les topics.")
         return
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    params = {"filterByFormula": "{Type acces}='VIP'"}
+
+    # ✅ On charge TOUTES les lignes ayant déjà un Topic ID
+    params = {
+        "filterByFormula": "NOT({Topic ID}='')"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+
+    count = 0
+
+    for record in data.get("records", []):
+        fields = record.get("fields", {})
+
+        user_id = fields.get("ID Telegram")
+        topic_id = fields.get("Topic ID")
+
+        if user_id and topic_id:
+            _user_topics[int(user_id)] = int(topic_id)
+            _topic_to_user[int(topic_id)] = int(user_id)
+            count += 1
+
+    print(f"[VIP_TOPICS] {count} topics rechargés depuis Airtable.")
+
 
     try:
         resp = requests.get(url, headers=headers, params=params)
