@@ -162,19 +162,19 @@ def initialize_authorized_users():
 pending_programmation = {}  # admin_id -> {"jour": "Lundi"}
 
 JOUR_TO_WEEKDAY = {
-    "Monday": 0,
-    "Tuesday": 1,
-    "Wednesday": 2,
-    "Thursday": 3,
-    "Friday": 4,
-    "Saturday": 5,
-    "Sunday": 6,
+    "Lundi": 0,
+    "Mardi": 1,
+    "Mercredi": 2,
+    "Jeudi": 3,
+    "Vendredi": 4,
+    "Samedi": 5,
+    "Dimanche": 6,
 }
 
 HEURE_REGEX = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 def compute_next_run_utc(jour: str, heure_str: str) -> datetime:
     """
-    jour : 'Monday' ... 'Sunday'
+    jour : 'Lundi' ... 'Dimanche'
     heure_str : 'HH:MM' au format 24h
     Retourne un datetime UTC approx (on considère que l'heure donnée est en UTC pour l'instant).
     """
@@ -519,7 +519,7 @@ async def handle_start(message: types.Message):
             now = datetime.now()
             paiements_valides = [
                 t for t in paiements_recents.get(montant, [])
-                if now - t < timedelta(minutes=3)
+                if now - t < timedelta(minutes=20)
             ]
             if not paiements_valides:
                 await bot.send_message(
@@ -990,9 +990,10 @@ async def envoyer_contenu_payant(message: types.Message):
             return
 
         # 🔥 ENVOI BLUR
+    with open("assets/blur.png", "rb") as blur_img:
         await bot.send_photo(
             chat_id=user_id,
-            photo=DEFAULT_FLOU_IMAGE_FILE_ID,
+            photo=blur_img,
             caption=nouvelle_legende
         )
 
@@ -1569,7 +1570,7 @@ async def programmer_envoi_groupé(call: types.CallbackQuery):
 
     # 1) On demande d'abord le jour
     kb = InlineKeyboardMarkup(row_width=2)
-    for jour in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+    for jour in ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]:
         kb.insert(
             InlineKeyboardButton(jour, callback_data=f"prog_jour_{jour.lower()}")
         )
