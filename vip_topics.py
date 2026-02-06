@@ -193,36 +193,9 @@ async def create_topic_and_panel(user: types.User) -> int:
 
 
 async def ensure_topic_for_vip(user: types.User) -> int:
-    """
-    Vérifie / crée le topic pour un utilisateur.
-    - Si déjà en mémoire → renvoie le topic existant.
-    - Sinon → crée un topic, un panneau de contrôle,
-      sauvegarde en JSON.
-    - La synchro Airtable du Topic ID ne se fait QUE si l'user est VIP (dans authorized_users).
-    """
-    user_id = user.id
-    print(f"[VIP_TOPICS] ensure_topic_for_vip() appelé pour user_id={user_id}")
 
-    # Topic déjà existant pour ce user en mémoire
-        # FIX : user connu mais topic vide = correction auto
-        # Topic déjà existant pour ce user en mémoire
-    if user_id in _user_topics:
-        topic_id = _user_topics[user_id].get("topic_id")
+    save_topic_id_to_airtable(user_id, topic_id)
 
-        # PROTECTION : si l'entrée existe mais avec None/0 => recréation
-        if not topic_id:
-            print(f"[VIP_TOPICS] {user_id} présent sans topic valide → recréation forcée.")
-            topic_id = await create_topic_and_panel(user)
-            if user_id in authorized_users:
-                # sync Airtable ici si tu veux
-                pass
-            return topic_id
-
-        print(f"[VIP_TOPICS] Topic déjà connu pour {user_id} -> {topic_id}")
-        return topic_id
-
-
-    title = f"VIP {user.username or user.first_name or str(user_id)}"
 
     # Création du topic dans le forum staff
     try:
@@ -482,7 +455,7 @@ async def load_vip_topics_from_airtable():
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    params = {"filterByFormula": "AND(NOT({Topic ID}=BLANK()), NOT({ID Telegram}=BLANK()))"}
+    params = {"filterByFormula": "AND({Topic ID}!='', {ID Telegram}!='')"}
 
     try:
         resp = requests.get(url, headers=headers, params=params)
@@ -503,7 +476,7 @@ async def load_vip_topics_from_airtable():
             continue
 
         try:
-            topic_id_int = int(topic_id)
+            topic_id_int = int(str(topic_id).strip())
             telegram_id_int = int(telegram_id)
         except Exception:
             continue
@@ -694,9 +667,6 @@ async def restore_missing_panels():
     if restored > 0:
         # On persiste les nouveaux panel_message_id
         save_vip_topics()
-
-# ✅ NOUVEAU : persister le Topic ID pour TOUS les users
-    save_topic_id_to_airtable(user_id, topic_id)
 
 
     print(f"[VIP_TOPICS] Panneaux restaurés pour {restored} VIP(s).")
