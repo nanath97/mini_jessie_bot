@@ -155,45 +155,10 @@ def initialize_authorized_users():
     except Exception as e:
         print(f"[ERROR] Impossible de charger les VIP depuis Airtable : {e}")
 
-def initialize_topics_from_airtable():
-    try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-        params = {
-            "filterByFormula": "NOT({Topic ID}=BLANK())"
-        }
-
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        count = 0
-
-        for record in data.get("records", []):
-            fields = record.get("fields", {})
-
-            telegram_id = fields.get("ID Telegram")
-            topic_id = fields.get("Topic ID")
-
-            if telegram_id and topic_id:
-                telegram_id = int(telegram_id)
-                topic_id = int(topic_id)
-
-                _user_topics[telegram_id] = topic_id
-                _topic_to_user[topic_id] = telegram_id
-
-                count += 1
-
-        print(f"[INFO] {count} topics restaurés depuis Airtable.")
-
-    except Exception as e:
-        print(f"[ERROR] Impossible de charger les topics : {e}")
-
 # === 221097 FIN
 # === APPELS AU DÉMARRAGE ===
 
 initialize_authorized_users()
-initialize_topics_from_airtable()
 
 
 # 100 Pour la programmation d'envoi

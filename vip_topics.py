@@ -7,6 +7,7 @@ from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from core import bot, authorized_users
 
+
 # ID du supergroupe staff (forum) où se trouvent les topics VIP
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
 
@@ -290,9 +291,6 @@ async def ensure_topic_for_vip(user: types.User) -> int:
     # - TOUS les clients ont un topic (VIP ou non)
     # - MAIS on ne synchronise le Topic ID dans Airtable QUE pour les vrais VIP (payeurs),
     #   identifiés par authorized_users.
-    if user_id not in authorized_users:
-        print(f"[VIP_TOPICS] User {user_id} non VIP : topic {topic_id} créé en local (pas de sync Airtable).")
-        return topic_id
 
     # ===== Enregistrement / mise à jour du Topic ID dans le Airtable principal =====
     try:
@@ -431,80 +429,96 @@ def update_vip_info(user_id: int, note: str = None, admin_id: int = None, admin_
 
     return data
 
+
+
+
+def save_topic_id_to_airtable(user_id: int, topic_id: int) -> None:
+    if not (AIRTABLE_API_KEY and BASE_ID and TABLE_NAME):
+        print("[VIP_TOPICS] Airtable non configuré → skip save Topic ID.")
+        return
+
+    url_base = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        # On cherche une ligne qui correspond à cet utilisateur (peu importe Type acces)
+        params = {"filterByFormula": f"{{ID Telegram}} = '{user_id}'"}
+        r = requests.get(url_base, headers=headers, params=params)
+        r.raise_for_status()
+        records = r.json().get("records", [])
+
+        fields = {"ID Telegram": str(user_id), "Topic ID": str(topic_id)}
+
+        if records:
+            rec_id = records[0]["id"]
+            patch_url = f"{url_base}/{rec_id}"
+            pr = requests.patch(patch_url, json={"fields": fields}, headers=headers)
+            if pr.status_code not in (200, 201):
+                print(f"[VIP_TOPICS] PATCH Topic ID failed: {pr.status_code} {pr.text}")
+            else:
+                print(f"[VIP_TOPICS] Topic ID {topic_id} sauvegardé (PATCH) pour user {user_id}")
+        else:
+            pr = requests.post(url_base, json={"fields": fields}, headers=headers)
+            if pr.status_code not in (200, 201):
+                print(f"[VIP_TOPICS] POST Topic ID failed: {pr.status_code} {pr.text}")
+            else:
+                print(f"[VIP_TOPICS] Topic ID {topic_id} sauvegardé (POST) pour user {user_id}")
+
+    except Exception as e:
+        print(f"[VIP_TOPICS] Erreur save_topic_id_to_airtable: {e}")
+
+
+
+
+
 # ========= IMPORT TOPICS DEPUIS AIRTABLE (TOUS LES USERS AVEC TOPIC ID) =========
-
 async def load_vip_topics_from_airtable():
-    """
-    Recharge tous les Topic ID existants depuis Airtable
-    afin d'éviter toute recréation de topic après redéploiement.
-    Chaque utilisateur ayant déjà un Topic ID conserve son historique.
-    """
-
     if not (AIRTABLE_API_KEY and BASE_ID and TABLE_NAME):
         print("[VIP_TOPICS] Variables Airtable manquantes, impossible de charger les topics.")
         return
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-
-    # ✅ On charge TOUTES les lignes ayant déjà un Topic ID
-    params = {
-        "filterByFormula": "NOT({Topic ID}=BLANK())"
-    }
-
-    response = requests.get(url, headers=headers, params=params)
-    data = response.json()
-
-    count = 0
-
-    for record in data.get("records", []):
-        fields = record.get("fields", {})
-
-        user_id = fields.get("ID Telegram")
-        topic_id = fields.get("Topic ID")
-
-        if user_id and topic_id:
-            _user_topics[int(user_id)] = int(topic_id)
-            _topic_to_user[int(topic_id)] = int(user_id)
-            count += 1
-
-    print(f"[VIP_TOPICS] {count} topics rechargés depuis Airtable.")
-
+    params = {"filterByFormula": "AND(NOT({Topic ID}=BLANK()), NOT({ID Telegram}=BLANK()))"}
 
     try:
         resp = requests.get(url, headers=headers, params=params)
         resp.raise_for_status()
         records = resp.json().get("records", [])
-
-        loaded = 0
-        for rec in records:
-            f = rec.get("fields", {})
-            topic_id = f.get("Topic ID")
-            telegram_id = f.get("ID Telegram")
-
-            if not topic_id or not telegram_id:
-                continue
-
-            try:
-                topic_id_int = int(topic_id)
-                telegram_id_int = int(telegram_id)
-            except Exception:
-                continue
-
-            _user_topics[telegram_id_int] = {
-                "topic_id": topic_id_int,
-                "panel_message_id": None,
-                "note": "",
-                "admin_id": None,
-                "admin_name": "Aucun",
-            }
-            _topic_to_user[topic_id_int] = telegram_id_int
-            loaded += 1
-
-        print(f"[VIP_TOPICS] {loaded} Topic IDs chargés depuis Airtable.")
-
     except Exception as e:
         print(f"[VIP_TOPICS] Erreur import topics Airtable : {e}")
+        return
+
+    loaded = 0
+
+    for rec in records:
+        f = rec.get("fields", {})
+        topic_id = f.get("Topic ID")
+        telegram_id = f.get("ID Telegram")
+
+        if not topic_id or not telegram_id:
+            continue
+
+        try:
+            topic_id_int = int(topic_id)
+            telegram_id_int = int(telegram_id)
+        except Exception:
+            continue
+
+        _user_topics[telegram_id_int] = {
+            "topic_id": topic_id_int,
+            "panel_message_id": _user_topics.get(telegram_id_int, {}).get("panel_message_id"),
+            "note": _user_topics.get(telegram_id_int, {}).get("note", ""),
+            "admin_id": _user_topics.get(telegram_id_int, {}).get("admin_id"),
+            "admin_name": _user_topics.get(telegram_id_int, {}).get("admin_name", "Aucun"),
+        }
+        _topic_to_user[topic_id_int] = telegram_id_int
+        loaded += 1
+
+    print(f"[VIP_TOPICS] {loaded} Topic IDs chargés depuis Airtable.")
 
 # ========= FIN IMPORT TOPICS DEPUIS AIRTABLE =========
 
@@ -680,5 +694,9 @@ async def restore_missing_panels():
     if restored > 0:
         # On persiste les nouveaux panel_message_id
         save_vip_topics()
+
+# ✅ NOUVEAU : persister le Topic ID pour TOUS les users
+    save_topic_id_to_airtable(user_id, topic_id)
+
 
     print(f"[VIP_TOPICS] Panneaux restaurés pour {restored} VIP(s).")
