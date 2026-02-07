@@ -139,7 +139,9 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
 def initialize_authorized_users():
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-        params = {"filterByFormula": "{Type acces}='VIP'"}
+        params = {
+    "filterByFormula": "OR({Type acces}='VIP',{Type acces}='Paiement')"
+}
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
