@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from payment_links import liens_paiement
 from payment_links import create_dynamic_checkout
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from decimal import Decimal, ROUND_HALF_UP
 
 
 
@@ -519,10 +520,14 @@ from datetime import datetime, timedelta
 async def handle_start(message: types.Message):
     user_id = message.from_user.id
     param = (message.get_args() or "").strip()
+    print(f"[DEBUG START PARAM] reçu: '{param}'")
+
 
     # === Cas A : /start=cdanXX (paiement Stripe pour un contenu) ===
     if param.startswith("cdan") and param[4:].isdigit():
-        montant = int(param[4:])
+        montant_cents = int(param[4:])
+        display_amount = f"{Decimal(montant_cents)/100:.2f}".replace(".", ",")
+
         if montant in prix_list:
             now = datetime.now()
             paiements_valides = [
@@ -580,7 +585,7 @@ async def handle_start(message: types.Message):
             # Message de confirmation au client (normal : il vient d'acheter un contenu)
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour votre paiement de {montant}€ ! Votre facture vous sera transmis directement par mail.\n\n"
+                f"✅ Merci pour votre paiement de {display_amount} € ! Votre facture vous sera transmis directement par mail.\n\n"
                 f"_❗️Si vous avez le moindre soucis avec votre commande, contactez-nous directement ici_",
                 parse_mode="Markdown"
             )
@@ -590,7 +595,7 @@ async def handle_start(message: types.Message):
                 try:
                     await bot.send_message(
                         adm,
-                        f"💰 Nouveau paiement de {montant}€ de {message.from_user.username or message.from_user.first_name}."
+                        f"💰 Nouveau paiement de {display_amount} € de {message.from_user.username or message.from_user.first_name}."
                     )
                 except Exception:
                     pass
@@ -600,7 +605,7 @@ async def handle_start(message: types.Message):
                 pseudo=message.from_user.username or message.from_user.first_name,
                 user_id=user_id,
                 type_acces="Paiement",
-                montant=float(montant),
+                montant=float(montant_cents) / 100,
                 contenu="Paiement validé via Stripe webhook + redirection"
             )
 
@@ -846,6 +851,19 @@ import re
         types.ContentType.DOCUMENT
     ]
 )
+
+
+
+def parse_amount_to_cents(amount_str: str) -> int:
+    """
+    Convertit '45,67' ou '45.67' en 4567 centimes (int fiable).
+    """
+    normalized = amount_str.replace(",", ".").strip()
+    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return int(amount * 100)
+
+
+
 async def envoyer_contenu_payant(message: types.Message):
 
     admin_id = message.from_user.id
@@ -937,14 +955,19 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
-    code = match.group(1)
-    code = code.replace(",", ".")
+
+    raw_code = match.group(1)
+    amount_cents = parse_amount_to_cents(raw_code)
+    display_amount = f"{Decimal(amount_cents)/100:.2f}".replace(".", ",")
+
+
 
 
     if code in liens_paiement:
         lien = liens_paiement[code]
     else:
-        lien = create_dynamic_checkout(code)
+        lien = create_dynamic_checkout(raw_code)
+
 
     if not lien:
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
