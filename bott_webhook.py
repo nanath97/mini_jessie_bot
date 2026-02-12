@@ -945,7 +945,6 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     # ================================
-    # ================================
     # 3) lecture /envXX
     # ================================
     texte = message.caption or message.text or ""
@@ -955,30 +954,30 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
+    raw_code = match.group(1)  # ex: "45,67"
 
-    raw_code = match.group(1)
-    amount_cents = parse_amount_to_cents(raw_code)
-    display_amount = f"{Decimal(amount_cents)/100:.2f}".replace(".", ",")
+    # Conversion robuste en centimes (int)
+    amount_cents = parse_amount_to_cents(raw_code)  # ex: 4567
+    display_amount = f"{Decimal(amount_cents) / 100:.2f}".replace(".", ",")
 
-
-
-
-    if code in liens_paiement:
-        lien = liens_paiement[code]
+    # Création du lien Stripe dynamique basé sur les centimes
+    if str(amount_cents) in liens_paiement:
+        lien = liens_paiement[str(amount_cents)]
     else:
-        lien = create_dynamic_checkout(raw_code)
-
+        lien = create_dynamic_checkout(amount_cents)
 
     if not lien:
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
+    # On enlève la commande /envXX du texte envoyé au client
     nouvelle_legende = re.sub(
         r"/env([\d.,]+|vip)",
         "",
         texte,
         flags=re.IGNORECASE
     ).strip()
+
 
     # =====================================================
     # 4) MEDIA + /env → BLUR + stockage contenu
