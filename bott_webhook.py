@@ -17,6 +17,7 @@ from urllib.parse import quote
 from datetime import datetime, timezone
 from payment_links import liens_paiement
 from payment_links import create_dynamic_checkout
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 
@@ -926,6 +927,7 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     # ================================
+    # ================================
     # 3) lecture /envXX
     # ================================
     texte = message.caption or message.text or ""
@@ -941,19 +943,20 @@ async def envoyer_contenu_payant(message: types.Message):
         lien = liens_paiement[code]
     else:
         lien = create_dynamic_checkout(code)
+
     if not lien:
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
     nouvelle_legende = re.sub(
         r"/env(\d+|vip)",
-        lien,
+        "",
         texte,
         flags=re.IGNORECASE
-    )
+    ).strip()
 
     # =====================================================
-    # 4) MEDIA + /env  → BLUR + stockage contenu
+    # 4) MEDIA + /env → BLUR + stockage contenu
     # =====================================================
     if message.photo or message.video or message.document:
 
@@ -970,7 +973,7 @@ async def envoyer_contenu_payant(message: types.Message):
         contenus_en_attente[user_id] = {
             "file_id": file_id,
             "type": content_type,
-            "caption": re.sub(r"/env(\d+|vip)", "", texte, flags=re.IGNORECASE).strip()
+            "caption": nouvelle_legende
         }
 
         from vip_topics import ensure_topic_for_vip
@@ -986,7 +989,7 @@ async def envoyer_contenu_payant(message: types.Message):
             }
         )
 
-        # déjà payé → envoyer vrai contenu
+        # Déjà payé → envoyer vrai contenu
         if user_id in paiements_en_attente_par_user:
             contenu = contenus_en_attente[user_id]
 
@@ -1001,32 +1004,52 @@ async def envoyer_contenu_payant(message: types.Message):
             contenus_en_attente.pop(user_id, None)
             return
 
-        # 🔥 ENVOI BLUR
-    with open("assets/blur.png", "rb") as blur_img:
-        await bot.send_photo(
-            chat_id=user_id,
-            photo=blur_img,
-            caption=nouvelle_legende
+    # ================================
+    # Création du bouton Stripe
+    # ================================
+    keyboard = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="💳 Payer maintenant",
+            url=lien
         )
+    )
+
+    # ================================
+    # CAS 1 : MEDIA ATTACHÉ
+    # ================================
+    if message.photo or message.video or message.document:
+
+        with open("assets/blur.png", "rb") as blur_img:
+            await bot.send_photo(
+                chat_id=user_id,
+                photo=blur_img,
+                caption=nouvelle_legende or "🔒 Document verrouillé.",
+                reply_markup=keyboard
+            )
 
         await bot.send_message(
             chat_id=user_id,
-            text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le lien ci-dessus pour le déverrouiller._",
+            text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
             parse_mode="Markdown"
         )
 
         return
 
-    # =====================================================
-    # 5) TEXTE SEUL + /env
-    # =====================================================
-    await bot.send_message(chat_id=user_id, text=nouvelle_legende)
+    # ================================
+    # CAS 2 : TEXTE SEUL
+    # ================================
+    await bot.send_message(
+        chat_id=user_id,
+        text=nouvelle_legende or "💳 Paiement requis.",
+        reply_markup=keyboard
+    )
 
     await bot.send_message(
         chat_id=user_id,
-        text=f"_🔒 Ceci est un lien sécurisé Stripe._",
+        text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
         parse_mode="Markdown"
     )
+
 
 
 
