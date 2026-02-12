@@ -2,6 +2,8 @@
 import stripe
 import os
 from decimal import Decimal
+from main import BOT_USERNAME
+
 
 
 

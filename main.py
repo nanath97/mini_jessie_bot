@@ -8,6 +8,10 @@ import bott_webhook
 from stripe_webhook import router as stripe_router
 from vip_topics import load_vip_topics_from_airtable, load_vip_topics_from_disk, restore_missing_panels, load_annotations_from_airtable
 import asyncio
+import os
+
+BOT_USERNAME = os.getenv("BOT_USERNAME")
+
 
 load_dotenv()
 app = FastAPI()
