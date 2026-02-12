@@ -856,6 +856,7 @@ import re
 
 # ✅ CORRECT
 def parse_amount_to_cents(amount_str: str) -> int:
+    print("PA2C", type(amount_str), repr(amount_str))
     normalized = amount_str.replace(",", ".").strip()
     amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(amount * 100)
@@ -864,6 +865,7 @@ def parse_amount_to_cents(amount_str: str) -> int:
 
 
 async def envoyer_contenu_payant(message: types.Message):
+    print("ENV", message.from_user.id, message.content_type)
 
     admin_id = message.from_user.id
 
