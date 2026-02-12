@@ -842,6 +842,19 @@ async def handle_vip_note(message: types.Message):
 # Message et média personnel avec lien
 
 import re
+# ================================
+# UTILS (SANS DÉCORATEUR)
+# ================================
+from decimal import Decimal, ROUND_HALF_UP
+
+def parse_amount_to_cents(amount_str: str) -> int:
+    """
+    Convertit '45,67' ou '45.67' en 4567 centimes (int fiable).
+    """
+    normalized = amount_str.replace(",", ".").strip()
+    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return int(amount * 100)
+
 
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
@@ -857,16 +870,6 @@ import re
         types.ContentType.DOCUMENT
     ]
 )
-
-
-
-# ✅ CORRECT
-def parse_amount_to_cents(amount_str: str) -> int:
-    print("PA2C", type(amount_str), repr(amount_str))
-    normalized = amount_str.replace(",", ".").strip()
-    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return int(amount * 100)
-
 
 
 
