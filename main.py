@@ -10,8 +10,6 @@ from vip_topics import load_vip_topics_from_airtable, load_vip_topics_from_disk,
 import asyncio
 import os
 
-BOT_USERNAME = os.getenv("BOT_USERNAME")
-
 
 load_dotenv()
 app = FastAPI()
