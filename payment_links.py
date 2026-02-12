@@ -28,11 +28,13 @@ liens_paiement = {
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-def create_dynamic_checkout(amount_str, bot_username):
+def create_dynamic_checkout(amount_str):
     # Normalisation
     amount_str = amount_str.replace(",", ".")
     amount_decimal = Decimal(amount_str)
     amount_cents = int(amount_decimal * 100)
+
+    bot_username = os.getenv("BOT_USERNAME")
 
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
