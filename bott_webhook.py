@@ -932,12 +932,14 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     texte = message.caption or message.text or ""
 
-    match = re.search(r"/env(\d+|vip)", texte.lower())
+    match = re.search(r"/env([\d.,]+|vip)", texte.lower())
     if not match:
         await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
     code = match.group(1)
+    code = code.replace(",", ".")
+
 
     if code in liens_paiement:
         lien = liens_paiement[code]
@@ -949,7 +951,7 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     nouvelle_legende = re.sub(
-        r"/env(\d+|vip)",
+        r"/env([\d.,]+|vip)",
         "",
         texte,
         flags=re.IGNORECASE
