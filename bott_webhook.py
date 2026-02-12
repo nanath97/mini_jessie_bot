@@ -954,13 +954,21 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
-    raw_code = match.group(1)  # ex: "45,67"
+    raw_code = str(match.group(1))  # sécurise en string
 
-    # Conversion robuste en centimes (int)
-    amount_cents = parse_amount_to_cents(raw_code)  # ex: 4567
-    display_amount = f"{Decimal(amount_cents) / 100:.2f}".replace(".", ",")
+    # Conversion robuste en centimes
+    try:
+        amount_cents = parse_amount_to_cents(raw_code)  # DOIT renvoyer un int
+        amount_cents = int(amount_cents)  # double sécurité
+    except Exception as e:
+        await bot.send_message(chat_id=admin_id, text="❗ Montant invalide.")
+        print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
+        return
 
-    # Création du lien Stripe dynamique basé sur les centimes
+    # Affichage sécurisé (aucun replace sur objet inconnu)
+    display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
+
+    # Création lien Stripe (clé unique = centimes)
     if str(amount_cents) in liens_paiement:
         lien = liens_paiement[str(amount_cents)]
     else:
@@ -970,7 +978,7 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
-    # On enlève la commande /envXX du texte envoyé au client
+    # Nettoyage texte envoyé au client
     nouvelle_legende = re.sub(
         r"/env([\d.,]+|vip)",
         "",
