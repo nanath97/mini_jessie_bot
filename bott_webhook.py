@@ -522,121 +522,127 @@ async def handle_start(message: types.Message):
     param = (message.get_args() or "").strip()
     print(f"[DEBUG START PARAM] reçu: '{param}'")
 
-
     # === Cas A : /start=cdanXX (paiement Stripe pour un contenu) ===
     if param.startswith("cdan") and param[4:].isdigit():
         montant_cents = int(param[4:])
         display_amount = f"{Decimal(montant_cents)/100:.2f}".replace(".", ",")
 
-        if montant in prix_list:
-            now = datetime.now()
-            paiements_valides = [
-                t for t in paiements_recents.get(montant, [])
-                if now - t < timedelta(minutes=20)
-            ]
-            if not paiements_valides:
-                await bot.send_message(
-                    user_id,
-                    "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement."
-                )
-                # avertir tous les admins
-                for adm in authorized_admin_ids:
-                    try:
-                        await bot.send_message(
-                            adm,
-                            f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}."
-                        )
-                    except Exception:
-                        pass
-                return
+        # Ancienne logique basée sur euros entiers (compatibilité)
+        montant = montant_cents // 100
 
-            # Paiement validé
-            paiements_recents[montant].remove(paiements_valides[0])
+        now = datetime.now()
+        paiements_valides = [
+            t for t in paiements_recents.get(montant, [])
+            if now - t < timedelta(minutes=20)
+        ]
 
-            # 🔑 Le client devient VIP (payeurs) pour tout le reste du système
-            authorized_users.add(user_id)
-
-            # Si un contenu était en attente → on le livre
-            if user_id in contenus_en_attente:
-                contenu = contenus_en_attente[user_id]
-                if contenu["type"] == types.ContentType.PHOTO:
-                    await bot.send_photo(
-                        chat_id=user_id,
-                        photo=contenu["file_id"],
-                        caption=contenu.get("caption")
-                    )
-                elif contenu["type"] == types.ContentType.VIDEO:
-                    await bot.send_video(
-                        chat_id=user_id,
-                        video=contenu["file_id"],
-                        caption=contenu.get("caption")
-                    )
-                elif contenu["type"] == types.ContentType.DOCUMENT:
-                    await bot.send_document(
-                        chat_id=user_id,
-                        document=contenu["file_id"],
-                        caption=contenu.get("caption")
-                    )
-                del contenus_en_attente[user_id]
-            else:
-                # Le client a payé avant que tu aies /envXX → on note le paiement en attente
-                paiements_en_attente_par_user.add(user_id)
-
-            # Message de confirmation au client (normal : il vient d'acheter un contenu)
+        if not paiements_valides:
             await bot.send_message(
                 user_id,
-                f"✅ Merci pour votre paiement de {display_amount} € ! Votre facture vous sera transmis directement par mail.\n\n"
-                f"_❗️Si vous avez le moindre soucis avec votre commande, contactez-nous directement ici_",
-                parse_mode="Markdown"
+                "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement."
             )
-
             # avertir tous les admins
             for adm in authorized_admin_ids:
                 try:
                     await bot.send_message(
                         adm,
-                        f"💰 Nouveau paiement de {display_amount} € de {message.from_user.username or message.from_user.first_name}."
+                        f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}."
                     )
                 except Exception:
                     pass
-
-            # Log Airtable du paiement (Type acces = Paiement)
-            log_to_airtable(
-                pseudo=message.from_user.username or message.from_user.first_name,
-                user_id=user_id,
-                type_acces="Paiement",
-                montant=float(montant_cents) / 100,
-                contenu="Paiement validé via Stripe webhook + redirection"
-            )
-
-            # 🔔 Notification dans le TOPIC du client (et plus dans le bot)
-            try:
-                from vip_topics import ensure_topic_for_vip
-                topic_id = await ensure_topic_for_vip(message.from_user)
-            except Exception:
-                topic_id = None
-
-            if topic_id is not None:
-                try:
-                    await bot.request(
-                        "sendMessage",
-                        {
-                            "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
-                            "message_thread_id": topic_id,
-                            "text": (
-                                f"💰 *Nouveau paiement*\n\n"
-                                f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
-                                f"💶 Montant : {montant} €\n"
-                                f"📊 Paiement enregistré dans ton Dashbord.\n"
-                                f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
-                            ),
-                            "parse_mode": "Markdown"
-                        }
-                    )
-                except Exception as e:
-                    print(f"[VIP_TOPICS] Erreur envoi notif paiement contenu dans topic {topic_id} : {e}")
-
             return
+
+        # Paiement validé
+        paiements_recents[montant].remove(paiements_valides[0])
+
+        # 🔑 Le client devient VIP
+        authorized_users.add(user_id)
+
+        # Livraison du contenu si en attente
+        if user_id in contenus_en_attente:
+            contenu = contenus_en_attente[user_id]
+
+            if contenu["type"] == types.ContentType.PHOTO:
+                await bot.send_photo(
+                    chat_id=user_id,
+                    photo=contenu["file_id"],
+                    caption=contenu.get("caption")
+                )
+            elif contenu["type"] == types.ContentType.VIDEO:
+                await bot.send_video(
+                    chat_id=user_id,
+                    video=contenu["file_id"],
+                    caption=contenu.get("caption")
+                )
+            elif contenu["type"] == types.ContentType.DOCUMENT:
+                await bot.send_document(
+                    chat_id=user_id,
+                    document=contenu["file_id"],
+                    caption=contenu.get("caption")
+                )
+
+            del contenus_en_attente[user_id]
+
+        else:
+            # Paiement reçu avant envoi du contenu
+            paiements_en_attente_par_user.add(user_id)
+
+        # Confirmation client
+        await bot.send_message(
+            user_id,
+            f"✅ Merci pour votre paiement de {display_amount} € ! Votre facture vous sera transmise directement par mail.\n\n"
+            f"_❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici_",
+            parse_mode="Markdown"
+        )
+
+        # Notification admins
+        for adm in authorized_admin_ids:
+            try:
+                await bot.send_message(
+                    adm,
+                    f"💰 Nouveau paiement de {display_amount} € de {message.from_user.username or message.from_user.first_name}."
+                )
+            except Exception:
+                pass
+
+        # Log Airtable (montant fiable en float)
+        log_to_airtable(
+            pseudo=message.from_user.username or message.from_user.first_name,
+            user_id=user_id,
+            type_acces="Paiement",
+            montant=float(montant_cents) / 100,
+            contenu="Paiement validé via Stripe webhook + redirection"
+        )
+
+        # Notification dans le topic staff
+        try:
+            from vip_topics import ensure_topic_for_vip
+            topic_id = await ensure_topic_for_vip(message.from_user)
+        except Exception:
+            topic_id = None
+
+        if topic_id is not None:
+            try:
+                await bot.request(
+                    "sendMessage",
+                    {
+                        "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
+                        "message_thread_id": topic_id,
+                        "text": (
+                            f"💰 *Nouveau paiement*\n\n"
+                            f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
+                            f"💶 Montant : {display_amount} €\n"
+                            f"📊 Paiement enregistré dans ton Dashboard.\n"
+                            f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
+                        ),
+                        "parse_mode": "Markdown"
+                    }
+                )
+            except Exception as e:
+                print(f"[VIP_TOPICS] Erreur envoi notif paiement contenu dans topic {topic_id} : {e}")
+
+        return
+
 
     # === Cas B : /start=vipcdan (retour après paiement VIP) ===
     if param == "vipcdan":
@@ -1063,7 +1069,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
         await bot.send_message(
             chat_id=user_id,
-            text=f"_🔒 Ce contenu de {code} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
+            text=f"_🔒 Ce contenu de {display_amount} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
             parse_mode="Markdown"
         )
 
