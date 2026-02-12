@@ -935,7 +935,10 @@ async def envoyer_contenu_payant(message: types.Message):
 
     code = match.group(1)
 
-    lien = liens_paiement.get(code)
+    if code in liens_paiement:
+        lien = liens_paiement[code]
+    else:
+        lien = create_dynamic_checkout(code, bot.username)
     if not lien:
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return

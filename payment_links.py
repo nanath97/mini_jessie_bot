@@ -1,3 +1,10 @@
+
+import stripe
+import os
+from decimal import Decimal
+
+
+
 # payment_links.py
 
 liens_paiement = {
@@ -17,3 +24,31 @@ liens_paiement = {
     "89": "https://buy.stripe.com/5kAeYYglJekG2fC7sG",
     "99": "https://buy.stripe.com/bJe7sK3SBfrF2457PD7AI2c"
 }
+
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+def create_dynamic_checkout(amount_str, bot_username):
+    # Normalisation
+    amount_str = amount_str.replace(",", ".")
+    amount_decimal = Decimal(amount_str)
+    amount_cents = int(amount_decimal * 100)
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "eur",
+                "product_data": {
+                    "name": "Paiement NovaPulse"
+                },
+                "unit_amount": amount_cents,
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
+        success_url=f"https://t.me/{bot_username}?start=cdan{amount_cents}",
+        cancel_url=f"https://t.me/{bot_username}",
+    )
+
+    return session.url

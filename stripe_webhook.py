@@ -28,8 +28,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        montant = int(session["amount_total"] / 100)
-        paiements_recents[montant].append(datetime.now())
+        montant_cents = session["amount_total"]
+        paiements_recents[montant_cents].append(datetime.now())
         print(f"✅ Paiement webhook : {montant}€ enregistré à {datetime.now().isoformat()}")
 
     return {"status": "ok"}
