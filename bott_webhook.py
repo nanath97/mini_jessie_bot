@@ -19,7 +19,6 @@ from payment_links import liens_paiement
 from payment_links import create_dynamic_checkout
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
-from main import BOT_USERNAME
 
 
 
