@@ -1029,7 +1029,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
         await bot.send_message(
             chat_id=user_id,
-            text=f"_🔒 Ce contenu {code} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
+            text=f"_🔒 Ce contenu de {code} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
             parse_mode="Markdown"
         )
 
@@ -1046,7 +1046,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
     await bot.send_message(
     chat_id=user_id,
-    text="_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {code} €._",
+    text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {code} €._",
     parse_mode="Markdown"
 )
 
