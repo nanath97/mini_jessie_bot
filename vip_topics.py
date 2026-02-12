@@ -6,7 +6,9 @@ import requests
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from core import bot, authorized_users
-from main import BOT_USERNAME
+import os
+
+
 
 # =========================================================
 # CONFIG
@@ -19,6 +21,7 @@ VIP_TOPICS_FILE = "vip_topics.json"  # fallback local (Render peut le perdre)
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME")
+BOT_USERNAME = os.getenv("BOT_USERNAME")
 
 # ====== CONFIG AIRTABLE ANNOTATIONS (table séparée) ======
 ANNOT_API_KEY = os.getenv("ANNOT_API_KEY") or AIRTABLE_API_KEY
