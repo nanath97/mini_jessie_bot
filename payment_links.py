@@ -26,35 +26,23 @@ liens_paiement = {
 }
 
 
-def create_dynamic_checkout(amount_str):
-    from decimal import Decimal, ROUND_HALF_UP
-    import stripe
-    import os
-
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    normalized = amount_str.replace(",", ".").strip()
-    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    amount_cents = int(amount * 100)
-
-    bot_username = os.getenv("BOT_USERNAME")
-
+def create_dynamic_checkout(amount_cents: int):
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
         line_items=[{
             "price_data": {
                 "currency": "eur",
                 "product_data": {
-                    "name": f"Paiement NovaPulse {amount} €"
+                    "name": "Paiement NovaPulse"
                 },
-                "unit_amount": amount_cents,
+                "unit_amount": amount_cents,  # ← direct centimes
             },
             "quantity": 1,
         }],
         mode="payment",
-        success_url=f"https://t.me/{bot_username}?start=cdan{amount_cents}",
-        cancel_url=f"https://t.me/{bot_username}",
+        success_url=f"https://t.me/{BOT_USERNAME}?start=cdan{amount_cents}",
+        cancel_url=f"https://t.me/{BOT_USERNAME}",
     )
-
     return session.url
+
 
