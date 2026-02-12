@@ -854,13 +854,12 @@ import re
 
 
 
+# ✅ CORRECT
 def parse_amount_to_cents(amount_str: str) -> int:
-    """
-    Convertit '45,67' ou '45.67' en 4567 centimes (int fiable).
-    """
     normalized = amount_str.replace(",", ".").strip()
     amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(amount * 100)
+
 
 
 
@@ -954,7 +953,8 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
         return
 
-    raw_code = str(match.group(1))  # sécurise en string
+    raw_code = str(match.group(1))
+    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code) # sécurise en string
 
     # Conversion robuste en centimes
     try:
