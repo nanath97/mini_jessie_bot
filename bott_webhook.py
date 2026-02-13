@@ -302,14 +302,14 @@ async def handle_stat(message: types.Message):
         # =========================
         # CALCUL STRIPE PROPRE
         # =========================
-        FRAIS_STRIPE_PERCENT = 0.029
-        FRAIS_STRIPE_FIXE = 0.25
+        FRAIS_STRIPE_PERCENT = Decimal("0.029")
+        FRAIS_STRIPE_FIXE = Decimal("0.25")
+        
+        frais_stripe = (
+    ventes_totales * FRAIS_STRIPE_PERCENT +
+    Decimal(nb_transactions_total) * FRAIS_STRIPE_FIXE
+).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        frais_stripe = round(
-            ventes_totales * FRAIS_STRIPE_PERCENT +
-            nb_transactions_total * FRAIS_STRIPE_FIXE,
-            2
-        )
 
         benefice_net = (ventes_totales - frais_stripe).quantize(
     Decimal("0.01"), rounding=ROUND_HALF_UP
