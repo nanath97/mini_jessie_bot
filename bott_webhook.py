@@ -21,8 +21,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
 
 
-BOT_USERNAME = os.getenv("BOT_USERNAME")
-
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 
 

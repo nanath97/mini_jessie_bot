@@ -22,6 +22,8 @@ AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
 TABLE_NAME = os.getenv("TABLE_NAME")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
+print("BOT USERNAME =", BOT_USERNAME)
+
 
 # ====== CONFIG AIRTABLE ANNOTATIONS (table séparée) ======
 ANNOT_API_KEY = os.getenv("ANNOT_API_KEY") or AIRTABLE_API_KEY
