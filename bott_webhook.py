@@ -1018,10 +1018,12 @@ async def envoyer_contenu_payant(message: types.Message):
 
     # 🔥 SAUVEGARDE AIRTABLE ICI
     save_payment_link_to_airtable(
-        client_telegram_id=user_id,
-        payment_link=lien,
-        admin_id=admin_id
-    )
+    client_telegram_id=user_id,
+    payment_link=lien,
+    admin_id=admin_id,
+    amount_cents=amount_cents
+)
+
 
     # Nettoyage texte envoyé au client
     nouvelle_legende = re.sub(
@@ -1131,7 +1133,8 @@ async def envoyer_contenu_payant(message: types.Message):
 )
 
 
-def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
+def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id, amount_cents):
+
     AIRTABLE_TABLE_PAYMENT_LINKS = "Payment Links"
 
     url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PAYMENT_LINKS.replace(' ', '%20')}"
@@ -1146,6 +1149,7 @@ def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
         "Payment Link URL": payment_link,
         "ID Telegram": str(client_telegram_id),
         "ADMIN ID": str(admin_id),
+        "Amount Cents": amount_cents,
         "URL Render": os.getenv("RENDER_WEBHOOK_HOST"),
         "Status": "Pending",
         "Sent At": datetime.utcnow().isoformat()
