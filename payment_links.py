@@ -4,6 +4,8 @@ import os
 from decimal import Decimal
 import os
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+BOT_USERNAME = os.getenv("BOT_USERNAME")
+
 
 
 
