@@ -974,7 +974,6 @@ async def envoyer_contenu_payant(message: types.Message):
     # 3) lecture /envXX
     # ================================
 
-    
     texte = message.caption or message.text or ""
 
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
@@ -983,7 +982,7 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     raw_code = str(match.group(1))
-    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code) # sécurise en string
+    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code)  # sécurise en string
 
     # Conversion robuste en centimes
     try:
@@ -1006,6 +1005,13 @@ async def envoyer_contenu_payant(message: types.Message):
     if not lien:
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
+
+    # 🔥 SAUVEGARDE AIRTABLE ICI
+    save_payment_link_to_airtable(
+        client_telegram_id=user_id,
+        payment_link=lien,
+        admin_id=admin_id
+    )
 
     # Nettoyage texte envoyé au client
     nouvelle_legende = re.sub(
