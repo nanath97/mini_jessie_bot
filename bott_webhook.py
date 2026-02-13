@@ -973,7 +973,6 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # 3) lecture /envXX
     # ================================
-
     texte = message.caption or message.text or ""
 
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
@@ -982,21 +981,21 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     raw_code = str(match.group(1))
-    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code)  # sécurise en string
+    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code)
 
     # Conversion robuste en centimes
     try:
-        amount_cents = parse_amount_to_cents(raw_code)  # DOIT renvoyer un int
-        amount_cents = int(amount_cents)  # double sécurité
+        amount_cents = parse_amount_to_cents(raw_code)
+        amount_cents = int(amount_cents)
     except Exception as e:
         await bot.send_message(chat_id=admin_id, text="❗ Montant invalide.")
         print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
         return
 
-    # Affichage sécurisé (aucun replace sur objet inconnu)
+    # Affichage sécurisé
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
 
-    # Création lien Stripe (clé unique = centimes)
+    # Création lien Stripe dynamique
     if str(amount_cents) in liens_paiement:
         lien = liens_paiement[str(amount_cents)]
     else:
@@ -1006,7 +1005,7 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
-    # 🔥 SAUVEGARDE AIRTABLE ICI
+    # 🔥 SAUVEGARDE AIRTABLE ICI (PATCH CORRIGÉ)
     save_payment_link_to_airtable(
         client_telegram_id=user_id,
         payment_link=lien,
@@ -1020,6 +1019,7 @@ async def envoyer_contenu_payant(message: types.Message):
         texte,
         flags=re.IGNORECASE
     ).strip()
+
 
 
 
@@ -1123,7 +1123,6 @@ async def envoyer_contenu_payant(message: types.Message):
 def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
     AIRTABLE_TABLE_PAYMENT_LINKS = "Payment Links"
 
-    # URL Airtable correcte (avec espace encodé)
     url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PAYMENT_LINKS.replace(' ', '%20')}"
 
     headers = {
@@ -1131,15 +1130,12 @@ def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
         "Content-Type": "application/json"
     }
 
-    # On récupère l’URL render depuis le .env
-    url_render = os.getenv("RENDER_WEBHOOK_HOST")
-
     data = {
         "fields": {
             "Payment Link URL": payment_link,
-            "ID Telegram": str(client_telegram_id),
+            "Client Telegram": str(client_telegram_id),  # ⚠️ champ réel
             "ADMIN ID": str(admin_id),
-            "URL Render": url_render,
+            "URL Render": os.getenv("RENDER_WEBHOOK_HOST"),
             "Status": "Pending"
         }
     }
