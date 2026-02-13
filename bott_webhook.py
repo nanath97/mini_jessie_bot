@@ -255,8 +255,9 @@ async def handle_stat(message: types.Message):
         response = requests.get(url, headers=headers, params=params)
         data = response.json()
 
-        ventes_totales = 0.0
-        ventes_jour = 0.0
+    
+        ventes_totales = Decimal("0.00")
+        ventes_jour = Decimal("0.00")
         nb_transactions_total = 0
         contenus_vendus_jour = 0
         vip_ids = set()
@@ -275,10 +276,14 @@ async def handle_stat(message: types.Message):
             date_str = fields.get("Date", "") or ""
             mois = fields.get("Mois", "") or ""
 
+
+
             try:
-                montant = float(fields.get("Montant", 0) or 0)
+                montant = Decimal(str(fields.get("Montant", 0) or 0)).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
             except:
-                montant = 0.0
+                montant = Decimal("0.00")
 
             # ===== ventes du mois =====
             if mois == mois_courant and montant > 0 and type_acces != "vip":
@@ -306,7 +311,10 @@ async def handle_stat(message: types.Message):
             2
         )
 
-        benefice_net = round(ventes_totales - frais_stripe, 2)
+        benefice_net = (ventes_totales - frais_stripe).quantize(
+    Decimal("0.01"), rounding=ROUND_HALF_UP
+)
+
 
         clients_vip = len(vip_ids)
 
@@ -315,12 +323,12 @@ async def handle_stat(message: types.Message):
         # =========================
         message_final = (
             f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour}€\n"
-            f"💶 Ventes totales (mois) : {ventes_totales}€\n"
+            f"💰 Ventes du jour : {ventes_jour:.2f}€\n"
+            f"💶 Ventes totales (mois) : {ventes_totales:.2f}€\n"
             f"📦 Paiements du mois : {nb_transactions_total}\n"
             f"🌟 Clients VIP : {clients_vip}\n\n"
-            f"🏦 Frais bancaires Stripe estimés : {frais_stripe}€\n"
-            f"📈 Revenu net reçu : {benefice_net}€"
+            f"🏦 Frais bancaires Stripe estimés : {frais_stripe:.2f}€\n"
+            f"📈 Revenu net reçu : {benefice_net:.2f}€"
         )
 
         vip_button = InlineKeyboardMarkup().add(
@@ -372,9 +380,12 @@ def get_vip_ids_for_admin_email(email: str):
         type_acces = (fields.get("Type acces", "") or "").lower()
 
         try:
-            montant = float(fields.get("Montant", 0) or 0)
-        except Exception:
-            montant = 0.0
+            montant = Decimal(str(fields.get("Montant", 0) or 0)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        except:
+            montant = Decimal("0.00")
+        
 
         # 🌟 VIP = client qui a payé au moins une fois (paiement ou vip) avec montant > 0
         if user_id and montant > 0 and type_acces in ("paiement", "vip"):
