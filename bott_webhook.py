@@ -534,11 +534,11 @@ async def handle_start(message: types.Message):
         display_amount = f"{Decimal(montant_cents)/100:.2f}".replace(".", ",")
 
         # Ancienne logique basée sur euros entiers (compatibilité)
-        montant = montant_cents // 100
+    
 
         now = datetime.now()
         paiements_valides = [
-            t for t in paiements_recents.get(montant, [])
+            t for t in paiements_recents.get(montant_cents, [])
             if now - t < timedelta(minutes=20)
         ]
 
