@@ -50,7 +50,7 @@ class ReminderPayload(BaseModel):
 @app.post("/reminder")
 async def send_reminder(payload: ReminderPayload):
     try:
-        text = f"{payload.message}\n\n💳 Payer ici : {payload.payment_link}"
+        text = payload.message  # ← plus de lien automatique
 
         telegram_api_url = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage"
 
@@ -75,6 +75,7 @@ async def send_reminder(payload: ReminderPayload):
             "status": "error",
             "error": str(e)
         }
+
 
 
 # ---------------------------
