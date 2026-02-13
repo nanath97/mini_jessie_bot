@@ -786,7 +786,7 @@ async def handle_services(call: types.CallbackQuery):
         print(f"Erreur envoi directeur : {e}")
 
 
-# TEST A SUPPRIMER DEBUT
+# TEST  DEBUT
 
 @dp.message_handler(
     lambda m: m.chat.id == STAFF_GROUP_ID and m.from_user.id in pending_notes,
@@ -973,6 +973,8 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # 3) lecture /envXX
     # ================================
+
+    
     texte = message.caption or message.text or ""
 
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
@@ -1012,6 +1014,8 @@ async def envoyer_contenu_payant(message: types.Message):
         texte,
         flags=re.IGNORECASE
     ).strip()
+
+
 
 
     # =====================================================
@@ -1109,6 +1113,39 @@ async def envoyer_contenu_payant(message: types.Message):
     parse_mode="Markdown"
 )
 
+    # ================================
+    # SAUVEGARDE AUTOMATIQUE AIRTABLE
+    # ================================
+    try:
+        AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+        AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+        AIRTABLE_TABLE_NAME = "Payment Links"
+
+        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "fields": {
+                "ID Telegram": str(user_id),          # client
+                "Payment Link URL": lien,             # lien Stripe dynamique
+                "Sent At": datetime.utcnow().isoformat(),
+                "Status": "Pending",
+                "Reminder Stage": 0,
+                "Reminders Enabled": True,
+                "ADMIN ID": str(admin_id),            # admin émetteur
+                "URL Render": os.getenv("RENDER_WEBHOOK_HOST") # URL render du bot
+            }
+        }
+
+        response = requests.post(airtable_url, json=data, headers=headers)
+        print("[AIRTABLE SAVE]", response.status_code, response.text)
+
+    except Exception as e:
+        print("[AIRTABLE ERROR]", e)
 
 
 
