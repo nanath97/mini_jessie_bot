@@ -1109,7 +1109,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
     await bot.send_message(
     chat_id=user_id,
-    text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {code} €._",
+    text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {display_amount} €._",
     parse_mode="Markdown"
 )
 
@@ -1136,7 +1136,7 @@ async def envoyer_contenu_payant(message: types.Message):
                 "Status": "Pending",
                 "Reminder Stage": 0,
                 "Reminders Enabled": True,
-                "ADMIN ID": str(admin_id),            # admin émetteur
+                "ADMIN ID": str(ADMIN_ID),            # admin émetteur
                 "URL Render": os.getenv("RENDER_WEBHOOK_HOST") # URL render du bot
             }
         }
