@@ -50,10 +50,11 @@ class ReminderPayload(BaseModel):
 @app.post("/reminder")
 async def send_reminder(payload: ReminderPayload):
     try:
-        text = payload.message  # ← plus de lien automatique
+        text = payload.message  # ← message envoyé au client
 
         telegram_api_url = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage"
 
+        # 1️⃣ Envoi de la relance au client
         response = requests.post(
             telegram_api_url,
             json={
@@ -63,6 +64,23 @@ async def send_reminder(payload: ReminderPayload):
         )
 
         print("[REMINDER] Message envoyé :", response.text)
+
+        # 2️⃣ 🔔 Notification admin (AJOUTÉ PROPREMENT ICI)
+        admin_id = 7334072965  # ou via variable d'environnement si besoin
+
+        notif_text = (
+            "🔔 Relance automatique envoyée\n\n"
+            f"👤 Client ID : {payload.telegram_id}\n"
+            f"🔗 Paiement : relance sur lien actif"
+        )
+
+        requests.post(
+            telegram_api_url,
+            json={
+                "chat_id": admin_id,
+                "text": notif_text
+            }
+        )
 
         return {
             "status": "sent",
@@ -75,22 +93,7 @@ async def send_reminder(payload: ReminderPayload):
             "status": "error",
             "error": str(e)
         }
-# 🔔 Notification admin
-admin_id = 7334072965  # ou via env si tu préfères
 
-notif_text = (
-    f"🔔 Relance automatique envoyée\n\n"
-    f"👤 Client ID : {payload.telegram_id}\n"
-    f"💰 Montant : {payload.payment_link}"
-)
-
-requests.post(
-    telegram_api_url,
-    json={
-        "chat_id": admin_id,
-        "text": notif_text
-    }
-)
 
 
 
