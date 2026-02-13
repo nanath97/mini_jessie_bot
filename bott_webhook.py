@@ -531,10 +531,7 @@ async def handle_start(message: types.Message):
     # === Cas A : /start=cdanXX (paiement Stripe pour un contenu) ===
     if param.startswith("cdan") and param[4:].isdigit():
         montant_cents = int(param[4:])
-        display_amount = f"{Decimal(montant_cents)/100:.2f}".replace(".", ",")
-
-        # Ancienne logique basée sur euros entiers (compatibilité)
-    
+        display_amount = f"{Decimal(montant_cents) / 100:.2f}".replace(".", ",")
 
         now = datetime.now()
         paiements_valides = [
@@ -542,12 +539,12 @@ async def handle_start(message: types.Message):
             if now - t < timedelta(minutes=20)
         ]
 
+        # ❌ Paiement non reconnu par webhook
         if not paiements_valides:
             await bot.send_message(
                 user_id,
                 "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement."
             )
-            # avertir tous les admins
             for adm in authorized_admin_ids:
                 try:
                     await bot.send_message(
@@ -558,13 +555,15 @@ async def handle_start(message: types.Message):
                     pass
             return
 
-        # Paiement validé
-        paiements_recents[montant].remove(paiements_valides[0])
+        # ✅ Paiement validé par webhook
+        paiements_recents[montant_cents].remove(paiements_valides[0])
 
-        # 🔑 Le client devient VIP
+        # Le client devient VIP payeur
         authorized_users.add(user_id)
 
-        # Livraison du contenu si en attente
+        # ===============================
+        # LIVRAISON DU CONTENU PAYÉ
+        # ===============================
         if user_id in contenus_en_attente:
             contenu = contenus_en_attente[user_id]
 
@@ -574,12 +573,14 @@ async def handle_start(message: types.Message):
                     photo=contenu["file_id"],
                     caption=contenu.get("caption")
                 )
+
             elif contenu["type"] == types.ContentType.VIDEO:
                 await bot.send_video(
                     chat_id=user_id,
                     video=contenu["file_id"],
                     caption=contenu.get("caption")
                 )
+
             elif contenu["type"] == types.ContentType.DOCUMENT:
                 await bot.send_document(
                     chat_id=user_id,
@@ -587,13 +588,16 @@ async def handle_start(message: types.Message):
                     caption=contenu.get("caption")
                 )
 
+            # Nettoyage mémoire
             del contenus_en_attente[user_id]
 
         else:
-            # Paiement reçu avant envoi du contenu
+            # Cas rare : paiement avant envoi admin
             paiements_en_attente_par_user.add(user_id)
 
-        # Confirmation client
+        # ===============================
+        # MESSAGE CONFIRMATION CLIENT
+        # ===============================
         await bot.send_message(
             user_id,
             f"✅ Merci pour votre paiement de {display_amount} € ! Votre facture vous sera transmise directement par mail.\n\n"
@@ -601,7 +605,9 @@ async def handle_start(message: types.Message):
             parse_mode="Markdown"
         )
 
-        # Notification admins
+        # ===============================
+        # NOTIFICATION ADMINS
+        # ===============================
         for adm in authorized_admin_ids:
             try:
                 await bot.send_message(
@@ -611,7 +617,9 @@ async def handle_start(message: types.Message):
             except Exception:
                 pass
 
-        # Log Airtable (montant fiable en float)
+        # ===============================
+        # LOG AIRTABLE
+        # ===============================
         log_to_airtable(
             pseudo=message.from_user.username or message.from_user.first_name,
             user_id=user_id,
@@ -620,7 +628,9 @@ async def handle_start(message: types.Message):
             contenu="Paiement validé via Stripe webhook + redirection"
         )
 
-        # Notification dans le topic staff
+        # ===============================
+        # NOTIFICATION DANS LE TOPIC STAFF
+        # ===============================
         try:
             from vip_topics import ensure_topic_for_vip
             topic_id = await ensure_topic_for_vip(message.from_user)
