@@ -75,6 +75,22 @@ async def send_reminder(payload: ReminderPayload):
             "status": "error",
             "error": str(e)
         }
+# 🔔 Notification admin
+admin_id = 7334072965  # ou via env si tu préfères
+
+notif_text = (
+    f"🔔 Relance automatique envoyée\n\n"
+    f"👤 Client ID : {payload.telegram_id}\n"
+    f"💰 Montant : {payload.payment_link}"
+)
+
+requests.post(
+    telegram_api_url,
+    json={
+        "chat_id": admin_id,
+        "text": notif_text
+    }
+)
 
 
 
