@@ -1113,39 +1113,33 @@ async def envoyer_contenu_payant(message: types.Message):
     parse_mode="Markdown"
 )
 
-    # ================================
-    # SAUVEGARDE AUTOMATIQUE AIRTABLE
-    # ================================
-    try:
-        AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-        AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
-        AIRTABLE_TABLE_NAME = "Payment Links"
 
-        airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
+    AIRTABLE_TABLE_PAYMENT_LINKS = "Payment Links"
 
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-            "Content-Type": "application/json"
+    # URL Airtable correcte (avec espace encodé)
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PAYMENT_LINKS.replace(' ', '%20')}"
+
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # On récupère l’URL render depuis le .env
+    url_render = os.getenv("RENDER_WEBHOOK_HOST")
+
+    data = {
+        "fields": {
+            "Payment Link URL": payment_link,
+            "ID Telegram": str(client_telegram_id),
+            "ADMIN ID": str(admin_id),
+            "URL Render": url_render,
+            "Status": "Pending"
         }
+    }
 
-        data = {
-            "fields": {
-                "ID Telegram": str(user_id),          # client
-                "Payment Link URL": lien,             # lien Stripe dynamique
-                "Sent At": datetime.utcnow().isoformat(),
-                "Status": "Pending",
-                "Reminder Stage": 0,
-                "Reminders Enabled": True,
-                "ADMIN ID": str(ADMIN_ID),            # admin émetteur
-                "URL Render": os.getenv("RENDER_WEBHOOK_HOST") # URL render du bot
-            }
-        }
-
-        response = requests.post(airtable_url, json=data, headers=headers)
-        print("[AIRTABLE SAVE]", response.status_code, response.text)
-
-    except Exception as e:
-        print("[AIRTABLE ERROR]", e)
+    response = requests.post(url, json=data, headers=headers)
+    print("[AIRTABLE SAVE]", response.status_code, response.text)
 
 
 
