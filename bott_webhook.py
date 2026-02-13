@@ -973,6 +973,7 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # 3) lecture /envXX
     # ================================
+
     texte = message.caption or message.text or ""
 
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
@@ -992,10 +993,9 @@ async def envoyer_contenu_payant(message: types.Message):
         print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
         return
 
-    # Affichage sécurisé
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
 
-    # Création lien Stripe dynamique
+    # Création lien Stripe
     if str(amount_cents) in liens_paiement:
         lien = liens_paiement[str(amount_cents)]
     else:
@@ -1005,7 +1005,7 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
-    # 🔥 SAUVEGARDE AIRTABLE ICI (PATCH CORRIGÉ)
+    # 🔥 SAUVEGARDE AIRTABLE ICI
     save_payment_link_to_airtable(
         client_telegram_id=user_id,
         payment_link=lien,
@@ -1131,14 +1131,16 @@ def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id):
     }
 
     data = {
-        "fields": {
-            "Payment Link URL": payment_link,
-            "Client Telegram": str(client_telegram_id),  # ⚠️ champ réel
-            "ADMIN ID": str(admin_id),
-            "URL Render": os.getenv("RENDER_WEBHOOK_HOST"),
-            "Status": "Pending"
-        }
+    "fields": {
+        "Payment Link URL": payment_link,
+        "ID Telegram": str(client_telegram_id),
+        "ADMIN ID": str(admin_id),
+        "URL Render": os.getenv("RENDER_WEBHOOK_HOST"),
+        "Status": "Pending",
+        "Sent At": datetime.utcnow().isoformat()
     }
+}
+
 
     response = requests.post(url, json=data, headers=headers)
     print("[AIRTABLE SAVE]", response.status_code, response.text)
