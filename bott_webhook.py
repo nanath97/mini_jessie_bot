@@ -1522,7 +1522,7 @@ async def handle_prendre_en_charge(callback_query: types.CallbackQuery):
         admin_name=admin_name,
     )
 
-    panel_message_id = info.get("panel_message_id")
+    panel_message_id = await get_panel_message_id_by_user(vip_user_id)
     note_text = info.get("note", "")
 
     if not panel_message_id:
