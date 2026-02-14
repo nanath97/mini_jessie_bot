@@ -519,8 +519,7 @@ async def restore_missing_panels():
 
     print(f"[VIP_TOPICS] Panneaux restaurés pour {restored} VIP(s).")
 
-
-# ========================================================
+# =========================================================
 # HELPERS
 # =========================================================
 
@@ -535,12 +534,12 @@ def get_user_id_by_topic_id(topic_id: int):
 async def get_panel_message_id_by_user(user_id: int):
     entry = _ensure_user_entry(user_id)
 
-    panel_id = entry.get("panel_message_id")
+    old_panel_id = entry.get("panel_message_id")
     topic_id = entry.get("topic_id")
 
     # 1️⃣ Si le panneau existe déjà → on le retourne
-    if panel_id:
-        return panel_id
+    if old_panel_id:
+        return old_panel_id
 
     # 2️⃣ Si pas de topic → impossible
     if not topic_id:
@@ -564,6 +563,7 @@ async def get_panel_message_id_by_user(user_id: int):
     )
 
     try:
+        # Création du nouveau panel
         panel_res = await bot.request(
             "sendMessage",
             {
@@ -576,12 +576,20 @@ async def get_panel_message_id_by_user(user_id: int):
 
         new_panel_id = panel_res.get("message_id")
 
-        # Sauvegarde en mémoire
-        entry["panel_message_id"] = new_panel_id
-        _user_topics[user_id] = entry
-        save_vip_topics()
+        # 🔥 Désépingler explicitement l'ancien panel si existant
+        if old_panel_id:
+            try:
+                await bot.request(
+                    "unpinChatMessage",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_id": old_panel_id
+                    }
+                )
+            except Exception as e:
+                print(f"[VIP_TOPICS] Impossible de désépingler l'ancien panel pour user_id={user_id}: {e}")
 
-        # 🔥 Épingler automatiquement le nouveau panel (remplace l’ancien pin)
+        # 🔥 Épingler le nouveau panel
         try:
             await bot.request(
                 "pinChatMessage",
@@ -594,10 +602,14 @@ async def get_panel_message_id_by_user(user_id: int):
         except Exception as e:
             print(f"[VIP_TOPICS] Impossible d'épingler le panel pour user_id={user_id}: {e}")
 
+        # Sauvegarde
+        entry["panel_message_id"] = new_panel_id
+        _user_topics[user_id] = entry
+        save_vip_topics()
+
         print(f"[VIP_TOPICS] Panel recréé dynamiquement pour user_id={user_id}")
         return new_panel_id
 
     except Exception as e:
         print(f"[VIP_TOPICS] Erreur recréation panel user_id={user_id}: {e}")
         return None
-
