@@ -460,7 +460,6 @@ def update_vip_info(user_id: int, note: str = None, admin_id: int = None, admin_
 # =========================================================
 # RESTORE PANELS
 # =========================================================
-
 async def restore_missing_panels():
     """
     Recrée un panneau si topic_id existe mais panel_message_id manquant.
@@ -497,6 +496,7 @@ async def restore_missing_panels():
         )
 
         try:
+            # Création du panneau restauré
             panel_res = await bot.request(
                 "sendMessage",
                 {
@@ -506,10 +506,26 @@ async def restore_missing_panels():
                     "reply_markup": kb
                 }
             )
-            entry["panel_message_id"] = panel_res.get("message_id")
+
+            new_panel_id = panel_res.get("message_id")
+
+            # 🔥 Épingler le panel restauré (une seule fois au démarrage)
+            try:
+                await bot.request(
+                    "pinChatMessage",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_id": new_panel_id,
+                        "disable_notification": True
+                    }
+                )
+            except Exception as e:
+                print(f"[VIP_TOPICS] Impossible d'épingler le panel restauré pour user_id={user_id}: {e}")
+
+            entry["panel_message_id"] = new_panel_id
             _user_topics[int(user_id)] = entry
             restored += 1
-            print(f"[VIP_TOPICS] Panneau restauré pour user_id={user_id} dans topic_id={topic_id}")
+            print(f"[VIP_TOPICS] Panneau restauré et épinglé pour user_id={user_id} dans topic_id={topic_id}")
 
         except Exception as e:
             print(f"[VIP_TOPICS] Erreur restauration panneau pour user_id={user_id}: {e}")
