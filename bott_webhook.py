@@ -806,14 +806,13 @@ async def handle_services(call: types.CallbackQuery):
 async def handle_vip_note(message: types.Message):
     admin_id = message.from_user.id
 
-    # DEBUG : tu verras ça dans Render si besoin
+    # DEBUG
     print(f"[NOTES] handle_vip_note triggered for admin_id={admin_id}, chat_id={message.chat.id}")
     print(f"[NOTES] pending_notes = {pending_notes}")
 
     # Récupérer le VIP concerné et enlever le mode "note"
     vip_user_id = pending_notes.pop(admin_id, None)
     if not vip_user_id:
-        # cas bizarre : on était censé être en mode note mais le dict est vide
         return
 
     note_text = (message.text or "").strip()
@@ -826,13 +825,14 @@ async def handle_vip_note(message: types.Message):
     # Mise à jour des infos VIP (NOTE UNIQUEMENT)
     info = update_vip_info(vip_user_id, note=note_text)
 
-    panel_message_id = info.get("panel_message_id")
+    # 🔥 On récupère un panel valide (recréé si nécessaire)
+    panel_message_id = await get_panel_message_id_by_user(vip_user_id)
+
     admin_name = info.get("admin_name") or "Aucun"
-    
     full_note = info.get("note", note_text)
 
     if not panel_message_id:
-        await message.reply("⚠️ Impossible de retrouver le panneau VIP pour ce client.")
+        await message.reply("⚠️ Impossible de retrouver ou recréer le panneau VIP pour ce client.")
         raise CancelHandler()
 
     panel_text = (
@@ -848,7 +848,7 @@ async def handle_vip_note(message: types.Message):
         InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_{vip_user_id}")
     )
 
-    # On met à jour le panneau dans le STAFF_GROUP
+    # Mise à jour du panneau existant (aucune duplication)
     await bot.edit_message_text(
         chat_id=STAFF_GROUP_ID,
         message_id=panel_message_id,
@@ -856,11 +856,12 @@ async def handle_vip_note(message: types.Message):
         reply_markup=kb
     )
 
-    # Petite confirmation dans le topic
+    # Confirmation dans le topic
     await message.reply("✅ Note enregistrée et panneau mis à jour.", reply=False)
 
-    # 🔥 Très important : empêche les autres handlers (dont /env) de traiter ce message
+    # Empêche les autres handlers de traiter ce message
     raise CancelHandler()
+
 
 
 # TEST A SUPPRIMER FIN
@@ -940,10 +941,13 @@ async def envoyer_contenu_payant(message: types.Message):
                 )
                 return
 
+            # Met à jour la note en base RAM + Airtable
             info = update_vip_info(vip_user_id, note=note_text)
 
             topic_id = info.get("topic_id")
-            panel_message_id = info.get("panel_message_id")
+
+            # 🔥 On s'assure que le panel existe et on récupère le BON message_id
+            panel_message_id = await get_panel_message_id_by_user(vip_user_id)
 
             admin_name = (
                 info.get("admin_name")
@@ -954,6 +958,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
             full_note = info.get("note", note_text)
 
+            # Si on a un topic + un panel valide → on édite le panel existant
             if topic_id and panel_message_id:
                 panel_text = (
                     "🧐 PANEL DE CONTRÔLE VIP\n\n"
@@ -974,12 +979,20 @@ async def envoyer_contenu_payant(message: types.Message):
                     text=panel_text,
                     reply_markup=kb
                 )
+            else:
+                # Sécurité si jamais le panel est introuvable
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text="⚠️ Impossible de retrouver ou recréer le panneau VIP."
+                )
+                return
 
             await bot.send_message(chat_id=admin_id, text="✅ Note enregistrée.")
             return
 
         await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
         return
+
 
     # ================================
     # 3) lecture /envXX
