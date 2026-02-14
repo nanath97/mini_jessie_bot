@@ -260,7 +260,7 @@ def _annot_table_base_url() -> str | None:
 def save_annotation_to_airtable(user_id: int, note: str, admin: str) -> bool:
     """
     Upsert une annotation dans la table annotations.
-    Colonnes attendues : "ID Telegram", "Note", "Admin"
+    Colonnes attendues : "ID Telegram", "Note", "Admin", "Panel Message ID"
     """
     base_url = _annot_table_base_url()
     if not base_url:
@@ -272,15 +272,28 @@ def save_annotation_to_airtable(user_id: int, note: str, admin: str) -> bool:
         "Content-Type": "application/json"
     }
 
+    # 🔥 On récupère le panel actuel depuis la mémoire RAM
+    entry = _ensure_user_entry(user_id)
+    panel_id = entry.get("panel_message_id")
+
     try:
-        r = requests.get(base_url, headers=headers, params={"filterByFormula": f"{{ID Telegram}}='{user_id}'"})
+        r = requests.get(
+            base_url,
+            headers=headers,
+            params={"filterByFormula": f"{{ID Telegram}}='{user_id}'"}
+        )
         r.raise_for_status()
         records = r.json().get("records", [])
     except Exception as e:
         print(f"[ANNOTATION] Erreur recherche annotation Airtable pour user {user_id} : {e}")
         return False
 
-    fields = {"ID Telegram": str(user_id), "Note": note or "", "Admin": admin or ""}
+    fields = {
+        "ID Telegram": str(user_id),
+        "Note": note or "",
+        "Admin": admin or "",
+        "Panel Message ID": panel_id if panel_id else None
+    }
 
     try:
         if records:
@@ -302,7 +315,8 @@ def save_annotation_to_airtable(user_id: int, note: str, admin: str) -> bool:
 
 def load_annotations_from_airtable():
     """
-    Charge toutes les annotations Airtable et merge dans _user_topics (note/admin_name).
+    Charge toutes les annotations Airtable et merge dans _user_topics
+    (note/admin_name/panel_message_id).
     """
     base_url = _annot_table_base_url()
     if not base_url:
@@ -332,12 +346,24 @@ def load_annotations_from_airtable():
             continue
 
         entry = _ensure_user_entry(user_id)
+
+        # Notes + admin
         entry["note"] = f.get("Note", "") or ""
         entry["admin_name"] = f.get("Admin", "") or "Aucun"
+
+        # 🔥 Rechargement du panel_message_id persistant
+        panel_id = f.get("Panel Message ID")
+        if panel_id:
+            try:
+                entry["panel_message_id"] = int(panel_id)
+            except Exception:
+                pass
+
         _user_topics[user_id] = entry
         loaded += 1
 
-    print(f"[ANNOTATION] {loaded} annotations chargées depuis Airtable.")
+    print(f"[ANNOTATION] {loaded} annotations chargées depuis Airtable (avec panel_id).")
+
 
 
 # =========================================================

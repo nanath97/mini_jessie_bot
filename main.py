@@ -115,23 +115,31 @@ async def startup_event():
         # 3) Recharge les annotations + panneaux locaux depuis disque (fallback local)
         load_vip_topics_from_disk()
 
-        # 4) Recharge les annotations depuis la table Airtable (AnnotationsVIP)
+        # 4) Recharge les annotations depuis Airtable (notes + admin + panel_message_id)
         try:
             load_annotations_from_airtable()
         except Exception as e:
             print(f"[ANNOTATION] Échec chargement Airtable : {e}")
 
-        # 5) Démarre le scheduler en tâche de fond
+        # 🔥 5) RESTAURE LES PANELS MANQUANTS UNE SEULE FOIS AU DÉMARRAGE
+        try:
+            await restore_missing_panels()
+            print("[STARTUP] restore_missing_panels exécuté.")
+        except Exception as e:
+            print(f"[STARTUP] Erreur restore_missing_panels : {e}")
+
+        # 6) Démarre le scheduler en tâche de fond
         try:
             asyncio.create_task(bott_webhook.scheduler_loop())
             print("[STARTUP] Scheduler Loop démarré.")
         except Exception as e:
             print(f"[STARTUP] Impossible de démarrer le scheduler : {e}")
 
-        print("[STARTUP] VIP + topics + annotations initialisés.")
+        print("[STARTUP] VIP + topics + annotations + panels initialisés.")
 
     except Exception as e:
         print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
+
 
 
 # ---------------------------
