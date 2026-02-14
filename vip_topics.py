@@ -583,4 +583,3 @@ async def get_panel_message_id_by_user(user_id: int):
             return None
 
     return None
-print(f"[DEBUG PANEL] panel_id={panel_id} topic_id={topic_id}")
