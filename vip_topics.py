@@ -531,9 +531,56 @@ def is_vip(user_id: int) -> bool:
 def get_user_id_by_topic_id(topic_id: int):
     return _topic_to_user.get(topic_id)
 
+async def get_panel_message_id_by_user(user_id: int):
+    entry = _ensure_user_entry(user_id)
 
-def get_panel_message_id_by_user(user_id: int):
-    entry = _user_topics.get(user_id)
-    if isinstance(entry, dict):
-        return entry.get("panel_message_id")
+    panel_id = entry.get("panel_message_id")
+    topic_id = entry.get("topic_id")
+
+    # Si panel déjà existant → OK
+    if panel_id:
+        return panel_id
+
+    # 🔥 Panel manquant mais topic existe → on recrée
+    if topic_id:
+        note = entry.get("note", "")
+        admin_name = entry.get("admin_name", "Aucun")
+
+        kb = InlineKeyboardMarkup()
+        kb.add(
+            InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{user_id}"),
+            InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_{user_id}")
+        )
+
+        panel_text = (
+            "🧐 PANEL DE CONTRÔLE VIP\n\n"
+            f"👤 Client : {user_id}\n"
+            f"📒 Notes : {note}\n"
+            f"👤 Admin en charge : {admin_name}"
+        )
+
+        try:
+            panel_res = await bot.request(
+                "sendMessage",
+                {
+                    "chat_id": STAFF_GROUP_ID,
+                    "text": panel_text,
+                    "message_thread_id": int(topic_id),
+                    "reply_markup": kb
+                }
+            )
+
+            new_panel_id = panel_res.get("message_id")
+            entry["panel_message_id"] = new_panel_id
+            _user_topics[user_id] = entry
+            save_vip_topics()
+
+            print(f"[VIP_TOPICS] Panel recréé dynamiquement pour user_id={user_id}")
+            return new_panel_id
+
+        except Exception as e:
+            print(f"[VIP_TOPICS] Erreur recréation panel user_id={user_id}: {e}")
+            return None
+
     return None
+print(f"[DEBUG PANEL] panel_id={panel_id} topic_id={topic_id}")

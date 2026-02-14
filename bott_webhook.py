@@ -1591,9 +1591,13 @@ async def handle_annoter_vip(callback_query: types.CallbackQuery):
     info = update_vip_info(user_id)  # sans note/admin => juste retour du dict
     topic_id = info.get("topic_id")
 
+
     if not topic_id:
         await callback_query.answer("Impossible de retrouver le topic VIP.", show_alert=True)
         return
+    
+    # 🔥 Force la recréation du panel si disparu
+    await get_panel_message_id_by_user(user_id)
 
     # On passe cet admin en "mode note" pour ce user_id
     pending_notes[admin_id] = user_id
