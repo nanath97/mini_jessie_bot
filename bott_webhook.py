@@ -1337,10 +1337,10 @@ async def handle_admin_message(message: types.Message):
         return
             # 🔹 Ignorer les topics PWA (gérés par le Bridge)
     if message.chat.id == STAFF_GROUP_ID:
-        try:
-            thread_id = message.get("message_thread_id")
+        thread_id = getattr(message, "message_thread_id", None)
 
-            if thread_id:
+        if thread_id:
+            try:
                 topic = await bot.get_forum_topic(
                     chat_id=STAFF_GROUP_ID,
                     message_thread_id=thread_id
@@ -1352,8 +1352,9 @@ async def handle_admin_message(message: types.Message):
                     print(f"[ADMIN_MSG] Topic PWA ignoré : {topic_name}")
                     return
 
-        except Exception as e:
-            print(f"[ADMIN_MSG] Erreur récupération topic : {e}")
+            except Exception as e:
+                print(f"[ADMIN_MSG] Erreur récupération topic : {e}")
+
 
 
 
