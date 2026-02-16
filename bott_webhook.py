@@ -1335,6 +1335,23 @@ async def handle_admin_message(message: types.Message):
         admin_modes[admin_id] = None
         await traiter_message_groupé(message, admin_id=admin_id)
         return
+    # 🔹 Ignorer les topics PWA (gérés par le Bridge) PWA
+    if message.chat.id == STAFF_GROUP_ID and message.is_topic_message:
+        try:
+            topic = await bot.get_forum_topic(
+                chat_id=STAFF_GROUP_ID,
+                message_thread_id=message.message_thread_id
+            )
+            topic_name = topic.name
+
+            if topic_name.startswith("[PWA]"):
+                print(f"[ADMIN_MSG] Topic PWA ignoré : {topic_name}")
+                return
+
+        except Exception as e:
+            print(f"[ADMIN_MSG] Impossible de récupérer le nom du topic : {e}")
+
+    # 🔹 Ignorer les topics PWA (gérés par le Bridge) PWA
 
     # 3) RÉPONSE À UN CLIENT (COMPORTEMENT NORMAL)
 
