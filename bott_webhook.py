@@ -1335,8 +1335,8 @@ async def handle_admin_message(message: types.Message):
         admin_modes[admin_id] = None
         await traiter_message_groupé(message, admin_id=admin_id)
         return
-    # 🔹 Ignorer les topics PWA (gérés par le Bridge) PWA
-    if message.chat.id == STAFF_GROUP_ID and message.is_topic_message:
+        # 🔹 Ignorer les topics PWA (gérés par le Bridge)
+    if message.chat.id == STAFF_GROUP_ID and message.message_thread_id:
         try:
             topic = await bot.get_forum_topic(
                 chat_id=STAFF_GROUP_ID,
@@ -1349,7 +1349,8 @@ async def handle_admin_message(message: types.Message):
                 return
 
         except Exception as e:
-            print(f"[ADMIN_MSG] Impossible de récupérer le nom du topic : {e}")
+            print(f"[ADMIN_MSG] Impossible de récupérer le topic : {e}")
+
 
     # 🔹 Ignorer les topics PWA (gérés par le Bridge) PWA
 
