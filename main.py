@@ -5,6 +5,8 @@ import os
 import asyncio
 import requests
 from pydantic import BaseModel
+from fastapi import Body
+from payment_links import create_dynamic_checkout
 
 from core import bot, dp
 import bott_webhook
@@ -140,6 +142,42 @@ async def startup_event():
     except Exception as e:
         print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
 
+from fastapi import Body
+from payment_links import create_dynamic_checkout
+
+@app.post("/create-checkout")
+async def create_checkout(data: dict = Body(...)):
+    """
+    Création d'un paiement dynamique NovaPulse
+    Appelé par le Bridge (PWA → Bridge → Bot)
+    """
+    try:
+        amount_raw = data.get("amount_cents")
+        email = data.get("email")
+        seller_slug = data.get("seller_slug")
+
+        if amount_raw is None:
+            return {"status": "error", "message": "amount_cents manquant"}
+
+        amount = int(amount_raw)
+
+        # Appelle ta logique Stripe existante
+        checkout_url = create_dynamic_checkout(amount)
+
+        print(f"[PAYMENT] Checkout créé pour {email}:{seller_slug} - {amount} cents")
+
+        return {
+            "status": "success",
+            "checkout_url": checkout_url,
+            "client_uid": f"{email}:{seller_slug}"
+        }
+
+    except Exception as e:
+        print("❌ Erreur create_checkout:", e)
+        return {"status": "error", "message": str(e)}
+
+        print("❌ Erreur create_checkout:", e)
+        return {"status": "error", "message": str(e)}
 
 
 # ---------------------------
