@@ -872,56 +872,71 @@ async def handle_vip_note(message: types.Message):
 # Message et média personnel avec lien
 
 import re
+from decimal import Decimal, ROUND_HALF_UP
 
-
-
-
-# Message et média personnel avec lien PWA
+# ================================
+# PWA RESOLVER (via topic_id Airtable)
+# ================================
 
 def get_pwa_client_by_topic(thread_id: int):
     """
-    Récupère le client PWA (email) via le topic_id Airtable
+    Retourne {"email": "...", "seller_slug": "..."} depuis Airtable table "PWA Clients"
+    en matchant {topic_id} == thread_id.
     """
     try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
-        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-        params = {
-            "filterByFormula": f"{{topic_id}}='{thread_id}'"
-        }
+        airtable_api_key = os.getenv("AIRTABLE_API_KEY")
+        base_id = os.getenv("AIRTABLE_BASE_ID") or os.getenv("BASE_ID")  # support 2 noms
+        if not airtable_api_key or not base_id or not thread_id:
+            return None
 
-        resp = requests.get(url, headers=headers, params=params)
-        records = resp.json().get("records", [])
+        url = f"https://api.airtable.com/v0/{base_id}/PWA%20Clients"
+        headers = {"Authorization": f"Bearer {airtable_api_key}"}
+        params = {"filterByFormula": f"{{topic_id}}='{thread_id}'"}
 
-        if records:
-            return records[0]["fields"].get("email")
+        resp = requests.get(url, headers=headers, params=params, timeout=8)
+        data = resp.json()
+        records = data.get("records", [])
+
+        if not records:
+            return None
+
+        fields = records[0].get("fields", {})
+        email = fields.get("email")
+        seller_slug = fields.get("seller_slug") or fields.get("sellerSlug")
+
+        if not email or not seller_slug:
+            return None
+
+        return {"email": str(email).strip().lower(), "seller_slug": str(seller_slug).strip().lower()}
 
     except Exception as e:
         print(f"[PWA LOOKUP ERROR] {e}")
+        return None
 
-    return None
-
-# Message et média personnel avec lien PWA
 
 # ================================
-# UTILS (SANS DÉCORATEUR)
+# UTILS
 # ================================
-from decimal import Decimal, ROUND_HALF_UP
 
 def parse_amount_to_cents(amount_str: str) -> int:
     """
     Convertit '45,67' ou '45.67' en 4567 centimes (int fiable).
     """
-    normalized = amount_str.replace(",", ".").strip()
+    normalized = str(amount_str).replace(",", ".").strip()
     amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(amount * 100)
 
+
+# ================================
+# HANDLER /envXX
+# ================================
 
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
     and admin_modes.get(message.from_user.id) is None
     and (
-        (message.text and "/env" in message.text.lower()) or
-        (message.caption and "/env" in message.caption.lower())
+        (message.text and "/env" in message.text.lower())
+        or (message.caption and "/env" in message.caption.lower())
     ),
     content_types=[
         types.ContentType.TEXT,
@@ -930,9 +945,6 @@ def parse_amount_to_cents(amount_str: str) -> int:
         types.ContentType.DOCUMENT
     ]
 )
-
-
-
 async def envoyer_contenu_payant(message: types.Message):
     print("ENV", message.from_user.id, message.content_type)
 
@@ -942,28 +954,203 @@ async def envoyer_contenu_payant(message: types.Message):
     if admin_modes.get(admin_id) == "en_attente_message_payant":
         return
 
-    # 1) doit répondre à un client
+    # 1) doit répondre à un message dans le staff (tu veux modèle A = reply)
     if not message.reply_to_message:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Utilise cette commande en réponse à un message du client."
+            text="❗ Utilise /envxx en réponse (reply) au message du client dans son topic."
         )
         return
 
-        # ================================
-    # IDENTIFICATION CLIENT (PWA via topic)
-    # ================================
-    thread_id = message.message_thread_id
-    user_id = get_pwa_client_by_topic(thread_id)
-
-    print(f"[PWA RESOLVE] thread_id={thread_id} -> user={user_id}")
-
-    if not user_id:
+    # 2) On doit être dans le staff group (sinon pas de topic)
+    if message.chat.id != STAFF_GROUP_ID:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Impossible d'identifier le client PWA pour ce topic."
+            text="❗ Utilise /envxx uniquement dans le groupe staff, dans le topic du client."
         )
         return
+
+    # 3) Résolution client
+    #    - d'abord PWA via topic_id
+    #    - sinon fallback Telegram classique via pending_replies/forward_from
+    thread_id = getattr(message, "message_thread_id", None)
+    pwa = get_pwa_client_by_topic(thread_id) if thread_id else None
+
+    user_id = None            # pour Telegram classique (int)
+    pwa_email = None          # pour PWA (str)
+    pwa_seller_slug = None    # pour PWA (str)
+
+    if pwa:
+        pwa_email = pwa["email"]
+        pwa_seller_slug = pwa["seller_slug"]
+        print(f"[PWA RESOLVE] thread_id={thread_id} -> email={pwa_email} seller={pwa_seller_slug}")
+    else:
+        # fallback Telegram “classic”
+        if message.reply_to_message.forward_from:
+            user_id = message.reply_to_message.forward_from.id
+        else:
+            user_id = pending_replies.get((message.chat.id, message.reply_to_message.message_id))
+
+        print(f"[TG RESOLVE] key=({message.chat.id},{message.reply_to_message.message_id}) -> user_id={user_id}")
+
+    # Si ni PWA ni TG -> stop
+    if not pwa_email and not user_id:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗ Impossible d'identifier le client (ni PWA via topic, ni Telegram via reply)."
+        )
+        return
+
+    # ================================
+    # 4) Lecture /envXX
+    # ================================
+    texte = message.caption or message.text or ""
+    match = re.search(r"/env([\d.,]+|vip)", texte.lower())
+    if not match:
+        await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
+        return
+
+    raw_code = str(match.group(1))
+
+    try:
+        amount_cents = parse_amount_to_cents(raw_code)
+    except Exception as e:
+        await bot.send_message(chat_id=admin_id, text="❗ Montant invalide.")
+        print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
+        return
+
+    display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
+
+    # Création lien Stripe
+    if str(amount_cents) in liens_paiement:
+        lien = liens_paiement[str(amount_cents)]
+    else:
+        lien = create_dynamic_checkout(amount_cents)
+
+    if not lien:
+        await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
+        return
+
+    # Nettoyage texte envoyé
+    nouvelle_legende = re.sub(r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE).strip()
+
+    # ================================
+    # 5) Airtable Payment Links (doit rester)
+    # ================================
+    # IMPORTANT: pour PWA on stocke l'email dans "ID Telegram" (chez toi c’est déjà comme ça)
+    target_identifier = pwa_email if pwa_email else str(user_id)
+
+    save_payment_link_to_airtable(
+        client_telegram_id=target_identifier,
+        payment_link=lien,
+        admin_id=admin_id,
+        amount_cents=amount_cents
+    )
+
+    # ================================
+    # 6) MEDIA: stocker le vrai contenu en attente (pour livraison après paiement)
+    # ================================
+    is_media = bool(message.photo or message.video or message.document)
+
+    if is_media:
+        if message.photo:
+            file_id = message.photo[-1].file_id
+            content_type = types.ContentType.PHOTO
+        elif message.video:
+            file_id = message.video.file_id
+            content_type = types.ContentType.VIDEO
+        else:
+            file_id = message.document.file_id
+            content_type = types.ContentType.DOCUMENT
+
+        # On indexe par target_identifier (email PWA ou user_id TG)
+        contenus_en_attente[target_identifier] = {
+            "file_id": file_id,
+            "type": content_type,
+            "caption": nouvelle_legende
+        }
+
+        # notif staff (dans le même topic)
+        if thread_id:
+            try:
+                await bot.request(
+                    "sendMessage",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": thread_id,
+                        "text": f"✅ Contenu prêt (en attente paiement) — {display_amount}€"
+                    }
+                )
+            except Exception as e:
+                print(f"[STAFF NOTIF ERROR] {e}")
+
+    # ================================
+    # 7) ROUTAGE FINAL
+    # ================================
+    # - PWA: on push via BRIDGE_API_URL
+    # - Telegram: on garde l’ancien comportement (blur + bouton)
+    if pwa_email:
+        bridge_url = os.getenv("BRIDGE_API_URL")
+        if not bridge_url:
+            await bot.send_message(chat_id=admin_id, text="❗ BRIDGE_API_URL manquant côté bot.")
+            return
+
+        payload = {
+            "email": pwa_email,
+            "sellerSlug": pwa_seller_slug,
+            "text": nouvelle_legende or "💳 Paiement requis.",
+            "checkout_url": lien,
+            "isMedia": is_media,
+            "amount": display_amount
+        }
+
+        try:
+            r = requests.post(
+                f"{bridge_url}/pwa/send-paid-content",
+                json=payload,
+                timeout=8
+            )
+            print(f"[PWA SEND] status={r.status_code} body={r.text[:200]}")
+        except Exception as e:
+            print(f"[PWA ERROR] {e}")
+            await bot.send_message(chat_id=admin_id, text="❗ Erreur envoi PWA (bridge).")
+            return
+
+        return
+
+    # ================================
+    # Telegram classic (ancien comportement)
+    # ================================
+    keyboard = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(text="💳 Payer maintenant", url=lien)
+    )
+
+    if is_media:
+        with open("assets/blur.png", "rb") as blur_img:
+            await bot.send_photo(
+                chat_id=user_id,
+                photo=blur_img,
+                caption=nouvelle_legende or "🔒 Document verrouillé.",
+                reply_markup=keyboard
+            )
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"_🔒 Ce contenu de {display_amount} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
+            parse_mode="Markdown"
+        )
+        return
+
+    await bot.send_message(
+        chat_id=user_id,
+        text=nouvelle_legende or "💳 Paiement requis.",
+        reply_markup=keyboard
+    )
+    await bot.send_message(
+        chat_id=user_id,
+        text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {display_amount} €._",
+        parse_mode="Markdown"
+    )
 
 
     # ================================
@@ -1033,117 +1220,6 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
         return
 
-
-    # ================================
-    # 3) lecture /envXX
-    # ================================
-
-    texte = message.caption or message.text or ""
-
-    match = re.search(r"/env([\d.,]+|vip)", texte.lower())
-    if not match:
-        await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
-        return
-
-    raw_code = str(match.group(1))
-    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code)
-
-    # Conversion robuste en centimes
-    try:
-        amount_cents = parse_amount_to_cents(raw_code)
-        amount_cents = int(amount_cents)
-    except Exception as e:
-        await bot.send_message(chat_id=admin_id, text="❗ Montant invalide.")
-        print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
-        return
-
-    display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
-
-    # Création lien Stripe
-    if str(amount_cents) in liens_paiement:
-        lien = liens_paiement[str(amount_cents)]
-    else:
-        lien = create_dynamic_checkout(amount_cents)
-
-    if not lien:
-        await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
-        return
-
-    # 🔥 SAUVEGARDE AIRTABLE
-    save_payment_link_to_airtable(
-        client_telegram_id=user_id,
-        payment_link=lien,
-        admin_id=admin_id,
-        amount_cents=amount_cents
-    )
-
-    # Nettoyage texte
-    nouvelle_legende = re.sub(
-        r"/env([\d.,]+|vip)",
-        "",
-        texte,
-        flags=re.IGNORECASE
-    ).strip()
-
-    # =====================================================
-    # 4) MEDIA + /env → stockage contenu (logique interne bot)
-    # =====================================================
-    is_media = bool(message.photo or message.video or message.document)
-
-    if is_media:
-        if message.photo:
-            file_id = message.photo[-1].file_id
-            content_type = types.ContentType.PHOTO
-        elif message.video:
-            file_id = message.video.file_id
-            content_type = types.ContentType.VIDEO
-        else:
-            file_id = message.document.file_id
-            content_type = types.ContentType.DOCUMENT
-
-        contenus_en_attente[user_id] = {
-            "file_id": file_id,
-            "type": content_type,
-            "caption": nouvelle_legende
-        }
-
-        from vip_topics import ensure_topic_for_vip
-        dummy_user = types.User(id=user_id, is_bot=False, first_name=str(user_id))
-        topic_id = await ensure_topic_for_vip(dummy_user)
-
-        await bot.request(
-            "sendMessage",
-            {
-                "chat_id": STAFF_GROUP_ID,
-                "message_thread_id": topic_id,
-                "text": f"💳 Demande de paiement envoyée au client PWA ({display_amount}€)"
-            }
-        )
-
-    # =====================================================
-    # 🚀 ROUTEUR FINAL : TELEGRAM → BRIDGE → PWA
-    # =====================================================
-    try:
-        payload = {
-            "email": str(user_id),  # mapping temporaire user_id -> email
-            "sellerSlug": "coach-matthieu",
-            "text": nouvelle_legende or "💳 Paiement requis.",
-            "checkout_url": lien,
-            "isMedia": is_media
-        }
-
-        requests.post(
-            f"{BRIDGE_API_URL}/pwa/send-paid-content",
-            json=payload,
-            timeout=5
-        )
-
-        print(f"[PWA SEND] Contenu payant envoyé vers PWA pour {user_id}")
-
-    except Exception as e:
-        print(f"[PWA ERROR] {e}")
-
-    return
 
 
 
