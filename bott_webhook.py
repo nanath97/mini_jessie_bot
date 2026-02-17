@@ -871,33 +871,50 @@ async def handle_vip_note(message: types.Message):
 
 # Message et média personnel avec lien
 
+# ================================
+# IMPORTS NECESSAIRES
+# ================================
 import re
+import os
+import requests
 from decimal import Decimal, ROUND_HALF_UP
+from aiogram import types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ================================
-# PWA RESOLVER (via topic_id Airtable)
+# CONFIG
 # ================================
+BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+BASE_ID = os.getenv("BASE_ID") or os.getenv("AIRTABLE_BASE_ID")
 
-def get_pwa_client_by_topic(thread_id: int):
-    """
-    Retourne {"email": "...", "seller_slug": "..."} depuis Airtable table "PWA Clients"
-    en matchant {topic_id} == thread_id.
-    """
+# ================================
+# PARSE AMOUNT
+# ================================
+def parse_amount_to_cents(amount_str: str) -> int:
+    normalized = amount_str.replace(",", ".").strip()
+    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return int(amount * 100)
+
+# ================================
+# RESOLVE CLIENT PWA VIA TOPIC (AIRTABLE)
+# ================================
+def get_pwa_client_by_topic(topic_id: int):
     try:
-        airtable_api_key = os.getenv("AIRTABLE_API_KEY")
-        base_id = os.getenv("AIRTABLE_BASE_ID") or os.getenv("BASE_ID")  # support 2 noms
-        if not airtable_api_key or not base_id or not thread_id:
+        if not AIRTABLE_API_KEY or not BASE_ID:
+            print("[PWA LOOKUP] Missing Airtable env")
             return None
 
-        url = f"https://api.airtable.com/v0/{base_id}/PWA%20Clients"
-        headers = {"Authorization": f"Bearer {airtable_api_key}"}
-        params = {"filterByFormula": f"{{topic_id}}='{thread_id}'"}
+        url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        params = {"filterByFormula": f"{{topic_id}}='{topic_id}'"}
 
         resp = requests.get(url, headers=headers, params=params, timeout=8)
         data = resp.json()
         records = data.get("records", [])
 
         if not records:
+            print(f"[PWA LOOKUP] No record for topic {topic_id}")
             return None
 
         fields = records[0].get("fields", {})
@@ -905,35 +922,23 @@ def get_pwa_client_by_topic(thread_id: int):
         seller_slug = fields.get("seller_slug") or fields.get("sellerSlug")
 
         if not email or not seller_slug:
+            print("[PWA LOOKUP] Missing email or seller_slug")
             return None
 
-        return {"email": str(email).strip().lower(), "seller_slug": str(seller_slug).strip().lower()}
+        return {
+            "email": str(email).strip().lower(),
+            "seller_slug": str(seller_slug).strip().lower()
+        }
 
     except Exception as e:
         print(f"[PWA LOOKUP ERROR] {e}")
         return None
 
-
 # ================================
-# UTILS
+# HANDLER /envXX (MODELE A PWA)
 # ================================
-
-def parse_amount_to_cents(amount_str: str) -> int:
-    """
-    Convertit '45,67' ou '45.67' en 4567 centimes (int fiable).
-    """
-    normalized = str(amount_str).replace(",", ".").strip()
-    amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return int(amount * 100)
-
-
-# ================================
-# HANDLER /envXX
-# ================================
-
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
-    and admin_modes.get(message.from_user.id) is None
     and (
         (message.text and "/env" in message.text.lower())
         or (message.caption and "/env" in message.caption.lower())
@@ -942,173 +947,95 @@ def parse_amount_to_cents(amount_str: str) -> int:
         types.ContentType.TEXT,
         types.ContentType.PHOTO,
         types.ContentType.VIDEO,
-        types.ContentType.DOCUMENT
-    ]
+        types.ContentType.DOCUMENT,
+    ],
 )
 async def envoyer_contenu_payant(message: types.Message):
     print("ENV", message.from_user.id, message.content_type)
 
     admin_id = message.from_user.id
 
-    # 0) stop si mode diffusion
-    if admin_modes.get(admin_id) == "en_attente_message_payant":
-        return
+    # ================================
+    # DETECT TOPIC TELEGRAM
+    # ================================
+    topic_id = getattr(message, "message_thread_id", None)
 
-    # 1) doit être dans un topic
-    thread_id = getattr(message, "message_thread_id", None)
+    if not topic_id and message.reply_to_message:
+        topic_id = getattr(message.reply_to_message, "message_thread_id", None)
 
-    if not thread_id:
+    print(f"[TOPIC DETECTED] {topic_id}")
+
+    if not topic_id:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Cette commande doit être utilisée dans un topic client PWA."
+            text="❗ Impossible de détecter le topic Telegram."
         )
         return
 
     # ================================
-    # IDENTIFICATION CLIENT VIA TOPIC PWA
+    # RESOLVE CLIENT PWA
     # ================================
-    thread_id = None
+    client = get_pwa_client_by_topic(topic_id)
+    print(f"[PWA RESOLVE] topic={topic_id} -> client={client}")
 
-    # Cas 1 : message direct dans topic
-    if hasattr(message, "message_thread_id") and message.message_thread_id:
-        thread_id = message.message_thread_id
-
-    # Cas 2 : message reply dans topic (le vrai cas Telegram)
-    elif message.reply_to_message and hasattr(message.reply_to_message, "message_thread_id"):
-        thread_id = message.reply_to_message.message_thread_id
-
-    print(f"[THREAD DETECTED] {thread_id}")
-
-    if not thread_id:
+    if not client:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Impossible de détecter le topic PWA."
+            text="❗ Aucun client PWA trouvé pour ce topic."
         )
         return
 
-    # lookup Airtable
-    user_id = get_pwa_client_by_topic(thread_id)
-
-    print(f"[PWA RESOLVE] thread_id={thread_id} -> email={user_id}")
-
-    if not user_id:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❗ Aucun client PWA lié à ce topic."
-        )
-        return
-
+    email = client["email"]
+    seller_slug = client["seller_slug"]
 
     # ================================
-    # 3) lecture /envXX
+    # PARSE /envXX
     # ================================
     texte = message.caption or message.text or ""
-
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
+
     if not match:
-        await bot.send_message(chat_id=admin_id, text="❗ Aucun code /envXX valide.")
+        await bot.send_message(chat_id=admin_id, text="❗ Code /env invalide.")
         return
 
     raw_code = str(match.group(1))
-    print("DEBUG TYPE RAW_CODE:", type(raw_code), raw_code)
-
-    try:
-        amount_cents = parse_amount_to_cents(raw_code)
-        amount_cents = int(amount_cents)
-    except Exception as e:
-        await bot.send_message(chat_id=admin_id, text="❗ Montant invalide.")
-        print(f"[ERREUR CONVERSION MONTANT] raw_code={raw_code} -> {e}")
-        return
-
+    amount_cents = parse_amount_to_cents(raw_code)
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
 
-    # ================================
-    # Création lien Stripe
-    # ================================
-    if str(amount_cents) in liens_paiement:
-        lien = liens_paiement[str(amount_cents)]
-    else:
-        lien = create_dynamic_checkout(amount_cents)
-
-    if not lien:
-        await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
-        return
-
-    save_payment_link_to_airtable(
-        client_telegram_id=user_id,
-        payment_link=lien,
-        admin_id=admin_id,
-        amount_cents=amount_cents
-    )
+    lien = create_dynamic_checkout(amount_cents)
 
     nouvelle_legende = re.sub(
-        r"/env([\d.,]+|vip)",
-        "",
-        texte,
-        flags=re.IGNORECASE
+        r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE
     ).strip()
 
     is_media = bool(message.photo or message.video or message.document)
 
     # ================================
-    # 🚀 ROUTEUR FINAL → BRIDGE → PWA
+    # 🚀 ROUTAGE FINAL : TELEGRAM → BRIDGE → PWA
     # ================================
     try:
         payload = {
-            "email": str(user_id),
-            "sellerSlug": "coach-matthieu",
+            "email": email,
+            "sellerSlug": seller_slug,
             "text": nouvelle_legende or "💳 Paiement requis.",
             "checkout_url": lien,
             "isMedia": is_media,
-            "amount": display_amount
         }
 
         requests.post(
             f"{BRIDGE_API_URL}/pwa/send-paid-content",
             json=payload,
-            timeout=5
+            timeout=5,
         )
 
-        print(f"[PWA SEND] Contenu payant envoyé vers PWA pour {user_id}")
+        print(f"[PWA SEND OK] {email}")
 
     except Exception as e:
         print(f"[PWA ERROR] {e}")
 
-    return
-
-
-    # ================================
-    # Telegram classic (ancien comportement)
-    # ================================
-    keyboard = InlineKeyboardMarkup().add(
-        InlineKeyboardButton(text="💳 Payer maintenant", url=lien)
-    )
-
-    if is_media:
-        with open("assets/blur.png", "rb") as blur_img:
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=blur_img,
-                caption=nouvelle_legende or "🔒 Document verrouillé.",
-                reply_markup=keyboard
-            )
-
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"_🔒 Ce contenu de {display_amount} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
-            parse_mode="Markdown"
-        )
-        return
-
     await bot.send_message(
-        chat_id=user_id,
-        text=nouvelle_legende or "💳 Paiement requis.",
-        reply_markup=keyboard
-    )
-    await bot.send_message(
-        chat_id=user_id,
-        text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {display_amount} €._",
-        parse_mode="Markdown"
+        chat_id=admin_id,
+        text=f"✅ Paiement {display_amount}€ envoyé au client PWA.",
     )
 
 
