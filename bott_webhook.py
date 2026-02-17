@@ -28,6 +28,7 @@ from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 
 
 BOT_USERNAME = os.getenv("BOT_USERNAME")
+BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")  # https://novapulse-bridge.onrender.com
 
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
@@ -1030,16 +1031,15 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Montant non reconnu.")
         return
 
-    # 🔥 SAUVEGARDE AIRTABLE ICI
+    # 🔥 SAUVEGARDE AIRTABLE
     save_payment_link_to_airtable(
-    client_telegram_id=user_id,
-    payment_link=lien,
-    admin_id=admin_id,
-    amount_cents=amount_cents
-)
+        client_telegram_id=user_id,
+        payment_link=lien,
+        admin_id=admin_id,
+        amount_cents=amount_cents
+    )
 
-
-    # Nettoyage texte envoyé au client
+    # Nettoyage texte
     nouvelle_legende = re.sub(
         r"/env([\d.,]+|vip)",
         "",
@@ -1047,15 +1047,12 @@ async def envoyer_contenu_payant(message: types.Message):
         flags=re.IGNORECASE
     ).strip()
 
-
-
-
-
     # =====================================================
-    # 4) MEDIA + /env → BLUR + stockage contenu
+    # 4) MEDIA + /env → stockage contenu (logique interne bot)
     # =====================================================
-    if message.photo or message.video or message.document:
+    is_media = bool(message.photo or message.video or message.document)
 
+    if is_media:
         if message.photo:
             file_id = message.photo[-1].file_id
             content_type = types.ContentType.PHOTO
@@ -1081,70 +1078,35 @@ async def envoyer_contenu_payant(message: types.Message):
             {
                 "chat_id": STAFF_GROUP_ID,
                 "message_thread_id": topic_id,
-                "text": f"✅ Contenu prêt pour {user_id}"
+                "text": f"💳 Demande de paiement envoyée au client PWA ({display_amount}€)"
             }
         )
 
-        # Déjà payé → envoyer vrai contenu
-        if user_id in paiements_en_attente_par_user:
-            contenu = contenus_en_attente[user_id]
+    # =====================================================
+    # 🚀 ROUTEUR FINAL : TELEGRAM → BRIDGE → PWA
+    # =====================================================
+    try:
+        payload = {
+            "email": str(user_id),  # mapping temporaire user_id -> email
+            "sellerSlug": "coach-matthieu",
+            "text": nouvelle_legende or "💳 Paiement requis.",
+            "checkout_url": lien,
+            "isMedia": is_media
+        }
 
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(chat_id=user_id, photo=contenu["file_id"], caption=contenu["caption"])
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(chat_id=user_id, video=contenu["file_id"], caption=contenu["caption"])
-            else:
-                await bot.send_document(chat_id=user_id, document=contenu["file_id"], caption=contenu["caption"])
-
-            paiements_en_attente_par_user.discard(user_id)
-            contenus_en_attente.pop(user_id, None)
-            return
-
-    # ================================
-    # Création du bouton Stripe
-    # ================================
-    keyboard = InlineKeyboardMarkup().add(
-        InlineKeyboardButton(
-            text="💳 Payer maintenant",
-            url=lien
-        )
-    )
-
-    # ================================
-    # CAS 1 : MEDIA ATTACHÉ
-    # ================================
-    if message.photo or message.video or message.document:
-
-        with open("assets/blur.png", "rb") as blur_img:
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=blur_img,
-                caption=nouvelle_legende or "🔒 Document verrouillé.",
-                reply_markup=keyboard
-            )
-
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"_🔒 Ce contenu de {display_amount} € est verrouillé. Cliquez sur le bouton ci-dessous pour le déverrouiller._",
-            parse_mode="Markdown"
+        requests.post(
+            f"{BRIDGE_API_URL}/pwa/send-paid-content",
+            json=payload,
+            timeout=5
         )
 
-        return
+        print(f"[PWA SEND] Contenu payant envoyé vers PWA pour {user_id}")
 
-    # ================================
-    # CAS 2 : TEXTE SEUL
-    # ================================
-    await bot.send_message(
-        chat_id=user_id,
-        text=nouvelle_legende or "💳 Paiement requis.",
-        reply_markup=keyboard
-    )
+    except Exception as e:
+        print(f"[PWA ERROR] {e}")
 
-    await bot.send_message(
-    chat_id=user_id,
-    text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {display_amount} €._",
-    parse_mode="Markdown"
-)
+    return
+
 
 
 
