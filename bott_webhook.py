@@ -965,17 +965,39 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     # ================================
-    # 🔥 IDENTIFICATION CLIENT VIA TOPIC (SOURCE UNIQUE DE VÉRITÉ)
+    # IDENTIFICATION CLIENT VIA TOPIC PWA
     # ================================
+    thread_id = None
+
+    # Cas 1 : message direct dans topic
+    if hasattr(message, "message_thread_id") and message.message_thread_id:
+        thread_id = message.message_thread_id
+
+    # Cas 2 : message reply dans topic (le vrai cas Telegram)
+    elif message.reply_to_message and hasattr(message.reply_to_message, "message_thread_id"):
+        thread_id = message.reply_to_message.message_thread_id
+
+    print(f"[THREAD DETECTED] {thread_id}")
+
+    if not thread_id:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗ Impossible de détecter le topic PWA."
+        )
+        return
+
+    # lookup Airtable
     user_id = get_pwa_client_by_topic(thread_id)
-    print(f"[PWA RESOLVE] thread_id={thread_id} -> user={user_id}")
+
+    print(f"[PWA RESOLVE] thread_id={thread_id} -> email={user_id}")
 
     if not user_id:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Impossible d'identifier le client PWA pour ce topic."
+            text="❗ Aucun client PWA lié à ce topic."
         )
         return
+
 
     # ================================
     # 3) lecture /envXX
