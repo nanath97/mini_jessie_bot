@@ -19,6 +19,7 @@ from payment_links import liens_paiement
 from payment_links import create_dynamic_checkout
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
+from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 
 
 
@@ -1144,34 +1145,6 @@ async def envoyer_contenu_payant(message: types.Message):
     text=f"_Cliquez ci-dessous pour finaliser votre règlement d'un montant de {display_amount} €._",
     parse_mode="Markdown"
 )
-
-
-def save_payment_link_to_airtable(client_telegram_id, payment_link, admin_id, amount_cents):
-
-    AIRTABLE_TABLE_PAYMENT_LINKS = "Payment Links"
-
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{AIRTABLE_TABLE_PAYMENT_LINKS.replace(' ', '%20')}"
-
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-    "fields": {
-        "Payment Link URL": payment_link,
-        "ID Telegram": str(client_telegram_id),
-        "ADMIN ID": str(admin_id),
-        "Amount Cents": amount_cents,
-        "URL Render": os.getenv("RENDER_WEBHOOK_HOST"),
-        "Status": "Pending",
-        "Sent At": datetime.utcnow().isoformat()
-    }
-}
-
-
-    response = requests.post(url, json=data, headers=headers)
-    print("[AIRTABLE SAVE]", response.status_code, response.text)
 
 
 

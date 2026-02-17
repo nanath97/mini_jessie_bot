@@ -1,13 +1,12 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Body
 from aiogram import types, Bot, Dispatcher
 from dotenv import load_dotenv
 import os
 import asyncio
 import requests
 from pydantic import BaseModel
-from fastapi import Body
-from payment_links import create_dynamic_checkout
 
+from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 from core import bot, dp
 import bott_webhook
 from stripe_webhook import router as stripe_router
@@ -52,7 +51,7 @@ class ReminderPayload(BaseModel):
 @app.post("/reminder")
 async def send_reminder(payload: ReminderPayload):
     try:
-        text = payload.message  # ← message envoyé au client
+        text = payload.message
 
         telegram_api_url = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage"
 
@@ -67,8 +66,8 @@ async def send_reminder(payload: ReminderPayload):
 
         print("[REMINDER] Message envoyé :", response.text)
 
-        # 2️⃣ 🔔 Notification admin (AJOUTÉ PROPREMENT ICI)
-        admin_id = 7334072965  # ou via variable d'environnement si besoin
+        # 2️⃣ Notification admin vendeur
+        admin_id = int(os.getenv("ADMIN_TELEGRAM_ID", "7334072965"))
 
         notif_text = (
             "🔔 Relance automatique envoyée\n\n"
@@ -97,40 +96,38 @@ async def send_reminder(payload: ReminderPayload):
         }
 
 
-
-
 # ---------------------------
 # STARTUP EVENT
 # ---------------------------
 @app.on_event("startup")
 async def startup_event():
     try:
-        # 1) Recharge les VIP dans authorized_users
+        # 1) Recharge les VIP
         try:
             bott_webhook.initialize_authorized_users()
         except Exception as e:
             print(f"[STARTUP] Warning: initialize_authorized_users a échoué : {e}")
 
-        # 2) Recharge les Topic IDs depuis Airtable (source de vérité)
+        # 2) Recharge les topics VIP depuis Airtable
         await load_vip_topics_from_airtable()
 
-        # 3) Recharge les annotations + panneaux locaux depuis disque (fallback local)
+        # 3) Recharge fallback local
         load_vip_topics_from_disk()
 
-        # 4) Recharge les annotations depuis Airtable (notes + admin + panel_message_id)
+        # 4) Recharge annotations
         try:
             load_annotations_from_airtable()
         except Exception as e:
             print(f"[ANNOTATION] Échec chargement Airtable : {e}")
 
-        # 🔥 5) RESTAURE LES PANELS MANQUANTS UNE SEULE FOIS AU DÉMARRAGE
+        # 5) Restaure panels manquants
         try:
             await restore_missing_panels()
             print("[STARTUP] restore_missing_panels exécuté.")
         except Exception as e:
             print(f"[STARTUP] Erreur restore_missing_panels : {e}")
 
-        # 6) Démarre le scheduler en tâche de fond
+        # 6) Scheduler relances
         try:
             asyncio.create_task(bott_webhook.scheduler_loop())
             print("[STARTUP] Scheduler Loop démarré.")
@@ -142,29 +139,42 @@ async def startup_event():
     except Exception as e:
         print(f"[STARTUP ERROR] Erreur pendant le chargement des VIP : {e}")
 
-from fastapi import Body
-from payment_links import create_dynamic_checkout
 
+# ---------------------------
+# CREATE CHECKOUT (PWA → BOT)
+# ---------------------------
 @app.post("/create-checkout")
 async def create_checkout(data: dict = Body(...)):
     """
-    Création d'un paiement dynamique NovaPulse
-    Appelé par le Bridge (PWA → Bridge → Bot)
+    Création d'un paiement dynamique NovaPulse (PWA)
+    → crée Stripe
+    → crée ligne Airtable Pending (comme /envXX)
     """
     try:
         amount_raw = data.get("amount_cents")
-        email = data.get("email")
+        email = data.get("email")           # stocké dans "ID Telegram"
         seller_slug = data.get("seller_slug")
 
-        if amount_raw is None:
-            return {"status": "error", "message": "amount_cents manquant"}
+        if amount_raw is None or not email:
+            return {"status": "error", "message": "amount_cents ou email manquant"}
 
         amount = int(amount_raw)
 
-        # Appelle ta logique Stripe existante
+        # 1️⃣ Création lien Stripe
         checkout_url = create_dynamic_checkout(amount)
 
-        print(f"[PAYMENT] Checkout créé pour {email}:{seller_slug} - {amount} cents")
+        # 2️⃣ ADMIN vendeur (Telegram)
+        admin_id = int(os.getenv("ADMIN_TELEGRAM_ID", "7334072965"))
+
+        # 3️⃣ Création ligne Airtable Pending
+        save_payment_link_to_airtable(
+            client_telegram_id=email,
+            payment_link=checkout_url,
+            admin_id=admin_id,
+            amount_cents=amount
+        )
+
+        print(f"[PWA PAYMENT] Pending créé pour {email}:{seller_slug} - {amount} cents")
 
         return {
             "status": "success",
@@ -173,9 +183,6 @@ async def create_checkout(data: dict = Body(...)):
         }
 
     except Exception as e:
-        print("❌ Erreur create_checkout:", e)
-        return {"status": "error", "message": str(e)}
-
         print("❌ Erreur create_checkout:", e)
         return {"status": "error", "message": str(e)}
 
