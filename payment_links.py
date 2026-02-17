@@ -3,6 +3,13 @@ import requests
 from datetime import datetime
 import stripe
 
+
+
+
+
+
+liens_paiement = {}
+
 # Variables d'environnement
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
