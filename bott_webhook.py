@@ -956,21 +956,27 @@ async def envoyer_contenu_payant(message: types.Message):
     admin_id = message.from_user.id
 
     # ================================
-    # DETECT TOPIC TELEGRAM
+    # DETECTION DU TOPIC TELEGRAM
     # ================================
-    topic_id = getattr(message, "message_thread_id", None)
+    thread_id = None
 
-    if not topic_id and message.reply_to_message:
-        topic_id = getattr(message.reply_to_message, "message_thread_id", None)
+    # cas 1 : message envoyé directement dans le topic
+    if getattr(message, "message_thread_id", None):
+        thread_id = message.message_thread_id
 
-    print(f"[TOPIC DETECTED] {topic_id}")
+    # cas 2 : admin répond à un message du topic
+    elif message.reply_to_message:
+        thread_id = getattr(message.reply_to_message, "message_thread_id", None)
 
-    if not topic_id:
+    print(f"[TOPIC DETECTED] {thread_id}")
+
+    if not thread_id:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Impossible de détecter le topic Telegram."
+            text="❗ Impossible de détecter le topic Telegram. Réponds bien dans le topic du client."
         )
         return
+
 
     # ================================
     # RESOLVE CLIENT PWA
