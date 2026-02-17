@@ -872,6 +872,36 @@ async def handle_vip_note(message: types.Message):
 # Message et média personnel avec lien
 
 import re
+
+
+
+
+# Message et média personnel avec lien PWA
+
+def get_pwa_client_by_topic(thread_id: int):
+    """
+    Récupère le client PWA (email) via le topic_id Airtable
+    """
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+        params = {
+            "filterByFormula": f"{{topic_id}}='{thread_id}'"
+        }
+
+        resp = requests.get(url, headers=headers, params=params)
+        records = resp.json().get("records", [])
+
+        if records:
+            return records[0]["fields"].get("email")
+
+    except Exception as e:
+        print(f"[PWA LOOKUP ERROR] {e}")
+
+    return None
+
+# Message et média personnel avec lien PWA
+
 # ================================
 # UTILS (SANS DÉCORATEUR)
 # ================================
@@ -920,13 +950,21 @@ async def envoyer_contenu_payant(message: types.Message):
         )
         return
 
-    # 2) retrouver le client ciblé
-    if message.reply_to_message.forward_from:
-        user_id = message.reply_to_message.forward_from.id
-    else:
-        user_id = pending_replies.get(
-            (message.chat.id, message.reply_to_message.message_id)
+        # ================================
+    # IDENTIFICATION CLIENT (PWA via topic)
+    # ================================
+    thread_id = message.message_thread_id
+    user_id = get_pwa_client_by_topic(thread_id)
+
+    print(f"[PWA RESOLVE] thread_id={thread_id} -> user={user_id}")
+
+    if not user_id:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❗ Impossible d'identifier le client PWA pour ce topic."
         )
+        return
+
 
     # ================================
     # CAS SPECIAL : notes VIP
