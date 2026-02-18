@@ -930,19 +930,16 @@ def parse_amount_to_cents(amount_str: str) -> int:
 # ================================
 # HANDLER /envXX → PWA + MEDIA UPLOAD
 # ================================
-@dp.message_handler(content_types=types.ContentType.ANY)
+@dp.message_handler(lambda m: m.text and m.text.lower().startswith("/env"), content_types=types.ContentType.ANY)
 async def envoyer_contenu_payant(message: types.Message):
+
     if not is_admin(message.from_user.id):
         return
 
-    texte = message.caption or message.text or ""
-    if "/env" not in texte.lower():
-        return
-
-async def envoyer_contenu_payant(message: types.Message):
     print("ENV", message.from_user.id, message.content_type)
 
     admin_id = message.from_user.id
+
 
     # ================================
     # DEBUG TELEGRAM RAW
