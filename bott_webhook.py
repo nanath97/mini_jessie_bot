@@ -952,23 +952,21 @@ async def envoyer_contenu_payant(message: types.Message):
     # 🔥 DEBUG TELEGRAM RAW
     # ================================
     print("RAW MESSAGE:", message.to_python())
-
     # ================================
-    # DETECTION DU TOPIC
+    # DETECTION DU TOPIC (ULTRA ROBUSTE)
     # ================================
-    thread_id = getattr(message, "message_thread_id", None)
+    thread_id = None
 
+    raw = message.to_python()
+    thread_id = raw.get("message_thread_id")
+
+    # fallback si reply dans topic
     if not thread_id and message.reply_to_message:
-        thread_id = getattr(message.reply_to_message, "message_thread_id", None)
+        raw_reply = message.reply_to_message.to_python()
+        thread_id = raw_reply.get("message_thread_id")
 
     print(f"[TOPIC DETECTED] {thread_id}")
 
-    if not thread_id:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❗ Impossible de détecter le topic Telegram."
-        )
-        return
 
     # ================================
     # RESOLVE CLIENT PWA
