@@ -939,12 +939,35 @@ async def envoyer_contenu_payant(message: types.Message):
     admin_id = message.from_user.id
 
     # ================================
-    # DETECT TOPIC ID (ROBUST)
+    # DETECTION TOPIC TELEGRAM (ROBUSTE)
     # ================================
-    thread_id = message.message_thread_id
+    thread_id = None
 
+    # cas 1 : message directement dans le topic
+    if hasattr(message, "message_thread_id") and message.message_thread_id:
+        thread_id = message.message_thread_id
+
+    # cas 2 : réponse à un message du topic (ton cas réel)
     if not thread_id and message.reply_to_message:
-        thread_id = message.reply_to_message.message_thread_id
+        thread_id = getattr(message.reply_to_message, "message_thread_id", None)
+
+    print(f"[TOPIC DETECTED] {thread_id}")
+
+    # ================================
+    # RESOLVE CLIENT PWA
+    # ================================
+# ================================
+# DETECTION TOPIC TELEGRAM (ROBUSTE)
+# ================================
+    thread_id = None
+
+    # message envoyé directement dans topic
+    if hasattr(message, "message_thread_id") and message.message_thread_id:
+        thread_id = message.message_thread_id
+
+    # message en réponse à un message du topic
+    if not thread_id and message.reply_to_message:
+        thread_id = getattr(message.reply_to_message, "message_thread_id", None)
 
     print(f"[TOPIC DETECTED] {thread_id}")
 
@@ -955,22 +978,6 @@ async def envoyer_contenu_payant(message: types.Message):
         )
         return
 
-    # ================================
-    # RESOLVE CLIENT PWA
-    # ================================
-    client = get_pwa_client_by_topic(thread_id)
-
-    print(f"[PWA RESOLVE] topic={thread_id} -> client={client}")
-
-    if not client:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❗ Aucun client PWA trouvé pour ce topic."
-        )
-        return
-
-    email = client["email"]
-    seller_slug = client["seller_slug"]
 
     # ================================
     # PARSE /envXX
