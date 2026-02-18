@@ -871,71 +871,54 @@ async def handle_vip_note(message: types.Message):
 
 # Message et média personnel avec lien
 
-# ================================
-# IMPORTS NECESSAIRES
-# ================================
 import re
 import os
 import requests
-from decimal import Decimal, ROUND_HALF_UP
 from aiogram import types
+from decimal import Decimal, ROUND_HALF_UP
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ================================
-# CONFIG
-# ================================
-BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
-AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-BASE_ID = os.getenv("BASE_ID") or os.getenv("AIRTABLE_BASE_ID")
-
-# ================================
-# PARSE AMOUNT
+# UTILS
 # ================================
 def parse_amount_to_cents(amount_str: str) -> int:
     normalized = amount_str.replace(",", ".").strip()
     amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(amount * 100)
 
-# ================================
-# RESOLVE CLIENT PWA VIA TOPIC (AIRTABLE)
-# ================================
-def get_pwa_client_by_topic(topic_id: int):
-    try:
-        if not AIRTABLE_API_KEY or not BASE_ID:
-            print("[PWA LOOKUP] Missing Airtable env")
-            return None
 
-        url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
-        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-        params = {"filterByFormula": f"{{topic_id}}='{topic_id}'"}
+# ================================
+# RESOLVE CLIENT PWA VIA AIRTABLE TOPIC
+# ================================
+def get_pwa_client_by_topic(thread_id: int):
+    try:
+        airtable_api_key = os.getenv("AIRTABLE_API_KEY")
+        base_id = os.getenv("AIRTABLE_BASE_ID") or os.getenv("BASE_ID")
+
+        url = f"https://api.airtable.com/v0/{base_id}/PWA%20Clients"
+        headers = {"Authorization": f"Bearer {airtable_api_key}"}
+        params = {"filterByFormula": f"{{topic_id}}='{thread_id}'"}
 
         resp = requests.get(url, headers=headers, params=params, timeout=8)
-        data = resp.json()
-        records = data.get("records", [])
+        records = resp.json().get("records", [])
 
         if not records:
-            print(f"[PWA LOOKUP] No record for topic {topic_id}")
+            print(f"[PWA LOOKUP] No record for topic {thread_id}")
             return None
 
-        fields = records[0].get("fields", {})
-        email = fields.get("email")
-        seller_slug = fields.get("seller_slug") or fields.get("sellerSlug")
-
-        if not email or not seller_slug:
-            print("[PWA LOOKUP] Missing email or seller_slug")
-            return None
-
+        fields = records[0]["fields"]
         return {
-            "email": str(email).strip().lower(),
-            "seller_slug": str(seller_slug).strip().lower()
+            "email": fields.get("email"),
+            "seller_slug": fields.get("seller_slug"),
         }
 
     except Exception as e:
         print(f"[PWA LOOKUP ERROR] {e}")
         return None
 
+
 # ================================
-# HANDLER /envXX (MODELE A PWA)
+# HANDLER /envXX
 # ================================
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
@@ -956,33 +939,28 @@ async def envoyer_contenu_payant(message: types.Message):
     admin_id = message.from_user.id
 
     # ================================
-    # DETECTION DU TOPIC TELEGRAM
+    # DETECT TOPIC ID (ROBUST)
     # ================================
-    thread_id = None
+    thread_id = message.message_thread_id
 
-    # cas 1 : message envoyé directement dans le topic
-    if getattr(message, "message_thread_id", None):
-        thread_id = message.message_thread_id
-
-    # cas 2 : admin répond à un message du topic
-    elif message.reply_to_message:
-        thread_id = getattr(message.reply_to_message, "message_thread_id", None)
+    if not thread_id and message.reply_to_message:
+        thread_id = message.reply_to_message.message_thread_id
 
     print(f"[TOPIC DETECTED] {thread_id}")
 
     if not thread_id:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗ Impossible de détecter le topic Telegram. Réponds bien dans le topic du client."
+            text="❗ Impossible de détecter le topic Telegram."
         )
         return
-
 
     # ================================
     # RESOLVE CLIENT PWA
     # ================================
-    client = get_pwa_client_by_topic(topic_id)
-    print(f"[PWA RESOLVE] topic={topic_id} -> client={client}")
+    client = get_pwa_client_by_topic(thread_id)
+
+    print(f"[PWA RESOLVE] topic={thread_id} -> client={client}")
 
     if not client:
         await bot.send_message(
@@ -1017,7 +995,7 @@ async def envoyer_contenu_payant(message: types.Message):
     is_media = bool(message.photo or message.video or message.document)
 
     # ================================
-    # 🚀 ROUTAGE FINAL : TELEGRAM → BRIDGE → PWA
+    # SEND TO PWA VIA BRIDGE
     # ================================
     try:
         payload = {
@@ -1029,7 +1007,7 @@ async def envoyer_contenu_payant(message: types.Message):
         }
 
         requests.post(
-            f"{BRIDGE_API_URL}/pwa/send-paid-content",
+            f"{os.getenv('BRIDGE_API_URL')}/pwa/send-paid-content",
             json=payload,
             timeout=5,
         )
@@ -1043,7 +1021,6 @@ async def envoyer_contenu_payant(message: types.Message):
         chat_id=admin_id,
         text=f"✅ Paiement {display_amount}€ envoyé au client PWA.",
     )
-
 
     # ================================
     # CAS SPECIAL : notes VIP
