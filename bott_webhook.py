@@ -1037,8 +1037,7 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # CAS SPECIAL : notes VIP
     # ================================
-    if not user_id:
-        if admin_id in pending_notes:
+    if admin_id in pending_notes:
             vip_user_id = pending_notes.pop(admin_id)
             note_text = (message.text or message.caption or "").strip()
 
@@ -1098,8 +1097,8 @@ async def envoyer_contenu_payant(message: types.Message):
             await bot.send_message(chat_id=admin_id, text="✅ Note enregistrée.")
             return
 
-        await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
-        return
+    await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
+    return
 
 
 
