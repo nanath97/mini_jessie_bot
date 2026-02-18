@@ -928,7 +928,7 @@ def parse_amount_to_cents(amount_str: str) -> int:
 
 
 # ================================
-# HANDLER /envXX → PWA
+# HANDLER /envXX → PWA + MEDIA UPLOAD
 # ================================
 @dp.message_handler(
     lambda message: is_admin(message.from_user.id)
@@ -949,24 +949,22 @@ async def envoyer_contenu_payant(message: types.Message):
     admin_id = message.from_user.id
 
     # ================================
-    # 🔥 DEBUG TELEGRAM RAW
+    # DEBUG TELEGRAM RAW
     # ================================
     print("RAW MESSAGE:", message.to_python())
+
     # ================================
-    # DETECTION DU TOPIC (ULTRA ROBUSTE)
+    # DETECTION DU TOPIC
     # ================================
     thread_id = None
-
     raw = message.to_python()
     thread_id = raw.get("message_thread_id")
 
-    # fallback si reply dans topic
     if not thread_id and message.reply_to_message:
         raw_reply = message.reply_to_message.to_python()
         thread_id = raw_reply.get("message_thread_id")
 
     print(f"[TOPIC DETECTED] {thread_id}")
-
 
     # ================================
     # RESOLVE CLIENT PWA
@@ -1004,10 +1002,63 @@ async def envoyer_contenu_payant(message: types.Message):
         r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE
     ).strip()
 
+    # ================================
+    # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
+    # ================================
+    media_url = None
     is_media = bool(message.photo or message.video or message.document)
 
+    if is_media:
+        try:
+            if message.photo:
+                file_id = message.photo[-1].file_id
+            elif message.video:
+                file_id = message.video.file_id
+            else:
+                file_id = message.document.file_id
+
+            tg_file = await bot.get_file(file_id)
+            file_bytes = await bot.download_file(tg_file.file_path)
+
+            files = {
+                "file": ("media_file", file_bytes.read())
+            }
+            data = {
+                "sellerSlug": seller_slug,
+                "clientEmail": email,
+                "amount": amount_cents
+            }
+
+            print("[BRIDGE UPLOAD] sending media...")
+            resp = requests.post(
+                f"{BRIDGE_API_URL}/upload-media",
+                files=files,
+                data=data,
+                timeout=20
+            )
+
+            result = resp.json()
+            print("[BRIDGE RESPONSE]", result)
+
+            if result.get("success"):
+                media_url = result.get("mediaUrl")
+            else:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text="❌ Erreur upload média vers le bridge."
+                )
+                return
+
+        except Exception as e:
+            print(f"[UPLOAD ERROR] {e}")
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❌ Échec upload média (bridge)."
+            )
+            return
+
     # ================================
-    # 🚀 ROUTEUR FINAL → PWA
+    # ROUTEUR FINAL → PWA
     # ================================
     try:
         payload = {
@@ -1016,6 +1067,8 @@ async def envoyer_contenu_payant(message: types.Message):
             "text": nouvelle_legende or "💳 Paiement requis.",
             "checkout_url": lien,
             "isMedia": is_media,
+            "mediaUrl": media_url,  # 🔥 IMPORTANT
+            "amount": amount_cents,
         }
 
         requests.post(
@@ -1035,71 +1088,60 @@ async def envoyer_contenu_payant(message: types.Message):
     )
 
     # ================================
-    # CAS SPECIAL : notes VIP
+    # CAS SPECIAL : notes VIP (inchangé)
     # ================================
     if admin_id in pending_notes:
-            vip_user_id = pending_notes.pop(admin_id)
-            note_text = (message.text or message.caption or "").strip()
+        vip_user_id = pending_notes.pop(admin_id)
+        note_text = (message.text or message.caption or "").strip()
 
-            if not note_text:
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text="❗ Note vide."
-                )
-                return
-
-            # Met à jour la note en base RAM + Airtable
-            info = update_vip_info(vip_user_id, note=note_text)
-
-            topic_id = info.get("topic_id")
-
-            # 🔥 On s'assure que le panel existe et on récupère le BON message_id
-            panel_message_id = await get_panel_message_id_by_user(vip_user_id)
-
-            admin_name = (
-                info.get("admin_name")
-                or message.from_user.username
-                or message.from_user.first_name
-                or str(admin_id)
-            )
-
-            full_note = info.get("note", note_text)
-
-            # Si on a un topic + un panel valide → on édite le panel existant
-            if topic_id and panel_message_id:
-                panel_text = (
-                    "🧐 PANEL DE CONTRÔLE VIP\n\n"
-                    f"👤 Client : {vip_user_id}\n"
-                    f"📒 Notes : {full_note}\n"
-                    f"👤 Admin en charge : {admin_name}"
-                )
-
-                kb = InlineKeyboardMarkup()
-                kb.add(
-                    InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{vip_user_id}"),
-                    InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_{vip_user_id}")
-                )
-
-                await bot.edit_message_text(
-                    chat_id=STAFF_GROUP_ID,
-                    message_id=panel_message_id,
-                    text=panel_text,
-                    reply_markup=kb
-                )
-            else:
-                # Sécurité si jamais le panel est introuvable
-                await bot.send_message(
-                    chat_id=admin_id,
-                    text="⚠️ Impossible de retrouver ou recréer le panneau VIP."
-                )
-                return
-
-            await bot.send_message(chat_id=admin_id, text="✅ Note enregistrée.")
+        if not note_text:
+            await bot.send_message(chat_id=admin_id, text="❗ Note vide.")
             return
 
-    await bot.send_message(chat_id=admin_id, text="❗ Impossible d'identifier le destinataire.")
-    return
+        info = update_vip_info(vip_user_id, note=note_text)
+        topic_id = info.get("topic_id")
+        panel_message_id = await get_panel_message_id_by_user(vip_user_id)
 
+        admin_name = (
+            info.get("admin_name")
+            or message.from_user.username
+            or message.from_user.first_name
+            or str(admin_id)
+        )
+
+        full_note = info.get("note", note_text)
+
+        if topic_id and panel_message_id:
+            panel_text = (
+                "🧐 PANEL DE CONTRÔLE VIP\n\n"
+                f"👤 Client : {vip_user_id}\n"
+                f"📒 Notes : {full_note}\n"
+                f"👤 Admin en charge : {admin_name}"
+            )
+
+            kb = InlineKeyboardMarkup()
+            kb.add(
+                InlineKeyboardButton("✅ Prendre en charge", callback_data=f"prendre_{vip_user_id}"),
+                InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_{vip_user_id}")
+            )
+
+            await bot.edit_message_text(
+                chat_id=STAFF_GROUP_ID,
+                message_id=panel_message_id,
+                text=panel_text,
+                reply_markup=kb
+            )
+        else:
+            await bot.send_message(
+                chat_id=admin_id,
+                text="⚠️ Impossible de retrouver ou recréer le panneau VIP."
+            )
+            return
+
+        await bot.send_message(chat_id=admin_id, text="✅ Note enregistrée.")
+        return
+
+    return
 
 
 
