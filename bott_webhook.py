@@ -927,18 +927,16 @@ def parse_amount_to_cents(amount_str: str) -> int:
     return int(amount * 100)
 
 
+
 # ================================
 # HANDLER /envXX → PWA + MEDIA UPLOAD
 # ================================
-@dp.message_handler(lambda m: m.text and m.text.lower().startswith("/env"), content_types=types.ContentType.ANY)
+@dp.message_handler(lambda m: (m.text or m.caption) and "/env" in (m.text or m.caption).lower(), content_types=types.ContentType.ANY)
 async def envoyer_contenu_payant(message: types.Message):
-
-    if not is_admin(message.from_user.id):
-        return
-
-    print("ENV", message.from_user.id, message.content_type)
-
     admin_id = message.from_user.id
+
+    if not is_admin(admin_id):
+        return
 
 
     # ================================
