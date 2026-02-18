@@ -891,7 +891,7 @@ def get_pwa_client_by_topic(thread_id: int):
 
         url = f"https://api.airtable.com/v0/{base_id}/PWA%20Clients"
         headers = {"Authorization": f"Bearer {airtable_api_key}"}
-        params = {"filterByFormula": f"{{topic_id}}='{thread_id}'"}
+        params = {"filterByFormula": f"{{topic_id}}={thread_id}"}
 
         resp = requests.get(url, headers=headers, params=params, timeout=8)
         records = resp.json().get("records", [])
