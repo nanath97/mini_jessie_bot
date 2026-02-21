@@ -38,7 +38,7 @@ dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
 # map (chat_id, message_id) -> chat_id du client
 pending_replies = {}
 
-
+pending_pwa_notes = {}  # admin_id -> topic_id
 pending_notes = {}  # admin_id -> user_id
 
 # Dictionnaire temporaire pour stocker les derniers messages de chaque client
@@ -879,7 +879,74 @@ async def handle_vip_note(message: types.Message):
 
 
 # TEST A SUPPRIMER FIN
+@dp.callback_query_handler(lambda c: c.data.startswith("annoter_pwa_"))
+async def handle_annoter_pwa(callback_query: types.CallbackQuery):
+    admin_id = callback_query.from_user.id
 
+    try:
+        topic_id = int(callback_query.data.split("_")[-1])
+    except Exception:
+        await callback_query.answer("Topic invalide.", show_alert=True)
+        return
+
+    # On met l'admin en mode "attente de note" pour CE topic
+    pending_pwa_notes[admin_id] = topic_id
+
+    await callback_query.answer()
+    await bot.send_message(
+        chat_id=STAFF_GROUP_ID,
+        message_thread_id=topic_id,
+        text="📝 Envoie maintenant la note pour ce client."
+    )
+@dp.message_handler(
+    lambda m: m.chat.id == STAFF_GROUP_ID and m.from_user.id in pending_pwa_notes,
+    content_types=[types.ContentType.TEXT]
+)
+async def handle_pwa_note(message: types.Message):
+    admin_id = message.from_user.id
+    topic_id = pending_pwa_notes.pop(admin_id, None)
+
+    if not topic_id:
+        return
+
+    note_text = (message.text or "").strip()
+    if not note_text:
+        await message.reply("❌ Note vide, rien n'a été enregistrée.")
+        return
+
+    print(f"[PWA NOTES] Note reçue topic_id={topic_id} admin={admin_id}: {note_text}")
+
+    # 🔥 1) Sauvegarde dans Airtable PWA Notes (historique)
+    seller_slug = "coach-matthieu"  # à rendre dynamique plus tard
+    save_pwa_note_to_airtable(topic_id, seller_slug, note_text)
+
+    # 🔥 2) Mettre à jour la note principale dans PWA Clients (champ admin_note)
+    try:
+        await axios_post_update_pwa_note(topic_id, seller_slug, note_text)
+    except Exception as e:
+        print("[PWA NOTES] Erreur update admin_note:", e)
+
+    # 🔥 3) Mise à jour du panel Telegram
+    panel_text = (
+        "🧐 PANEL DE CONTRÔLE PWA\n\n"
+        f"🧵 Topic : {topic_id}\n"
+        f"📒 Dernière note : {note_text}\n"
+        f"👤 Admin en charge : {message.from_user.first_name}"
+    )
+
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("📝 Ajouter une note", callback_data=f"annoter_pwa_{topic_id}")
+    )
+
+    await bot.edit_message_text(
+        chat_id=STAFF_GROUP_ID,
+        message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
+        text=panel_text,
+        reply_markup=kb
+    )
+
+    await message.reply("✅ Note PWA enregistrée et panel mis à jour.")
 
 # Message et média personnel avec lien
 
