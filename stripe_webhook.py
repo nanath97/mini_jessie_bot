@@ -94,13 +94,16 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         session = event["data"]["object"]
 
         checkout_session_id = session.get("id")
-        montant_cents = session.get("amount_total")
+        montant_cents = session.get("amount_total") or 0
         metadata = session.get("metadata", {}) or {}
 
-        client_key = metadata.get("client_key")
+        client_key = metadata.get("client_key")  # email client PWA
         content_id = metadata.get("content_id")
         channel = metadata.get("channel")
         seller_slug = metadata.get("seller_slug")
+        client_username = metadata.get("username") or client_key or "client"
+
+        montant_euros = round(montant_cents / 100, 2)
 
         print(
             f"✅ Stripe paid: session={checkout_session_id} amount={montant_cents} "
@@ -110,7 +113,73 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         # 3) Update Airtable
         mark_payment_link_as_paid_by_session(checkout_session_id)
 
-        # 4) Déclenchement unlock PWA
+        # ============================================================
+        # 🔔 NOUVEAU : NOTIFICATIONS POST-PAIEMENT
+        # ============================================================
+
+        # 3.1 Confirmation client → PWA
+        try:
+            BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
+            if client_key and BRIDGE_API_URL:
+                resp = requests.post(
+                    f"{BRIDGE_API_URL}/notify-client",
+                    json={
+                        "email": client_key,
+                        "message": (
+                            f"✅ Merci pour votre paiement de {montant_euros} € ! "
+                            f"Votre facture vous sera transmise directement par mail.\n\n"
+                            f"❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici"
+                        ),
+                    },
+                    timeout=5,
+                )
+                print(f"📩 Confirmation client envoyée PWA: {resp.status_code}")
+        except Exception as e:
+            print(f"❌ Erreur confirmation client PWA: {e}")
+
+        # 3.2 Notification admins → Telegram
+        try:
+            for adm in authorized_admin_ids:
+                try:
+                    await bot.send_message(
+                        adm,
+                        f"💰 Nouveau paiement de {montant_euros} € de {client_username}."
+                    )
+                except Exception as e:
+                    print(f"[ADMIN_NOTIFY_ERROR] {e}")
+        except Exception as e:
+            print(f"❌ Erreur boucle admins: {e}")
+
+        # 3.3 Notification structurée → Topic staff
+        try:
+            from vip_topics import ensure_topic_for_vip
+            topic_id = await ensure_topic_for_vip(client_username)
+        except Exception:
+            topic_id = None
+
+        if topic_id is not None:
+            try:
+                await bot.request(
+                    "sendMessage",
+                    {
+                        "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
+                        "message_thread_id": topic_id,
+                        "text": (
+                            f"💰 *Nouveau paiement*\n\n"
+                            f"👤 Client : {client_username}\n"
+                            f"💶 Montant : {montant_euros} €\n"
+                            f"📊 Paiement enregistré dans ton Dashboard.\n"
+                            f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
+                        ),
+                        "parse_mode": "Markdown"
+                    }
+                )
+            except Exception as e:
+                print(f"[VIP_TOPICS_ERROR] {e}")
+
+        # ============================================================
+        # 4) Déclenchement unlock PWA (existant - inchangé)
+        # ============================================================
         if channel == "pwa" and client_key and content_id and seller_slug:
             try:
                 BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
