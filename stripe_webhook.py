@@ -27,10 +27,9 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
             "Content-Type": "application/json"
         }
 
-        formula = f"AND({{Status}}='Pending', {{Checkout Session ID}}='{checkout_session_id}')"
+        formula = f"{{Checkout Session ID}}='{checkout_session_id}'"
         resp = requests.get(url, headers=headers, params={"filterByFormula": formula})
         records = resp.json().get("records", [])
-
         if not records:
             print(f"[AIRTABLE] Aucun Pending trouvé pour session_id={checkout_session_id}")
             return None
