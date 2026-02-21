@@ -5,6 +5,9 @@ import stripe
 import os
 import requests
 from datetime import datetime
+from bott_webhook import authorized_admin_ids  # adapte le nom exact du fichier
+
+
 
 router = APIRouter()
 
@@ -122,10 +125,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
             if client_key and BRIDGE_API_URL:
                 resp = requests.post(
-                    f"{BRIDGE_API_URL}/notify-client",
+                    f"{BRIDGE_API_URL}/pwa/send-admin-message",
                     json={
                         "email": client_key,
-                        "message": (
+                        "sellerSlug": seller_slug,
+                        "text": (
                             f"✅ Merci pour votre paiement de {montant_euros} € ! "
                             f"Votre facture vous sera transmise directement par mail.\n\n"
                             f"❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici"
@@ -136,6 +140,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 print(f"📩 Confirmation client envoyée PWA: {resp.status_code}")
         except Exception as e:
             print(f"❌ Erreur confirmation client PWA: {e}")
+            print(f"📩 Confirmation client envoyée PWA: {resp.status_code} {resp.text}")
 
         # 3.2 Notification admins → Telegram
         try:
