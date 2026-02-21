@@ -104,34 +104,31 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         print(
             f"✅ Stripe paid: session={checkout_session_id} amount={montant_cents} "
-            f"client={client_key} content={content_id} channel={channel}"
+            f"client={client_key} content={content_id} channel={channel} seller={seller_slug}"
         )
 
-        # 3) Update Airtable via session_id (fiable)
+        # 3) Update Airtable
         mark_payment_link_as_paid_by_session(checkout_session_id)
 
-
         # 4) Déclenchement unlock PWA
-    seller_slug = metadata.get("seller_slug")
+        if channel == "pwa" and client_key and content_id and seller_slug:
+            try:
+                BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
 
-    if channel == "pwa" and client_key and content_id and seller_slug:
-        try:
-            BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
+                resp = requests.post(
+                    f"{BRIDGE_API_URL}/pwa/unlock",
+                    json={
+                        "email": client_key,
+                        "sellerSlug": seller_slug,
+                        "contentId": content_id,
+                        "sessionId": checkout_session_id,
+                    },
+                    timeout=5,
+                )
 
-            resp = requests.post(
-                f"{BRIDGE_API_URL}/pwa/unlock",
-                json={
-                    "email": client_key,
-                    "sellerSlug": seller_slug,
-                    "contentId": content_id,
-                    "sessionId": checkout_session_id,
-                },
-                timeout=5,
-            )
+                print(f"🚀 Unlock envoyé au bridge: {resp.status_code} {resp.text}")
 
-            print(f"🚀 Unlock envoyé au bridge: {resp.status_code} {resp.text}")
-
-        except Exception as e:
-            print(f"❌ Erreur unlock bridge: {e}")
+            except Exception as e:
+                print(f"❌ Erreur unlock bridge: {e}")
 
     return {"status": "ok"}

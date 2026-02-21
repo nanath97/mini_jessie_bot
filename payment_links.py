@@ -11,7 +11,7 @@ BASE_ID = os.getenv("BASE_ID")
 stripe.api_key = STRIPE_SECRET_KEY
 liens_paiement = {}
 
-def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str, admin_id: str = ""):
+def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str, seller_slug: str, admin_id: str = ""):
     """
     Crée une session Stripe Checkout dynamique avec metadata (indispensable pour unlock).
     Retourne (session_url, session_id).
