@@ -6,6 +6,7 @@ import os
 import requests
 from datetime import datetime
 from bott_webhook import authorized_admin_ids  # adapte le nom exact du fichier
+from core import bot
 
 
 
