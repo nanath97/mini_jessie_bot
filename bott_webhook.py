@@ -1041,11 +1041,28 @@ async def envoyer_contenu_payant(message: types.Message):
             "amount": amount_cents,
         }
 
-        requests.post(
-            f"{BRIDGE_API_URL}/pwa/send-paid-content",
-            json=payload,
-            timeout=5,
-        )
+        if is_media:
+            # 🔥 Flow paywall classique (inchangé)
+            requests.post(
+                f"{BRIDGE_API_URL}/pwa/send-paid-content",
+                json=payload,
+                timeout=5,
+            )
+        else:
+            # 💳 Paiement simple sans média
+            simple_payload = {
+                "email": email,
+                "sellerSlug": seller_slug,
+                "text": nouvelle_legende or "💳 Paiement requis.",
+                "checkout_url": checkout_url,
+                "amount": amount_cents,
+            }
+
+            requests.post(
+                f"{BRIDGE_API_URL}/pwa/send-simple-payment",
+                json=simple_payload,
+                timeout=5,
+            )
 
         print(f"[PWA SEND OK] {email}")
 
