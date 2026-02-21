@@ -1014,6 +1014,7 @@ async def envoyer_contenu_payant(message: types.Message):
         amount_cents=amount_cents,
         client_key=client_key,
         content_id=content_id,
+        seller_slug=seller_slug,
         admin_id=str(admin_id),
     )
 
