@@ -42,8 +42,10 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
             "channel": "pwa",
             "client_key": str(client_key),
             "content_id": str(content_id),
+            "seller_slug": seller_slug,
             "admin_id": str(admin_id or ""),
             "amount_cents": str(int(amount_cents)),
+            
         },
     )
 
