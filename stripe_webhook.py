@@ -4,7 +4,6 @@ from fastapi import APIRouter, Request, Header
 import stripe
 import os
 import requests
-from bott_webhook import paiements_recents  # stockage des paiements récents
 from datetime import datetime
 
 router = APIRouter()
@@ -17,10 +16,9 @@ BASE_ID = os.getenv("BASE_ID")
 PAYMENT_LINKS_TABLE = "Payment Links"
 
 
-def mark_payment_link_as_paid(amount_cents: int):
+def mark_payment_link_as_paid_by_session(checkout_session_id: str):
     """
-    Met à jour dans Airtable la dernière ligne 'Pending'
-    correspondant au montant payé en Stripe.
+    Met à jour dans Airtable la ligne Pending correspondant au Checkout Session ID.
     """
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{PAYMENT_LINKS_TABLE.replace(' ', '%20')}"
@@ -29,76 +27,75 @@ def mark_payment_link_as_paid(amount_cents: int):
             "Content-Type": "application/json"
         }
 
-        # Recherche des paiements Pending avec ce montant
-        formula = f"AND({{Status}}='Pending', {{Amount Cents}}={amount_cents})"
-
+        formula = f"AND({{Status}}='Pending', {{Checkout Session ID}}='{checkout_session_id}')"
         resp = requests.get(url, headers=headers, params={"filterByFormula": formula})
         records = resp.json().get("records", [])
 
         if not records:
-            print(f"[AIRTABLE] Aucun paiement Pending trouvé pour {amount_cents} cents")
-            return
+            print(f"[AIRTABLE] Aucun Pending trouvé pour session_id={checkout_session_id}")
+            return None
 
-        # On prend la première correspondance (dernière logique du funnel)
         record_id = records[0]["id"]
-
         patch_url = f"{url}/{record_id}"
+
         update_resp = requests.patch(
             patch_url,
             headers=headers,
-            json={"fields": {"Status": "Paid"}}
+            json={
+                "fields": {
+                    "Status": "Paid",
+                    "Paid At": datetime.utcnow().isoformat()
+                }
+            }
         )
 
         if update_resp.status_code not in (200, 201):
             print(f"[AIRTABLE] Erreur update Paid : {update_resp.text}")
-        else:
-            print(f"[AIRTABLE] Paiement {amount_cents} marqué comme Paid")
+            return None
+
+        print(f"[AIRTABLE] session_id={checkout_session_id} marqué Paid")
+        return record_id
 
     except Exception as e:
         print(f"[AIRTABLE] Exception update Paid : {e}")
-
-
-@router.get("/stripe/test")
-async def test_stripe_route():
-    return {"status": "ok"}
+        return None
 
 
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
 
+    # 1) Vérification signature Stripe (sécurité)
     try:
         event = stripe.Webhook.construct_event(
-            payload, stripe_signature, STRIPE_WEBHOOK_SECRET
+            payload=payload,
+            sig_header=stripe_signature,
+            secret=STRIPE_WEBHOOK_SECRET
         )
     except Exception as e:
         print(f"❌ Webhook Stripe invalide : {e}")
         return {"status": "invalid"}
 
-    # ===============================
-    # PAIEMENT VALIDÉ STRIPE
-    # ===============================
+    # 2) Traitement event
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
-        # Montant en centimes (ex: 250 pour 2,50€)
-        montant_cents = session["amount_total"]
+        checkout_session_id = session.get("id")
+        montant_cents = session.get("amount_total")
+        metadata = session.get("metadata", {}) or {}
 
-        # Sécurité : créer la liste si elle n'existe pas
-        if montant_cents not in paiements_recents:
-            paiements_recents[montant_cents] = []
-
-        paiements_recents[montant_cents].append(datetime.now())
-
-        # 🔥 MISE À JOUR AIRTABLE (Pending -> Paid)
-        mark_payment_link_as_paid(montant_cents)
-
-        # Affichage lisible en euros
-        montant_euros = montant_cents / 100
+        client_key = metadata.get("client_key")
+        content_id = metadata.get("content_id")
+        channel = metadata.get("channel")
 
         print(
-            f"✅ Paiement webhook : {montant_euros:.2f}€ "
-            f"(={montant_cents} cents) enregistré à {datetime.now().isoformat()}"
+            f"✅ Stripe paid: session={checkout_session_id} amount={montant_cents} "
+            f"client={client_key} content={content_id} channel={channel}"
         )
+
+        # 3) Update Airtable via session_id (fiable)
+        mark_payment_link_as_paid_by_session(checkout_session_id)
+
+        # 4) Plus tard: déclenchement unlock PWA (on le fera à l'étape suivante)
 
     return {"status": "ok"}

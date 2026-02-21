@@ -21,6 +21,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 from vip_topics import _user_topics, save_pwa_note_to_airtable
+from payment_links import save_payment_link_to_airtable
 
 
 
@@ -997,11 +998,36 @@ async def envoyer_contenu_payant(message: types.Message):
         await bot.send_message(chat_id=admin_id, text="❗ Code /env invalide.")
         return
 
-    raw_code = str(match.group(1))
+    raw_code = str(match.group(1)).lower()
+
+    if raw_code == "vip":
+        await bot.send_message(chat_id=admin_id, text="❗ /envvip n'est pas géré ici. Utilise un montant (ex: /env9).")
+        return
+
     amount_cents = parse_amount_to_cents(raw_code)
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
 
-    lien = create_dynamic_checkout(amount_cents)
+    # ✅ Identifiants robustes pour l’après-paiement
+    client_key = email  # PWA client key = email (stable)
+    content_id = f"{seller_slug}_{int(datetime.utcnow().timestamp())}"
+
+    # ✅ Stripe checkout avec metadata + session_id
+    checkout_url, session_id = create_dynamic_checkout(
+        amount_cents=amount_cents,
+        client_key=client_key,
+        content_id=content_id,
+        admin_id=str(admin_id),
+    )
+
+    # ✅ Airtable: on log la ligne Pending avec session_id (indispensable)
+    save_payment_link_to_airtable(
+        client_key=client_key,
+        content_id=content_id,
+        payment_link=checkout_url,
+        admin_id=str(admin_id),
+        amount_cents=amount_cents,
+        checkout_session_id=session_id,
+    )
 
     nouvelle_legende = re.sub(
         r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE
@@ -1070,7 +1096,9 @@ async def envoyer_contenu_payant(message: types.Message):
             "email": email,
             "sellerSlug": seller_slug,
             "text": nouvelle_legende or "💳 Paiement requis.",
-            "checkout_url": lien,
+            "checkout_url": checkout_url,
+            "contentId": content_id,
+            "sessionId": session_id,
             "isMedia": is_media,
             "mediaUrl": media_url,  # 🔥 IMPORTANT
             "amount": amount_cents,
