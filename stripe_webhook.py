@@ -18,7 +18,7 @@ PAYMENT_LINKS_TABLE = "Payment Links"
 
 def mark_payment_link_as_paid_by_session(checkout_session_id: str):
     """
-    Met à jour dans Airtable la ligne Pending correspondant au Checkout Session ID.
+    Met à jour dans Airtable la ligne correspondant au Checkout Session ID.
     """
     try:
         url = f"https://api.airtable.com/v0/{BASE_ID}/{PAYMENT_LINKS_TABLE.replace(' ', '%20')}"
@@ -28,10 +28,22 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
         }
 
         formula = f"{{Checkout Session ID}}='{checkout_session_id}'"
+
+        # 🔎 DEBUG CRITIQUE
+        print("========== STRIPE WEBHOOK DEBUG ==========")
+        print("BASE_ID =", BASE_ID)
+        print("AIRTABLE TABLE =", PAYMENT_LINKS_TABLE)
+        print("CHECKOUT_SESSION_ID =", checkout_session_id)
+        print("FORMULA =", formula)
+        print("URL =", url)
+        print("==========================================")
+
         resp = requests.get(url, headers=headers, params={"filterByFormula": formula})
+        print("AIRTABLE RAW RESPONSE =", resp.text)
+
         records = resp.json().get("records", [])
         if not records:
-            print(f"[AIRTABLE] Aucun Pending trouvé pour session_id={checkout_session_id}")
+            print(f"[AIRTABLE] Aucun record trouvé pour session_id={checkout_session_id}")
             return None
 
         record_id = records[0]["id"]
@@ -47,6 +59,8 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
                 }
             }
         )
+
+        print("PATCH RESPONSE =", update_resp.text)
 
         if update_resp.status_code not in (200, 201):
             print(f"[AIRTABLE] Erreur update Paid : {update_resp.text}")
@@ -94,7 +108,5 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         # 3) Update Airtable via session_id (fiable)
         mark_payment_link_as_paid_by_session(checkout_session_id)
-
-        # 4) Plus tard: déclenchement unlock PWA (on le fera à l'étape suivante)
 
     return {"status": "ok"}
