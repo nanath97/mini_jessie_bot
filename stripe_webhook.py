@@ -100,6 +100,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         client_key = metadata.get("client_key")
         content_id = metadata.get("content_id")
         channel = metadata.get("channel")
+        seller_slug = metadata.get("seller_slug")
 
         print(
             f"✅ Stripe paid: session={checkout_session_id} amount={montant_cents} "
@@ -109,7 +110,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         # 3) Update Airtable via session_id (fiable)
         mark_payment_link_as_paid_by_session(checkout_session_id)
 
-        
+
         # 4) Déclenchement unlock PWA
     seller_slug = metadata.get("seller_slug")
 
