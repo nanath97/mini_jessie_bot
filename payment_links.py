@@ -9,7 +9,7 @@ AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 BASE_ID = os.getenv("BASE_ID")
 
 stripe.api_key = STRIPE_SECRET_KEY
-
+liens_paiement = {}
 
 def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str, admin_id: str = ""):
     """
