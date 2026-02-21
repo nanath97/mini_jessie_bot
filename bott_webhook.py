@@ -541,136 +541,74 @@ async def handle_start(message: types.Message):
     param = (message.get_args() or "").strip()
     print(f"[DEBUG START PARAM] reçu: '{param}'")
 
-    # === Cas A : /start=cdanXX (paiement Stripe pour un contenu) ===
-    if param.startswith("cdan") and param[4:].isdigit():
-        montant_cents = int(param[4:])
-        display_amount = f"{Decimal(montant_cents) / 100:.2f}".replace(".", ",")
+    # ============================================================
+    # 🔔 NOTIFICATIONS POST-PAIEMENT (CORRIGÉES)
+    # ============================================================
 
-        now = datetime.now()
-        paiements_valides = [
-            t for t in paiements_recents.get(montant_cents, [])
-            if now - t < timedelta(minutes=20)
-        ]
-
-        # ❌ Paiement non reconnu par webhook
-        if not paiements_valides:
-            await bot.send_message(
-                user_id,
-                "❌ Paiement invalide ! Stripe a refusé votre paiement en raison d'un solde insuffisant ou d'un refus général. Veuillez vérifier vos capacités de paiement."
+    # 1️⃣ Confirmation client → PWA via bridge (admin_message)
+    try:
+        BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
+        if client_key and seller_slug and BRIDGE_API_URL:
+            resp = requests.post(
+                f"{BRIDGE_API_URL}/pwa/send-admin-message",
+                json={
+                    "email": client_key,
+                    "sellerSlug": seller_slug,
+                    "text": (
+                        f"✅ Merci pour votre paiement de {montant_euros} € ! "
+                        f"Votre facture vous sera transmise directement par mail.\n\n"
+                        f"❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici"
+                    ),
+                },
+                timeout=5,
             )
-            for adm in authorized_admin_ids:
-                try:
-                    await bot.send_message(
-                        adm,
-                        f"⚠️ Problème ! Stripe a refusé le paiement de ton client {message.from_user.username or message.from_user.first_name}."
-                    )
-                except Exception:
-                    pass
-            return
+            print(f"📩 Confirmation client PWA: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"❌ Erreur confirmation client PWA: {e}")
 
-        # ✅ Paiement validé par webhook
-        paiements_recents[montant_cents].remove(paiements_valides[0])
 
-        # Le client devient VIP payeur
-        authorized_users.add(user_id)
+    # 2️⃣ Notification admins → Telegram
+    try:
+        from bot_webhook import authorized_admin_ids  # ajuste le nom du fichier si besoin
 
-        # ===============================
-        # LIVRAISON DU CONTENU PAYÉ
-        # ===============================
-        if user_id in contenus_en_attente:
-            contenu = contenus_en_attente[user_id]
-
-            if contenu["type"] == types.ContentType.PHOTO:
-                await bot.send_photo(
-                    chat_id=user_id,
-                    photo=contenu["file_id"],
-                    caption=contenu.get("caption")
-                )
-
-            elif contenu["type"] == types.ContentType.VIDEO:
-                await bot.send_video(
-                    chat_id=user_id,
-                    video=contenu["file_id"],
-                    caption=contenu.get("caption")
-                )
-
-            elif contenu["type"] == types.ContentType.DOCUMENT:
-                await bot.send_document(
-                    chat_id=user_id,
-                    document=contenu["file_id"],
-                    caption=contenu.get("caption")
-                )
-
-            # Nettoyage mémoire
-            del contenus_en_attente[user_id]
-
-        else:
-            # Cas rare : paiement avant envoi admin
-            paiements_en_attente_par_user.add(user_id)
-
-        # ===============================
-        # MESSAGE CONFIRMATION CLIENT
-        # ===============================
-        await bot.send_message(
-            user_id,
-            f"✅ Merci pour votre paiement de {display_amount} € ! Votre facture vous sera transmise directement par mail.\n\n"
-            f"_❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici_",
-            parse_mode="Markdown"
-        )
-
-        # ===============================
-        # NOTIFICATION ADMINS
-        # ===============================
         for adm in authorized_admin_ids:
             try:
                 await bot.send_message(
                     adm,
-                    f"💰 Nouveau paiement de {display_amount} € de {message.from_user.username or message.from_user.first_name}."
-                )
-            except Exception:
-                pass
-
-        # ===============================
-        # LOG AIRTABLE
-        # ===============================
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=user_id,
-            type_acces="Paiement",
-            montant=float(montant_cents) / 100,
-            contenu="Paiement validé via Stripe webhook + redirection"
-        )
-
-        # ===============================
-        # NOTIFICATION DANS LE TOPIC STAFF
-        # ===============================
-        try:
-            from vip_topics import ensure_topic_for_vip
-            topic_id = await ensure_topic_for_vip(message.from_user)
-        except Exception:
-            topic_id = None
-
-        if topic_id is not None:
-            try:
-                await bot.request(
-                    "sendMessage",
-                    {
-                        "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
-                        "message_thread_id": topic_id,
-                        "text": (
-                            f"💰 *Nouveau paiement*\n\n"
-                            f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
-                            f"💶 Montant : {display_amount} €\n"
-                            f"📊 Paiement enregistré dans ton Dashboard.\n"
-                            f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
-                        ),
-                        "parse_mode": "Markdown"
-                    }
+                    f"💰 Nouveau paiement de {montant_euros} € de {client_username}."
                 )
             except Exception as e:
-                print(f"[VIP_TOPICS] Erreur envoi notif paiement contenu dans topic {topic_id} : {e}")
+                print(f"[ADMIN_NOTIFY_ERROR] {e}")
+    except Exception as e:
+        print(f"❌ Erreur import authorized_admin_ids: {e}")
 
-        return
+
+    # 3️⃣ Notification structurée → Topic staff
+    try:
+        from vip_topics import ensure_topic_for_vip
+        topic_id = await ensure_topic_for_vip(client_username)
+    except Exception:
+        topic_id = None
+
+    if topic_id is not None:
+        try:
+            await bot.request(
+                "sendMessage",
+                {
+                    "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
+                    "message_thread_id": topic_id,
+                    "text": (
+                        f"💰 *Nouveau paiement*\n\n"
+                        f"👤 Client : {client_username}\n"
+                        f"💶 Montant : {montant_euros} €\n"
+                        f"📊 Paiement enregistré dans ton Dashboard.\n"
+                        f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
+                    ),
+                    "parse_mode": "Markdown"
+                }
+            )
+        except Exception as e:
+            print(f"[VIP_TOPICS_ERROR] {e}")
 
 
     # === Cas B : /start=vipcdan (retour après paiement VIP) ===
