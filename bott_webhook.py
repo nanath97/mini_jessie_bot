@@ -20,6 +20,7 @@ from payment_links import create_dynamic_checkout
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
+from vip_topics import _user_topics, save_pwa_note_to_airtable
 
 
 
@@ -817,6 +818,14 @@ async def handle_vip_note(message: types.Message):
     if not vip_user_id:
         return
 
+    # 🔥 NOUVEAU : récupération du topic_id
+    entry = _user_topics.get(vip_user_id, {})
+    topic_id = entry.get("topic_id")
+
+    if not topic_id:
+        await message.reply("⚠️ Impossible de trouver le topic pour cette conversation.")
+        raise CancelHandler()
+
     note_text = (message.text or "").strip()
     if not note_text:
         await message.reply("❌ Note vide, rien n'a été enregistré.")
@@ -824,7 +833,11 @@ async def handle_vip_note(message: types.Message):
 
     print(f"[NOTES] Note reçue pour VIP user_id={vip_user_id} par admin_id={admin_id} : {note_text}")
 
-    # Mise à jour des infos VIP (NOTE UNIQUEMENT)
+    # 🔥 Enregistrement dans Airtable PWA Notes
+    seller_slug = "coach-matthieu"  # adapter si multi-sellers plus tard
+    save_pwa_note_to_airtable(topic_id, seller_slug, note_text)
+
+    # Mise à jour des infos VIP (NOTE CONCATÉNÉE pour le panel Telegram)
     info = update_vip_info(vip_user_id, note=note_text)
 
     # 🔥 On récupère un panel valide (recréé si nécessaire)
@@ -863,7 +876,6 @@ async def handle_vip_note(message: types.Message):
 
     # Empêche les autres handlers de traiter ce message
     raise CancelHandler()
-
 
 
 # TEST A SUPPRIMER FIN

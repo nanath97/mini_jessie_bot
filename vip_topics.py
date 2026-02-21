@@ -655,3 +655,40 @@ async def get_panel_message_id_by_user(user_id: int):
     except Exception as e:
         print(f"[VIP_TOPICS] Erreur recréation panel user_id={user_id}: {e}")
         return None
+def save_pwa_note_to_airtable(topic_id: int, seller_slug: str, note_text: str) -> bool:
+    """
+    Ajoute UNE ligne dans la table 'PWA Notes'
+    Colonnes attendues : topic_id, seller_slug, note_text
+    created_at sera auto si champ 'Created time' dans Airtable
+    """
+    try:
+        if not (AIRTABLE_API_KEY and BASE_ID):
+            print("[PWA NOTES] Airtable non configuré.")
+            return False
+
+        url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Notes"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        fields = {
+            "topic_id": str(topic_id),
+            "seller_slug": seller_slug,
+            "note_text": note_text
+        }
+
+        payload = {"fields": fields}
+
+        r = requests.post(url, headers=headers, json=payload, timeout=8)
+
+        if r.status_code not in (200, 201):
+            print(f"[PWA NOTES] Erreur Airtable: {r.status_code} {r.text}")
+            return False
+
+        print(f"[PWA NOTES] Note sauvegardée pour topic_id={topic_id}")
+        return True
+
+    except Exception as e:
+        print(f"[PWA NOTES] Exception: {e}")
+        return False
