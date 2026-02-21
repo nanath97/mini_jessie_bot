@@ -15,13 +15,12 @@ from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_
 import re
 from urllib.parse import quote
 from datetime import datetime, timezone
-from payment_links import liens_paiement
 from payment_links import create_dynamic_checkout
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
-from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
+from paymentlinks import create_dynamic_checkout, save_payment_link_to_airtable
 from vip_topics import _user_topics, save_pwa_note_to_airtable
-from payment_links import save_payment_link_to_airtable
+
 
 
 
