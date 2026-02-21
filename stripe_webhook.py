@@ -156,23 +156,37 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         except Exception as e:
             print(f"❌ Erreur boucle admins: {e}")
 
-        # 3.3 Notification structurée → Topic staff
+                # 3.3 Notification structurée → Topic staff (PWA email-based)
+        topic_id = None
         try:
-            from vip_topics import ensure_topic_for_vip
-            topic_id = await ensure_topic_for_vip(client_username)
-        except Exception:
-            topic_id = None
+            url_clients = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+            headers = {
+                "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+                "Content-Type": "application/json"
+            }
 
-        if topic_id is not None:
+            formula = f"AND({{email}}='{client_key}', {{seller_slug}}='{seller_slug}')"
+            resp = requests.get(url_clients, headers=headers, params={"filterByFormula": formula})
+            records = resp.json().get("records", [])
+
+            if records:
+                topic_id = records[0]["fields"].get("topic_id")
+
+            print(f"📌 Topic lookup Airtable: topic_id={topic_id}")
+
+        except Exception as e:
+            print(f"[TOPIC_LOOKUP_ERROR] {e}")
+
+        if topic_id:
             try:
                 await bot.request(
                     "sendMessage",
                     {
                         "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
-                        "message_thread_id": topic_id,
+                        "message_thread_id": int(topic_id),
                         "text": (
                             f"💰 *Nouveau paiement*\n\n"
-                            f"👤 Client : {client_username}\n"
+                            f"👤 Client : {client_key}\n"
                             f"💶 Montant : {montant_euros} €\n"
                             f"📊 Paiement enregistré dans ton Dashboard.\n"
                             f"📅 Planifier le RDV : https://calendar.google.com/calendar/u/0/r"
@@ -181,7 +195,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     }
                 )
             except Exception as e:
-                print(f"[VIP_TOPICS_ERROR] {e}")
+                print(f"[STAFF_TOPIC_ERROR] {e}")
+        else:
+            print("⚠️ Aucun topic_id trouvé pour ce client PWA")
 
         # ============================================================
         # 4) Déclenchement unlock PWA (existant - inchangé)
