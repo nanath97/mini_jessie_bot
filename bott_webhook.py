@@ -1640,7 +1640,10 @@ async def handle_annoter_vip(callback_query: types.CallbackQuery):
         await callback_query.answer("Impossible d'envoyer l'invite d'annotation.", show_alert=True)
 
 
-
+@dp.callback_query_handler(lambda c: True)
+async def debug_all_callbacks(callback_query: types.CallbackQuery):
+    print("📌 CALLBACK REÇU :", callback_query.data)
+    await callback_query.answer()
 
 # 1. code pour le bouton annoter fin
 @dp.callback_query_handler(lambda c: c.data.startswith("annoter_pwa_"))
