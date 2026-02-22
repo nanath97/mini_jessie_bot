@@ -895,15 +895,42 @@ def nettoyer_commande_env(texte: str) -> str:
     return re.sub(r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE).strip()
 
 
+from aiogram.dispatcher.handler import CancelHandler
+
 # ================================
 # HANDLER /envXX → PWA + MEDIA UPLOAD
 # ================================
-@dp.message_handler(lambda m: (m.text or m.caption) and "/env" in (m.text or m.caption).lower(), content_types=types.ContentType.ANY)
+@dp.message_handler(
+    lambda m: (m.text or m.caption) and "/env" in (m.text or m.caption).lower(),
+    content_types=types.ContentType.ANY
+)
 async def envoyer_contenu_payant(message: types.Message):
     admin_id = message.from_user.id
 
+    # 🔒 Sécurité : seul un admin peut utiliser /env
     if not is_admin(admin_id):
-        return
+        raise CancelHandler()
+
+    # 🔒 Empêche TOUT autre handler (notamment handle_admin_message)
+    # de traiter ce message et d'envoyer le texte brut au client
+    # (cause principale des doublons + fuite du /envXX)
+    try:
+        texte = message.caption or message.text or ""
+
+        # On vérifie qu'il y a bien un code /envXX valide
+        if not re.search(r"/env[\d.,]+", texte.lower()):
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❗ Commande /env invalide. Exemple : /env49"
+            )
+            raise CancelHandler()
+
+        # 👉 À partir d’ici, TON CODE EXISTANT CONTINUE
+        # (parse montant, upload media, envoi PWA, etc.)
+
+    except Exception as e:
+        print(f"[ENV HANDLER ERROR] {e}")
+        raise CancelHandler()
 
 
     # ================================
