@@ -876,7 +876,14 @@ def parse_amount_to_cents(amount_str: str) -> int:
     normalized = amount_str.replace(",", ".").strip()
     amount = Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return int(amount * 100)
-
+def nettoyer_commande_env(texte: str) -> str:
+    """
+    Supprime la commande /envXX du texte pour ne garder
+    que le message destiné au client.
+    """
+    if not texte:
+        return ""
+    return re.sub(r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE).strip()
 
 
 # ================================
