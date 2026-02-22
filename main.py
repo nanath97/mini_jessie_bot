@@ -125,6 +125,7 @@ async def send_reminder(payload: ReminderPayload):
         staff_group_id = int(os.getenv("STAFF_GROUP_ID"))
         print(f"[DEBUG] Staff group = {staff_group_id}")
 
+        # 1️⃣ Envoi dans le topic Telegram
         await bot.request(
             "sendMessage",
             {
@@ -136,18 +137,40 @@ async def send_reminder(payload: ReminderPayload):
 
         print(f"✅ Relance envoyée dans topic {topic_id}")
 
-        # notification admin
+        # 2️⃣ Notification admin
         await bot.send_message(
             chat_id=admin_id,
             text=f"🔔 Relance envoyée au client {client_email} (topic {topic_id})"
         )
+
+        # 3️⃣ Envoi vers la PWA client via le bridge
+        try:
+            BRIDGE_URL = os.getenv("BRIDGE_URL")
+
+            payload_bridge = {
+                "email": client_email,
+                "sellerSlug": seller_slug,
+                "text": text
+            }
+
+            print("[DEBUG] Envoi vers bridge PWA :", payload_bridge)
+
+            r = requests.post(
+                f"{BRIDGE_URL}/pwa/send-admin-message",
+                json=payload_bridge,
+                timeout=5
+            )
+
+            print("[DEBUG] Bridge response =", r.text)
+
+        except Exception as e:
+            print("❌ [PWA BRIDGE ERROR]", e)
 
         return {"status": "sent", "topic_id": topic_id}
 
     except Exception as e:
         print("❌ [REMINDER ERROR]", e)
         return {"status": "error", "error": str(e)}
-
 
 # ---------------------------
 # STARTUP EVENT
