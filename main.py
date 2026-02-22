@@ -16,7 +16,10 @@ from vip_topics import (
     restore_missing_panels,
     load_annotations_from_airtable
 )
-
+ADMIN_TO_SLUG = {
+    7334072965: "coach-matthieu",
+    # ajouter ici les autres vendeurs
+}
 load_dotenv()
 app = FastAPI()
 
@@ -41,17 +44,39 @@ async def telegram_webhook(request: Request):
 
 
 # ---------------------------
+# EMAIL AND SLUG
+# ---------------------------
+
+def find_topic_id_by_email_and_slug(email: str, seller_slug: str):
+    import os, requests
+
+    AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+    BASE_ID = os.getenv("BASE_ID")
+    TABLE_NAME = "PWA Clients"
+
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+
+    formula = f"AND(LOWER({{email}})='{email.lower()}', {{seller_slug}}='{seller_slug}')"
+
+    params = {"filterByFormula": formula}
+
+    resp = requests.get(url, headers=headers, params=params)
+    data = resp.json()
+
+    records = data.get("records", [])
+    if not records:
+        return None
+
+    return records[0]["fields"].get("topic_id")
+
+
+# ---------------------------
 # REMINDER ROUTE (POUR AIRTABLE)
 # ---------------------------
 class ReminderPayload(BaseModel):
-    client_key: str   # email du client = identifiant PWA
-    payment_link: str
-    message: str
-
-from vip_topics import get_all_user_topics
-
-class ReminderPayload(BaseModel):
     client_key: str
+    admin_id: int
     payment_link: str
     message: str
 
@@ -59,43 +84,30 @@ class ReminderPayload(BaseModel):
 async def send_reminder(payload: ReminderPayload):
     try:
         client_email = payload.client_key.lower().strip()
+        admin_id = payload.admin_id
         text = payload.message
 
-        all_topics = get_all_user_topics()
+        seller_slug = ADMIN_TO_SLUG.get(admin_id)
+        if not seller_slug:
+            return {"status": "error", "error": f"Aucun seller_slug pour admin_id={admin_id}"}
 
-        # 🔍 Trouver le user correspondant à cet email
-        target_user_id = None
-        target_topic_id = None
+        topic_id = find_topic_id_by_email_and_slug(client_email, seller_slug)
 
-        for user_id, data in all_topics.items():
-            # Ici on suppose que l’email est stocké dans authorized_users ou autre mapping futur
-            # Version pragmatique: on teste si user_id == email (cas PWA actuel)
-            if str(user_id) == client_email:
-                target_user_id = user_id
-                target_topic_id = data.get("topic_id")
-                break
-
-        if not target_topic_id:
+        if not topic_id:
             return {
                 "status": "error",
-                "error": f"Aucun topic trouvé pour client_key={client_email}"
+                "error": f"Aucun topic trouvé pour email={client_email} et seller={seller_slug}"
             }
 
         staff_group_id = int(os.getenv("STAFF_GROUP_ID"))
 
         await bot.send_message(
             chat_id=staff_group_id,
-            message_thread_id=target_topic_id,
+            message_thread_id=int(topic_id),
             text=text
         )
 
-        admin_id = int(os.getenv("ADMIN_TELEGRAM_ID", "7334072965"))
-        await bot.send_message(
-            chat_id=admin_id,
-            text=f"🔔 Relance envoyée au client {client_email} (topic {target_topic_id})"
-        )
-
-        return {"status": "sent", "topic_id": target_topic_id}
+        return {"status": "sent", "topic_id": topic_id}
 
     except Exception as e:
         print("[REMINDER ERROR]", e)
