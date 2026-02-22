@@ -99,6 +99,15 @@ paiements_en_attente_par_user = set()  # Set de user_id qui ont payé
 
 
 
+def extraire_commande_env(text: str):
+    match = re.search(r"/env(\d+)", text or "")
+    return int(match.group(1)) if match else None
+
+def nettoyer_commande_env(text: str):
+    # supprime "/envXX" du message
+    cleaned = re.sub(r"/env\d+", "", text or "").strip()
+    return cleaned
+
 #100
 
 def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data, admin_id):
@@ -931,8 +940,8 @@ async def envoyer_contenu_payant(message: types.Message):
     email = client["email"]
     seller_slug = client["seller_slug"]
 
-    # ================================
-    # PARSE /envXX
+        # ================================
+    # PARSE /envXX + NETTOYAGE TEXTE
     # ================================
     texte = message.caption or message.text or ""
     match = re.search(r"/env([\d.,]+|vip)", texte.lower())
@@ -942,6 +951,9 @@ async def envoyer_contenu_payant(message: types.Message):
         return
 
     raw_code = str(match.group(1)).lower()
+
+    # 🔥 IMPORTANT : on nettoie le texte pour la PWA
+    nouvelle_legende = nettoyer_commande_env(texte)
 
     if raw_code == "vip":
         await bot.send_message(chat_id=admin_id, text="❗ /envvip n'est pas géré ici. Utilise un montant (ex: /env9).")
