@@ -125,10 +125,13 @@ async def send_reminder(payload: ReminderPayload):
         staff_group_id = int(os.getenv("STAFF_GROUP_ID"))
         print(f"[DEBUG] Staff group = {staff_group_id}")
 
-        await bot.send_message(
-            chat_id=staff_group_id,
-            message_thread_id=int(topic_id),
-            text=text
+        await bot.request(
+            "sendMessage",
+            {
+                "chat_id": staff_group_id,
+                "message_thread_id": int(topic_id),
+                "text": text
+            }
         )
 
         print(f"✅ Relance envoyée dans topic {topic_id}")
