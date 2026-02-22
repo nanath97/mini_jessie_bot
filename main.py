@@ -145,7 +145,7 @@ async def send_reminder(payload: ReminderPayload):
 
         # 3️⃣ Envoi vers la PWA client via le bridge
         try:
-            BRIDGE_URL = os.getenv("BRIDGE_URL")
+            BRIDGE_URL = os.getenv("BRIDGE_API_URL") or os.getenv("BRIDGE_URL")
 
             payload_bridge = {
                 "email": client_email,
