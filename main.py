@@ -44,57 +44,63 @@ async def telegram_webhook(request: Request):
 # REMINDER ROUTE (POUR AIRTABLE)
 # ---------------------------
 class ReminderPayload(BaseModel):
-    telegram_id: int
+    client_key: str   # email du client = identifiant PWA
     payment_link: str
     message: str
+
+from vip_topics import vip_topics  # dict: {email: {"topic_id": int, ...}}
 
 @app.post("/reminder")
 async def send_reminder(payload: ReminderPayload):
     try:
+        client_email = payload.client_key.lower().strip()
         text = payload.message
 
-        telegram_api_url = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage"
-
-        # 1️⃣ Envoi de la relance au client
-        response = requests.post(
-            telegram_api_url,
-            json={
-                "chat_id": payload.telegram_id,
-                "text": text
+        # 1️⃣ Trouver le topic du client via son email (client_key)
+        client_data = vip_topics.get(client_email)
+        if not client_data:
+            return {
+                "status": "error",
+                "error": f"Client introuvable pour email={client_email}"
             }
+
+        topic_id = client_data.get("topic_id")
+        if not topic_id:
+            return {
+                "status": "error",
+                "error": f"topic_id manquant pour email={client_email}"
+            }
+
+        staff_group_id = int(os.getenv("STAFF_GROUP_ID"))
+
+        # 2️⃣ Envoyer la relance dans le topic (visible dans la PWA)
+        await bot.send_message(
+            chat_id=staff_group_id,
+            message_thread_id=topic_id,
+            text=text
         )
 
-        print("[REMINDER] Message envoyé :", response.text)
-
-        # 2️⃣ Notification admin vendeur
+        # 3️⃣ Notifier l’admin vendeur
         admin_id = int(os.getenv("ADMIN_TELEGRAM_ID", "7334072965"))
-
-        notif_text = (
-            "🔔 Relance automatique envoyée\n\n"
-            f"👤 Client ID : {payload.telegram_id}\n"
-            f"🔗 Paiement : relance sur lien actif"
-        )
-
-        requests.post(
-            telegram_api_url,
-            json={
-                "chat_id": admin_id,
-                "text": notif_text
-            }
+        await bot.send_message(
+            chat_id=admin_id,
+            text=(
+                "🔔 Relance automatique envoyée\n\n"
+                f"👤 Client : {client_email}\n"
+                f"🧵 Topic ID : {topic_id}\n"
+                f"🔗 Paiement : relance pending"
+            )
         )
 
         return {
             "status": "sent",
-            "telegram_response": response.json()
+            "client": client_email,
+            "topic_id": topic_id
         }
 
     except Exception as e:
         print("[REMINDER ERROR]", e)
-        return {
-            "status": "error",
-            "error": str(e)
-        }
-
+        return {"status": "error", "error": str(e)}
 
 # ---------------------------
 # STARTUP EVENT
