@@ -965,10 +965,13 @@ async def envoyer_contenu_payant(message: types.Message):
         amount_cents=amount_cents,
         checkout_session_id=session_id,
     )
-
-    nouvelle_legende = re.sub(
-        r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE
-    ).strip()
+    def nettoyer_commande_env(texte: str) -> str:
+        if not texte:
+            return ""
+        texte_sans_env = re.sub(r"/env[\d.,]+", "", texte, flags=re.IGNORECASE)
+        texte_sans_env = re.sub(r"\s+", " ", texte_sans_env).strip()
+        return texte_sans_env
+        nouvelle_legende = nettoyer_commande_env(texte)
 
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
