@@ -48,7 +48,12 @@ class ReminderPayload(BaseModel):
     payment_link: str
     message: str
 
-from vip_topics import vip_topics  # dict: {email: {"topic_id": int, ...}}
+from vip_topics import get_all_user_topics
+
+class ReminderPayload(BaseModel):
+    client_key: str
+    payment_link: str
+    message: str
 
 @app.post("/reminder")
 async def send_reminder(payload: ReminderPayload):
@@ -56,52 +61,45 @@ async def send_reminder(payload: ReminderPayload):
         client_email = payload.client_key.lower().strip()
         text = payload.message
 
-        # 1️⃣ Trouver le topic du client via son email (client_key)
-        client_data = vip_topics.get(client_email)
-        if not client_data:
-            return {
-                "status": "error",
-                "error": f"Client introuvable pour email={client_email}"
-            }
+        all_topics = get_all_user_topics()
 
-        topic_id = client_data.get("topic_id")
-        if not topic_id:
+        # 🔍 Trouver le user correspondant à cet email
+        target_user_id = None
+        target_topic_id = None
+
+        for user_id, data in all_topics.items():
+            # Ici on suppose que l’email est stocké dans authorized_users ou autre mapping futur
+            # Version pragmatique: on teste si user_id == email (cas PWA actuel)
+            if str(user_id) == client_email:
+                target_user_id = user_id
+                target_topic_id = data.get("topic_id")
+                break
+
+        if not target_topic_id:
             return {
                 "status": "error",
-                "error": f"topic_id manquant pour email={client_email}"
+                "error": f"Aucun topic trouvé pour client_key={client_email}"
             }
 
         staff_group_id = int(os.getenv("STAFF_GROUP_ID"))
 
-        # 2️⃣ Envoyer la relance dans le topic (visible dans la PWA)
         await bot.send_message(
             chat_id=staff_group_id,
-            message_thread_id=topic_id,
+            message_thread_id=target_topic_id,
             text=text
         )
 
-        # 3️⃣ Notifier l’admin vendeur
         admin_id = int(os.getenv("ADMIN_TELEGRAM_ID", "7334072965"))
         await bot.send_message(
             chat_id=admin_id,
-            text=(
-                "🔔 Relance automatique envoyée\n\n"
-                f"👤 Client : {client_email}\n"
-                f"🧵 Topic ID : {topic_id}\n"
-                f"🔗 Paiement : relance pending"
-            )
+            text=f"🔔 Relance envoyée au client {client_email} (topic {target_topic_id})"
         )
 
-        return {
-            "status": "sent",
-            "client": client_email,
-            "topic_id": topic_id
-        }
+        return {"status": "sent", "topic_id": target_topic_id}
 
     except Exception as e:
         print("[REMINDER ERROR]", e)
         return {"status": "error", "error": str(e)}
-
 # ---------------------------
 # STARTUP EVENT
 # ---------------------------

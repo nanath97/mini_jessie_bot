@@ -1376,7 +1376,7 @@ async def handle_admin_message(message: types.Message):
 
 
 
-    # 🔹 Ignorer les topics PWA (gérés par le Bridge) PWA
+
 
     # 3) RÉPONSE À UN CLIENT (COMPORTEMENT NORMAL)
 

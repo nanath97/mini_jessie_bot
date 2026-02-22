@@ -692,3 +692,10 @@ def save_pwa_note_to_airtable(topic_id: int, seller_slug: str, note_text: str) -
     except Exception as e:
         print(f"[PWA NOTES] Exception: {e}")
         return False
+    
+def get_all_user_topics():
+    """
+    Retourne le dict RAM complet:
+    {user_id: {"topic_id": int, ...}}
+    """
+    return _user_topics
