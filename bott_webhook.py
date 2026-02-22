@@ -965,13 +965,24 @@ async def envoyer_contenu_payant(message: types.Message):
         amount_cents=amount_cents,
         checkout_session_id=session_id,
     )
-    def nettoyer_commande_env(texte: str) -> str:
-        if not texte:
-            return ""
-        texte_sans_env = re.sub(r"/env[\d.,]+", "", texte, flags=re.IGNORECASE)
-        texte_sans_env = re.sub(r"\s+", " ", texte_sans_env).strip()
-        return texte_sans_env
-        nouvelle_legende = nettoyer_commande_env(texte)
+    # ================================
+    # PARSE /envXX
+    # ================================
+    texte = message.caption or message.text or ""
+    match = re.search(r"/env([\d.,]+|vip)", texte.lower())
+
+    if not match:
+        await bot.send_message(chat_id=admin_id, text="❗ Code /env invalide.")
+        return
+
+    raw_code = str(match.group(1)).lower()
+
+    # 🔥 ICI EXACTEMENT (juste après le match)
+    nouvelle_legende = nettoyer_commande_env(texte)
+
+    if raw_code == "vip":
+        await bot.send_message(chat_id=admin_id, text="❗ /envvip n'est pas géré ici. Utilise un montant (ex: /env9).")
+        return
 
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
