@@ -2195,7 +2195,7 @@ async def scheduler_loop():
 import requests
 
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+BASE_ID = os.getenv("BASE_ID")
 TABLE_PAYMENT_LINKS = "Payment Links"
 TABLE_PWA_CLIENTS = "PWA Clients"
 
