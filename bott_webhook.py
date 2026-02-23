@@ -529,31 +529,14 @@ async def handle_start(message: types.Message):
     # 🔔 NOTIFICATIONS POST-PAIEMENT (CORRIGÉES)
     # ============================================================
 
-    # 1️⃣ Confirmation client → PWA via bridge (admin_message)
-    try:
-        BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
-        if client_key and seller_slug and BRIDGE_API_URL:
-            resp = requests.post(
-                f"{BRIDGE_API_URL}/pwa/send-admin-message",
-                json={
-                    "email": client_key,
-                    "sellerSlug": seller_slug,
-                    "text": (
-                        f"✅ Merci pour votre paiement de {montant_euros} € ! "
-                        f"Votre facture vous sera transmise directement par mail.\n\n"
-                        f"❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici"
-                    ),
-                },
-                timeout=5,
-            )
-            print(f"📩 Confirmation client PWA: {resp.status_code} {resp.text}")
-    except Exception as e:
-        print(f"❌ Erreur confirmation client PWA: {e}")
+        # 🔕 Désactivé temporairement : variables non définies dans /start
+    # (ce bloc doit être déclenché par le webhook Stripe, pas par /start)
+    pass
 
 
     # 2️⃣ Notification admins → Telegram
     try:
-        from bot_webhook import authorized_admin_ids  # ajuste le nom du fichier si besoin
+        from bott_webhook import authorized_admin_ids  # ajuste le nom du fichier si besoin
 
         for adm in authorized_admin_ids:
             try:
