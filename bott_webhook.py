@@ -336,6 +336,115 @@ async def handle_stat(message: types.Message):
         )
 
 
+#Début du 19 juillet 2025 mettre le tableau de vips
+
+@dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
+async def voir_mes_vips(callback_query: types.CallbackQuery):
+    telegram_id = str(callback_query.from_user.id)  # ⚠️ ADMIN ID est du texte dans Airtable
+
+    await callback_query.answer("Chargement de tes VIPs...")
+    print("ADMIN CALLBACK ID:", callback_query.from_user.id)
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+    }
+
+    # Nom exact de la table : Payment Links
+    url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
+
+    # Filtre : uniquement les paiements Paid pour cet ADMIN ID
+    params = {
+        "filterByFormula": f"AND({{ADMIN ID}} = '{telegram_id}', {{Status}} = 'Paid')"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+
+    if response.status_code != 200:
+        await bot.send_message(
+            telegram_id,
+            f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}"
+        )
+        return
+
+    records = response.json().get("records", [])
+
+    if not records:
+        await bot.send_message(
+            telegram_id,
+            "📭 Aucun client VIP (aucun paiement validé)."
+        )
+        return
+
+    # =========================
+    # AGRÉGATION PAR CLIENT KEY
+    # =========================
+    vip_data = {}
+
+    for r in records:
+        f = r.get("fields", {})
+
+        client_key = (f.get("Client Key", "") or "").strip()
+        amount_cents = f.get("Amount Cents", 0) or 0
+
+        try:
+            amount_eur = float(amount_cents) / 100
+        except Exception:
+            amount_eur = 0.0
+
+        if not client_key:
+            continue
+
+        if client_key not in vip_data:
+            vip_data[client_key] = {
+                "total": 0.0,
+                "count": 0
+            }
+
+        vip_data[client_key]["total"] += amount_eur
+        vip_data[client_key]["count"] += 1
+
+    if not vip_data:
+        await bot.send_message(
+            telegram_id,
+            "📭 Aucun client VIP trouvé après agrégation."
+        )
+        return
+
+    # =========================
+    # TRI PAR CHIFFRE D’AFFAIRES
+    # =========================
+    sorted_vips = sorted(
+        vip_data.items(),
+        key=lambda x: x[1]["total"],
+        reverse=True
+    )
+
+    # =========================
+    # MESSAGE FINAL
+    # =========================
+    message = "📋 Voici tes clients VIP (chiffre d'affaires réel) :\n\n"
+
+    for client_key, data in sorted_vips:
+        total = round(data["total"], 2)
+        count = data["count"]
+        message += f"👤 {client_key} — {total} € ({count} achats)\n"
+
+    # 🏆 TOP 3 CLIENTS
+    top3 = sorted_vips[:3]
+    if top3:
+        message += "\n🏆 *Top 3 clients :*\n"
+        medals = ["🥇", "🥈", "🥉"]
+
+        for i, (client_key, data) in enumerate(top3):
+            total = round(data["total"], 2)
+            emoji = medals[i] if i < len(medals) else f"#{i+1}"
+            message += f"{emoji} {client_key} — {total} €\n"
+
+    await bot.send_message(
+        telegram_id,
+        message,
+        parse_mode="Markdown"
+    )
+#fin du 19 juillet 2025 mettre le tableau de vips
 
 
 import requests
@@ -2189,112 +2298,3 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
     await call.message.edit_text("❌ Envoi annulé.")
 
 
-#Début du 19 juillet 2025 mettre le tableau de vips
-
-@dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
-async def voir_mes_vips(callback_query: types.CallbackQuery):
-    telegram_id = str(callback_query.from_user.id)  # ⚠️ ADMIN ID est du texte dans Airtable
-
-    await callback_query.answer("Chargement de tes VIPs...")
-    print("ADMIN CALLBACK ID:", callback_query.from_user.id)
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-    }
-
-    # Nom exact de la table : Payment Links
-    url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
-
-    # Filtre : uniquement les paiements Paid pour cet ADMIN ID
-    params = {
-        "filterByFormula": f"AND({{ADMIN ID}} = '{telegram_id}', {{Status}} = 'Paid')"
-    }
-
-    response = requests.get(url, headers=headers, params=params)
-
-    if response.status_code != 200:
-        await bot.send_message(
-            telegram_id,
-            f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}"
-        )
-        return
-
-    records = response.json().get("records", [])
-
-    if not records:
-        await bot.send_message(
-            telegram_id,
-            "📭 Aucun client VIP (aucun paiement validé)."
-        )
-        return
-
-    # =========================
-    # AGRÉGATION PAR CLIENT KEY
-    # =========================
-    vip_data = {}
-
-    for r in records:
-        f = r.get("fields", {})
-
-        client_key = (f.get("Client Key", "") or "").strip()
-        amount_cents = f.get("Amount Cents", 0) or 0
-
-        try:
-            amount_eur = float(amount_cents) / 100
-        except Exception:
-            amount_eur = 0.0
-
-        if not client_key:
-            continue
-
-        if client_key not in vip_data:
-            vip_data[client_key] = {
-                "total": 0.0,
-                "count": 0
-            }
-
-        vip_data[client_key]["total"] += amount_eur
-        vip_data[client_key]["count"] += 1
-
-    if not vip_data:
-        await bot.send_message(
-            telegram_id,
-            "📭 Aucun client VIP trouvé après agrégation."
-        )
-        return
-
-    # =========================
-    # TRI PAR CHIFFRE D’AFFAIRES
-    # =========================
-    sorted_vips = sorted(
-        vip_data.items(),
-        key=lambda x: x[1]["total"],
-        reverse=True
-    )
-
-    # =========================
-    # MESSAGE FINAL
-    # =========================
-    message = "📋 Voici tes clients VIP (chiffre d'affaires réel) :\n\n"
-
-    for client_key, data in sorted_vips:
-        total = round(data["total"], 2)
-        count = data["count"]
-        message += f"👤 {client_key} — {total} € ({count} achats)\n"
-
-    # 🏆 TOP 3 CLIENTS
-    top3 = sorted_vips[:3]
-    if top3:
-        message += "\n🏆 *Top 3 clients :*\n"
-        medals = ["🥇", "🥈", "🥉"]
-
-        for i, (client_key, data) in enumerate(top3):
-            total = round(data["total"], 2)
-            emoji = medals[i] if i < len(medals) else f"#{i+1}"
-            message += f"{emoji} {client_key} — {total} €\n"
-
-    await bot.send_message(
-        telegram_id,
-        message,
-        parse_mode="Markdown"
-    )
-#fin du 19 juillet 2025 mettre le tableau de vips
