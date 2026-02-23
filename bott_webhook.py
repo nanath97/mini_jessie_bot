@@ -2203,7 +2203,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             "Authorization": f"Bearer {AIRTABLE_API_KEY}"
         }
         params = {
-            "filterByFormula": f"{{ADMIN ID}} = '{telegram_id}'"
+            "filterByFormula": f"{{ADMIN ID}} = '{telegram_id}"
         }
 
         response = requests.get(url, headers=headers, params=params)
@@ -2215,6 +2215,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             return
 
         records = response.json().get("records", [])
+        print(f"[VIP DEBUG] Records trouvés: {len(records)}")
         if not records:
             await bot.send_message(
                 telegram_id,
