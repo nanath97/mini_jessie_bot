@@ -244,120 +244,90 @@ def compute_next_run_utc(jour: str, heure_str: str) -> datetime:
 
 @dp.message_handler(commands=["stat"])
 async def handle_stat(message: types.Message):
-
     admin_id = message.from_user.id
-    email = ADMIN_EMAILS.get(admin_id)
 
-    # 🔒 Sécurité
-    if not email:
-        await bot.send_message(
-            message.chat.id,
-            "❌ Ton e-mail admin n’est pas configuré dans le bot."
-        )
-        return
-
-    await bot.send_message(message.chat.id, "📥 Traitement de tes statistiques de vente en cours...")
+    await bot.send_message(
+        message.chat.id,
+        "📥 Traitement de tes statistiques NovaPulse en cours..."
+    )
 
     try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
+        url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
         headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-        params = {"filterByFormula": f"{{Email}} = '{email}'"}
+        params = {
+            "filterByFormula": f"{{ADMIN ID}} = '{admin_id}'"
+        }
 
         response = requests.get(url, headers=headers, params=params)
         data = response.json()
 
-    
-        ventes_totales = Decimal("0.00")
-        ventes_jour = Decimal("0.00")
-        nb_transactions_total = 0
-        contenus_vendus_jour = 0
-        vip_ids = set()
+        total_links = 0
+        paid_links = 0
+        pending_links = 0
 
-        today = datetime.now().date().isoformat()
-        mois_courant = datetime.now().strftime("%Y-%m")
+        total_paid_cents = 0
+        total_pending_cents = 0
 
-        # =========================
-        # PARSING AIRTABLE
-        # =========================
+        vip_clients = set()
+
         for record in data.get("records", []):
             fields = record.get("fields", {})
 
-            user_id = fields.get("ID Telegram", "")
-            type_acces = (fields.get("Type acces", "") or "").lower()
-            date_str = fields.get("Date", "") or ""
-            mois = fields.get("Mois", "") or ""
+            status = (fields.get("Status", "") or "").lower()
+            amount_cents = int(fields.get("Amount Cents", 0) or 0)
+            client_key = fields.get("Client Key")
 
+            total_links += 1
 
+            if status == "paid":
+                paid_links += 1
+                total_paid_cents += amount_cents
+                if client_key:
+                    vip_clients.add(client_key)
 
-            try:
-                montant = Decimal(str(fields.get("Montant", 0) or 0)).quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
-                )
-            except:
-                montant = Decimal("0.00")
+            elif status == "pending":
+                pending_links += 1
+                total_pending_cents += amount_cents
 
-            # ===== ventes du mois =====
-            if mois == mois_courant and montant > 0 and type_acces != "vip":
-                ventes_totales += montant
-                nb_transactions_total += 1
+        # Montants en euros
+        total_paid_eur = total_paid_cents / 100
+        total_pending_eur = total_pending_cents / 100
 
-            # ===== ventes du jour =====
-            if date_str.startswith(today) and montant > 0 and type_acces != "vip":
-                ventes_jour += montant
-                contenus_vendus_jour += 1
-
-            # ===== VIPs =====
-            if user_id and montant > 0 and type_acces in ("paiement", "vip"):
-                vip_ids.add(user_id)
-
-        # =========================
-        # CALCUL STRIPE PROPRE
-        # =========================
-        FRAIS_STRIPE_PERCENT = Decimal("0.029")
-        FRAIS_STRIPE_FIXE = Decimal("0.25")
-        
-        frais_stripe = (
-    ventes_totales * FRAIS_STRIPE_PERCENT +
-    Decimal(nb_transactions_total) * FRAIS_STRIPE_FIXE
-).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-        benefice_net = (ventes_totales - frais_stripe).quantize(
-    Decimal("0.01"), rounding=ROUND_HALF_UP
-)
-
-
-        clients_vip = len(vip_ids)
-
-        # =========================
-        # MESSAGE FINAL
-        # =========================
-        message_final = (
-            f"📊 Tes statistiques de vente :\n\n"
-            f"💰 Ventes du jour : {ventes_jour:.2f}€\n"
-            f"💶 Ventes totales (mois) : {ventes_totales:.2f}€\n"
-            f"📦 Paiements du mois : {nb_transactions_total}\n"
-            f"🌟 Clients VIP : {clients_vip}\n\n"
-            f"🏦 Frais bancaires Stripe estimés : {frais_stripe:.2f}€\n"
-            f"📈 Revenu net reçu : {benefice_net:.2f}€"
+        # Conversion technique
+        conversion_rate = (
+            (paid_links / total_links) * 100 if total_links > 0 else 0
         )
 
-        vip_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
+        # Frais Stripe (2.9% + 0.25€ par paiement)
+        frais_stripe = (total_paid_eur * 0.029) + (0.25 * paid_links)
+        net_eur = total_paid_eur - frais_stripe
+
+        nb_vip = len(vip_clients)
+
+        message_final = (
+            f"📊 *Statistiques NovaPulse*\n\n"
+            f"📨 Ventes envoyées : {total_links}\n"
+            f"⏳ Paiements en attente : {pending_links}\n"
+            f"💳 Paiements validés : {paid_links}\n\n"
+            f"💰 Montant brut encaissé : {total_paid_eur:.2f}€\n"
+            f"🕒 Montant en attente : {total_pending_eur:.2f}€\n\n"
+            f"👥 Clients VIP (ayant payé) : {nb_vip}\n"
+            f"📈 Taux de conversion : {conversion_rate:.2f}%\n\n"
+            f"🏦 Frais Stripe estimés : {frais_stripe:.2f}€\n"
+            f"💵 Revenu net estimé : {net_eur:.2f}€"
         )
 
         await bot.send_message(
             message.chat.id,
             message_final,
-            parse_mode="Markdown",
-            reply_markup=vip_button
+            parse_mode="Markdown"
         )
 
     except Exception as e:
         print(f"Erreur dans /stat : {e}")
         await bot.send_message(
             message.chat.id,
-            "❌ Une erreur est survenue lors de la récupération des statistiques."
+            "❌ Erreur lors du calcul des statistiques."
         )
 
 
