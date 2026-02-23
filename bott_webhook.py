@@ -2192,7 +2192,88 @@ async def scheduler_loop():
 
 
 #101
+import requests
 
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+TABLE_PAYMENT_LINKS = "Payment Links"
+TABLE_PWA_CLIENTS = "PWA Clients"
+
+
+def get_paid_client_keys_for_admin(admin_id: int):
+    """
+    Récupère tous les Client Key (emails) uniques pour cet admin
+    ayant au moins un paiement Status = Paid.
+    """
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_PAYMENT_LINKS.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+    }
+
+    # Filtre: ADMIN ID = admin_id ET Status = "Paid"
+    formula = f"AND({{ADMIN ID}}={admin_id}, {{Status}}='Paid')"
+
+    params = {
+        "filterByFormula": formula,
+        "pageSize": 100,
+    }
+
+    resp = requests.get(url, headers=headers, params=params)
+    data = resp.json()
+
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Airtable error Payment Links {resp.status_code}: {data}")
+
+    client_keys = set()
+
+    for record in data.get("records", []):
+        fields = record.get("fields", {})
+        email = fields.get("Client Key")
+        if email:
+            client_keys.add(email)
+
+    return list(client_keys)
+
+
+def get_topic_ids_from_client_keys(client_keys):
+    """
+    Mappe les emails (Client Key) vers les topic_id dans la table PWA Clients.
+    """
+    if not client_keys:
+        return []
+
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_PWA_CLIENTS.replace(' ', '%20')}"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+    }
+
+    topic_ids = []
+
+    # Airtable ne supporte pas IN natif → on boucle par email
+    for email in client_keys:
+        formula = f"{{email}}='{email}'"
+        params = {
+            "filterByFormula": formula,
+            "pageSize": 1,
+        }
+
+        resp = requests.get(url, headers=headers, params=params)
+        data = resp.json()
+
+        if resp.status_code >= 300:
+            raise RuntimeError(f"Airtable error PWA Clients {resp.status_code}: {data}")
+
+        records = data.get("records", [])
+        if not records:
+            continue
+
+        fields = records[0].get("fields", {})
+        topic_id = fields.get("topic_id")
+
+        if topic_id:
+            topic_ids.append(int(topic_id))
+
+    return topic_ids
 
 @dp.callback_query_handler(lambda call: call.data == "confirmer_envoi_groupé")
 async def confirmer_envoi_groupé(call: types.CallbackQuery):
@@ -2204,97 +2285,120 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    # 1️⃣ Récupérer l'e-mail de cet admin
-    email = ADMIN_EMAILS.get(admin_id)
-    if not email:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❌ Ton e-mail admin n’est pas configuré dans le bot. Parle à Nova Pulse pour le mettre à jour."
-        )
-        pending_mass_message.pop(admin_id, None)
-        return
-
-    # 2️⃣ Récupérer les VIPs de CET admin via Airtable
+    # 1️⃣ Récupérer tous les Client Key uniques (emails) avec Status = Paid
     try:
-        vip_ids = list(get_vip_ids_for_admin_email(email))  # 🔹 helper à ajouter à côté de /stat
+        client_keys = get_paid_client_keys_for_admin(admin_id)
     except Exception as e:
-        print(f"[MASS_VIP] Erreur en récupérant les VIPs pour {email} : {e}")
+        print(f"[MASS_VIP] Erreur récupération client_keys : {e}")
         await bot.send_message(
             chat_id=admin_id,
-            text="❌ Impossible de récupérer la liste de tes VIPs pour le moment."
+            text="❌ Impossible de récupérer les clients payants pour le moment."
         )
         pending_mass_message.pop(admin_id, None)
         return
 
-    if not vip_ids:
+    if not client_keys:
         await bot.send_message(
             chat_id=admin_id,
-            text="ℹ️ Aucun VIP trouvé pour toi. Rien à envoyer."
+            text="ℹ️ Aucun client payant trouvé pour cet admin."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    # 2️⃣ Mapper vers topic_id via la table PWA Clients
+    try:
+        topic_ids = get_topic_ids_from_client_keys(client_keys)
+    except Exception as e:
+        print(f"[MASS_VIP] Erreur mapping topic_ids : {e}")
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Impossible de mapper les conversations clients."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    if not topic_ids:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="ℹ️ Aucun topic trouvé pour ces clients payants."
         )
         pending_mass_message.pop(admin_id, None)
         return
 
     await bot.send_message(
         chat_id=admin_id,
-        text=f"⏳ Envoi du message à {len(vip_ids)} VIP(s)..."
+        text=f"⏳ Envoi du message à {len(topic_ids)} VIP(s)..."
     )
 
     envoyes = 0
     erreurs = 0
 
-    # 3️⃣ Envoi 100 % GRATUIT à ces VIPs
-    for vip_id in vip_ids:
+    # 3️⃣ Envoi dans chaque topic (conversation PWA)
+    for topic_id in topic_ids:
         try:
-            vip_id = int(vip_id)
-
             if message_data["type"] == "text":
-                await bot.send_message(chat_id=vip_id, text=message_data["content"])
+                await bot.request(
+                    "sendMessage",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "text": message_data["content"],
+                    },
+                )
 
             elif message_data["type"] == "photo":
-                await bot.send_photo(
-                    chat_id=vip_id,
-                    photo=message_data["content"],
-                    caption=message_data.get("caption", "")
+                await bot.request(
+                    "sendPhoto",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "photo": message_data["content"],
+                        "caption": message_data.get("caption", ""),
+                    },
                 )
 
             elif message_data["type"] == "video":
-                await bot.send_video(
-                    chat_id=vip_id,
-                    video=message_data["content"],
-                    caption=message_data.get("caption", "")
+                await bot.request(
+                    "sendVideo",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "video": message_data["content"],
+                        "caption": message_data.get("caption", ""),
+                    },
                 )
 
             elif message_data["type"] == "audio":
-                await bot.send_audio(
-                    chat_id=vip_id,
-                    audio=message_data["content"],
-                    caption=message_data.get("caption", "")
+                await bot.request(
+                    "sendAudio",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "audio": message_data["content"],
+                        "caption": message_data.get("caption", ""),
+                    },
                 )
 
             elif message_data["type"] == "voice":
-                await bot.send_voice(
-                    chat_id=vip_id,
-                    voice=message_data["content"]
+                await bot.request(
+                    "sendVoice",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "voice": message_data["content"],
+                    },
                 )
 
             envoyes += 1
 
         except Exception as e:
-            print(f"❌ Erreur envoi à {vip_id} : {e}")
+            print(f"[MASS_VIP] Erreur envoi topic {topic_id}: {e}")
             erreurs += 1
 
     await bot.send_message(
         chat_id=admin_id,
-        text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}"
+        text=f"✅ Envoyé à {envoyes} VIP(s) via la PWA.\n⚠️ Échecs : {erreurs}"
     )
+
     pending_mass_message.pop(admin_id, None)
-
-
-@dp.callback_query_handler(lambda call: call.data == "annuler_envoi_groupé")
-async def annuler_envoi_groupé(call: types.CallbackQuery):
-    await call.answer("❌ Envoi annulé.")
-    admin_id = call.from_user.id
-    pending_mass_message.pop(admin_id, None)
-    await call.message.edit_text("❌ Envoi annulé.")
-
 
