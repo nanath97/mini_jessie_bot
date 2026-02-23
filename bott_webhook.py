@@ -2338,8 +2338,10 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     envoyes = 0
     erreurs = 0
 
-    # 3️⃣ Envoi dans chaque topic (conversation PWA)
-    for topic_id in topic_ids:
+    # 3️⃣ Envoi dans chaque topic + PWA
+    for idx, topic_id in enumerate(topic_ids):
+        email = client_keys[idx]
+
         try:
             # ==========================
             # A) ENVOI DANS TOPIC STAFF
@@ -2398,49 +2400,40 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                 )
 
             # ==========================
-            # B) ENVOI VERS PWA (BRIDGE)
+            # B) ENVOI DIRECT VERS PWA (message humain)
             # ==========================
-            # ✅ Objectif: le client voit un "message humain" dans la PWA
-            # ⚠️ Le bot n'a pas de mediaUrl (il a file_id), donc:
-            # - texte: envoi direct
-            # - media: on envoie un texte + caption pour notifier proprement
+            try:
+                url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+                headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+                params = {"filterByFormula": f"{{email}}='{email}'"}
 
-            pwa_text = None
+                resp = requests.get(url, headers=headers, params=params)
+                records = resp.json().get("records", [])
 
-            if message_data["type"] == "text":
-                pwa_text = message_data["content"]
-
-            elif message_data["type"] in ("photo", "video", "audio", "voice"):
-                # Message "humain" côté PWA
-                caption = (message_data.get("caption") or "").strip()
-                label = {
-                    "photo": "📷 Photo",
-                    "video": "🎥 Vidéo",
-                    "audio": "🎵 Audio",
-                    "voice": "🎙️ Message vocal",
-                }.get(message_data["type"], "📎 Média")
-
-                if caption:
-                    pwa_text = f"{label}\n\n{caption}"
+                if not records:
+                    print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
                 else:
-                    pwa_text = f"{label} envoyé."
+                    seller_slug = records[0]["fields"].get("seller_slug")
 
-            # 🔥 Push vers PWA seulement si on a un texte
-            if pwa_text:
-                try:
-                    requests.post(
-                        f"{BRIDGE_API_URL}/pwa/send-admin-message-by-topic",
-                        json={
-                            "topicId": int(topic_id),
-                            "text": pwa_text,
-                            # optionnel si ton bridge veut tracer:
-                            "source": "vip_broadcast",
-                            "adminId": str(admin_id),
-                        },
-                        timeout=5
-                    )
-                except Exception as bridge_err:
-                    print(f"[MASS_VIP] Erreur bridge PWA topic {topic_id}: {bridge_err}")
+                    payload = {
+                        "email": email,
+                        "sellerSlug": seller_slug,
+                        "text": message_data["content"] if message_data["type"] == "text" else message_data.get("caption", ""),
+                    }
+
+                    bridge_url = os.getenv("BRIDGE_API_URL")
+                    if bridge_url:
+                        r = requests.post(
+                            f"{bridge_url}/pwa/send-admin-message",
+                            json=payload,
+                            timeout=5
+                        )
+                        print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
+                    else:
+                        print("[MASS_VIP][PWA] BRIDGE_API_URL manquant")
+
+            except Exception as e:
+                print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
 
             envoyes += 1
 
