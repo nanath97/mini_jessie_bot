@@ -2194,36 +2194,36 @@ async def annuler_envoi_groupé(call: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == "voir_mes_vips")
 async def voir_mes_vips(callback_query: types.CallbackQuery):
     telegram_id = callback_query.from_user.id
-
-    await callback_query.answer("Chargement de tes VIPs...")
+    print(f"[VIP CALLBACK] admin_id={telegram_id}")
 
     try:
+        await callback_query.answer("Chargement de tes VIPs...")
+
         url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
         headers = {
             "Authorization": f"Bearer {AIRTABLE_API_KEY}"
         }
         params = {
-            "filterByFormula": f"{{ADMIN ID}} = '{telegram_id}"
+            "filterByFormula": f"{{ADMIN ID}} = {telegram_id}"
         }
 
-        response = requests.get(url, headers=headers, params=params)
+        print(f"[VIP DEBUG] URL={url}")
+        print(f"[VIP DEBUG] PARAMS={params}")
+
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        print(f"[VIP DEBUG] STATUS={response.status_code}")
+        print(f"[VIP DEBUG] RAW={response.text[:500]}")
+
         if response.status_code != 200:
             await bot.send_message(
                 telegram_id,
-                f"❌ Erreur Airtable : {response.status_code}\n\n{response.text}"
+                f"❌ Erreur Airtable : {response.status_code}"
             )
             return
 
         records = response.json().get("records", [])
         print(f"[VIP DEBUG] Records trouvés: {len(records)}")
-        if not records:
-            await bot.send_message(
-                telegram_id,
-                "📭 Aucun enregistrement trouvé pour tes ventes."
-            )
-            return
 
-        # Étape 1 : regrouper les paiements PAID par client (Client Key)
         montants_par_client = {}
 
         for r in records:
@@ -2235,9 +2235,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             if status != "paid" or not client_key:
                 continue
 
-            if client_key not in montants_par_client:
-                montants_par_client[client_key] = 0
-
+            montants_par_client.setdefault(client_key, 0)
             montants_par_client[client_key] += amount_cents
 
         if not montants_par_client:
@@ -2247,45 +2245,24 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
             )
             return
 
-        # Conversion en euros
-        montants_par_client_eur = {
-            client: total_cents / 100
-            for client, total_cents in montants_par_client.items()
-        }
-
-        # Tri décroissant par montant
         sorted_vips = sorted(
-            montants_par_client_eur.items(),
+            montants_par_client.items(),
             key=lambda x: x[1],
             reverse=True
         )
 
-        # Construction message
         message = "📋 *Voici tes clients VIP (paiements cumulés)* :\n\n"
+        for client, total_cents in sorted_vips:
+            message += f"👤 {client} — {total_cents/100:.2f} €\n"
 
-        for client, total in sorted_vips:
-            message += f"👤 {client} — {total:.2f} €\n"
-
-        # Top 3
-        top3 = sorted_vips[:3]
-        if top3:
-            message += "\n🏆 *Top 3 clients :*\n"
-            medals = ["🥇", "🥈", "🥉"]
-            for i, (client, total) in enumerate(top3):
-                emoji = medals[i] if i < len(medals) else f"#{i+1}"
-                message += f"{emoji} {client} — {total:.2f} €\n"
-
-        await bot.send_message(
-            telegram_id,
-            message,
-            parse_mode="Markdown"
-        )
+        await bot.send_message(telegram_id, message, parse_mode="Markdown")
 
     except Exception as e:
-        print(f"❌ ERREUR DANS VIPS : {e}")
+        import traceback
+        print("❌ ERREUR VIP HANDLER:\n", traceback.format_exc())
         await bot.send_message(
             telegram_id,
-            "❌ Une erreur est survenue lors de l'affichage des VIPs."
+            "❌ Erreur interne lors du chargement des VIPs."
         )
 
 #fin du 19 juillet 2025 mettre le tableau de vips
