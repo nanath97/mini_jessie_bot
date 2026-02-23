@@ -1766,9 +1766,14 @@ async def handle_annoter_vip(callback_query: types.CallbackQuery):
         await callback_query.answer("Impossible d'envoyer l'invite d'annotation.", show_alert=True)
 
 
-@dp.callback_query_handler(lambda c: True)
+@dp.callback_query_handler(lambda c: c.data not in [
+    "vip_message_gratuit",
+    "confirmer_envoi_groupé",
+    "programmer_envoi_groupé",
+    "annuler_envoi_groupé"
+])
 async def debug_all_callbacks(callback_query: types.CallbackQuery):
-    print("📌 CALLBACK REÇU :", callback_query.data)
+    print("📌 CALLBACK NON GÉRÉ :", callback_query.data)
     await callback_query.answer()
 
 # 1. code pour le bouton annoter fin
