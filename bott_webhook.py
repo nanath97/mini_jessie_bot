@@ -2196,7 +2196,7 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
     telegram_id = str(callback_query.from_user.id)  # ⚠️ ADMIN ID est du texte dans Airtable
 
     await callback_query.answer("Chargement de tes VIPs...")
-
+    print("ADMIN CALLBACK ID:", callback_query.from_user.id)
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}"
     }
