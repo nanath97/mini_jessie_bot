@@ -305,22 +305,27 @@ async def handle_stat(message: types.Message):
         nb_vip = len(vip_clients)
 
         message_final = (
-            f"📊 *Statistiques NovaPulse*\n\n"
-            f"📨 Ventes envoyées : {total_links}\n"
-            f"⏳ Paiements en attente : {pending_links}\n"
-            f"💳 Paiements validés : {paid_links}\n\n"
-            f"💰 Montant brut encaissé : {total_paid_eur:.2f}€\n"
-            f"🕒 Montant en attente : {total_pending_eur:.2f}€\n\n"
-            f"👥 Clients VIP (ayant payé) : {nb_vip}\n"
-            f"📈 Taux de conversion : {conversion_rate:.2f}%\n\n"
-            f"🏦 Frais Stripe estimés : {frais_stripe:.2f}€\n"
-            f"💵 Revenu net estimé : {net_eur:.2f}€"
+        f"📊 *Statistiques NovaPulse*\n\n"
+        f"📨 Ventes envoyées : {total_links}\n"
+        f"⏳ Paiements en attente : {pending_links}\n"
+        f"💳 Paiements validés : {paid_links}\n\n"
+        f"💰 Montant brut encaissé : {total_paid_eur:.2f}€\n"
+        f"🕒 Montant en attente : {total_pending_eur:.2f}€\n\n"
+        f"👥 Clients VIP (ayant payé) : {nb_vip}\n"
+        f"📈 Taux de conversion : {conversion_rate:.2f}%\n\n"
+        f"🏦 Frais Stripe estimés : {frais_stripe:.2f}€\n"
+        f"💵 Revenu net estimé : {net_eur:.2f}€"
+        )
+
+        vip_button = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
 
         await bot.send_message(
             message.chat.id,
             message_final,
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=vip_button
         )
 
     except Exception as e:
