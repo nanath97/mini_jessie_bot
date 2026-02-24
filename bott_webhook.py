@@ -2068,7 +2068,7 @@ def mark_programmation_as_sent(record_id):
 async def process_due_programmations_once():
     """
     1. Récupère les programmations dues (pending + RunAtUTC <= now)
-    2. Pour chacune, envoie le message à tous les VIPs
+    2. Pour chacune, envoie le message à tous les clients payants (PWA)
     3. Marque la programmation comme sent
     """
     try:
@@ -2079,19 +2079,6 @@ async def process_due_programmations_once():
 
     if not due_records:
         return  # rien à faire
-
-    # On récupère les VIPs de CE bot (on réutilise ta logique)
-    try:
-        # Ici on part du principe que ce bot a un seul "admin vendeur"
-        # et que SELLER_EMAIL correspond à la table VIP de ce bot.
-        vip_ids = list(get_vip_ids_for_admin_email(SELLER_EMAIL))
-    except Exception as e:
-        print(f"[SCHEDULE] Erreur en récupérant les VIPs pour {SELLER_EMAIL} : {e}")
-        return
-
-    if not vip_ids:
-        print("[SCHEDULE] Aucun VIP trouvé, envoi annulé.")
-        return
 
     for record in due_records:
         record_id = record.get("id")
@@ -2105,49 +2092,153 @@ async def process_due_programmations_once():
             print(f"[SCHEDULE] Record {record_id} incomplet, skip.")
             continue
 
+        # 🔥 1) Récupérer les clients payants de cet admin
+        admin_id = fields.get("Admin ID")  # doit exister dans ta table programmations
+        if not admin_id:
+            print(f"[SCHEDULE] Admin ID manquant pour record {record_id}")
+            continue
+
+        try:
+            client_keys = get_paid_client_keys_for_admin(admin_id)
+        except Exception as e:
+            print(f"[SCHEDULE] Erreur récupération client_keys : {e}")
+            continue
+
+        if not client_keys:
+            print(f"[SCHEDULE] Aucun client payant pour admin {admin_id}")
+            continue
+
+        # 🔥 2) Mapper vers topic_ids PWA
+        try:
+            topic_ids = get_topic_ids_from_client_keys(client_keys)
+        except Exception as e:
+            print(f"[SCHEDULE] Erreur mapping topic_ids : {e}")
+            continue
+
+        if not topic_ids:
+            print(f"[SCHEDULE] Aucun topic trouvé pour admin {admin_id}")
+            continue
+
         envoyes = 0
         erreurs = 0
 
-        for vip in vip_ids:
+        # 🔥 3) Envoi pour chaque client (topic PWA)
+        for idx, topic_id in enumerate(topic_ids):
             try:
-                vip_int = int(vip)
-
+                # A) Envoi dans le topic staff (trace interne)
                 if msg_type == "text":
-                    await bot.send_message(chat_id=vip_int, text=content)
+                    await bot.request(
+                        "sendMessage",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "text": content,
+                        },
+                    )
 
                 elif msg_type == "photo":
-                    await bot.send_photo(chat_id=vip_int, photo=content, caption=caption)
+                    await bot.request(
+                        "sendPhoto",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "photo": content,
+                            "caption": caption,
+                        },
+                    )
 
                 elif msg_type == "video":
-                    await bot.send_video(chat_id=vip_int, video=content, caption=caption)
+                    await bot.request(
+                        "sendVideo",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "video": content,
+                            "caption": caption,
+                        },
+                    )
 
                 elif msg_type == "audio":
-                    await bot.send_audio(chat_id=vip_int, audio=content, caption=caption)
+                    await bot.request(
+                        "sendAudio",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "audio": content,
+                            "caption": caption,
+                        },
+                    )
 
                 elif msg_type == "voice":
-                    await bot.send_voice(chat_id=vip_int, voice=content)
+                    await bot.request(
+                        "sendVoice",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "voice": content,
+                        },
+                    )
 
                 elif msg_type == "document":
-                    await bot.send_document(chat_id=vip_int, document=content, caption=caption)
+                    await bot.request(
+                        "sendDocument",
+                        {
+                            "chat_id": STAFF_GROUP_ID,
+                            "message_thread_id": topic_id,
+                            "document": content,
+                            "caption": caption,
+                        },
+                    )
 
-                else:
-                    print(f"[SCHEDULE] Type inconnu '{msg_type}' pour record {record_id}")
-                    erreurs += 1
-                    continue
+                # B) 🔥 Envoi message humain vers la PWA via bridge
+                try:
+                    email = client_keys[idx]
+
+                    # récupérer seller_slug depuis PWA Clients
+                    url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+                    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+                    params = {"filterByFormula": f"{{email}}='{email}'"}
+
+                    resp = requests.get(url, headers=headers, params=params)
+                    records = resp.json().get("records", [])
+
+                    if records:
+                        seller_slug = records[0]["fields"].get("seller_slug")
+
+                        payload = {
+                            "email": email,
+                            "sellerSlug": seller_slug,
+                            "text": content if msg_type == "text" else caption,
+                        }
+
+                        bridge_url = os.getenv("BRIDGE_API_URL")
+                        if bridge_url:
+                            r = requests.post(
+                                f"{bridge_url}/pwa/send-admin-message",
+                                json=payload,
+                                timeout=5
+                            )
+                            print(f"[SCHEDULE][PWA] Sent to {email} → {r.status_code}")
+                        else:
+                            print("[SCHEDULE][PWA] BRIDGE_API_URL manquant")
+
+                except Exception as e:
+                    print(f"[SCHEDULE][PWA] Erreur envoi PWA topic {topic_id}: {e}")
 
                 envoyes += 1
 
             except Exception as e:
-                print(f"[SCHEDULE] Erreur envoi VIP {vip}: {e}")
+                print(f"[SCHEDULE] Erreur envoi topic {topic_id}: {e}")
                 erreurs += 1
 
-        print(f"[SCHEDULE] Programmation {record_id} envoyée à {envoyes} VIP(s), erreurs={erreurs}")
+        print(f"[SCHEDULE] Programmation {record_id} envoyée à {envoyes} clients, erreurs={erreurs}")
 
+        # 🔥 4) Marquer comme sent
         try:
             mark_programmation_as_sent(record_id)
         except Exception as e:
             print(f"[SCHEDULE] Erreur mise à jour Status pour {record_id}: {e}")
-        
+
         # 🔔 Notification au Directeur
         try:
             jour = fields.get("Jour", "—")
@@ -2159,7 +2250,7 @@ async def process_due_programmations_once():
                 f"• Jour : *{jour}*\n"
                 f"• Heure locale : *{heure_locale}*\n"
                 f"• Type : *{msg_type}*\n"
-                f"• VIPs touchés : *{envoyes}*\n"
+                f"• Clients touchés : *{envoyes}*\n"
                 f"• Erreurs : *{erreurs}*\n\n"
                 "Statut : *sent* dans Airtable ✅"
             )
@@ -2170,7 +2261,7 @@ async def process_due_programmations_once():
                 parse_mode="Markdown"
             )
         except Exception as e:
-            print(f"[SCHEDULE] Erreur envoi notification Directeur pour {record_id}: {e}")
+            print(f"[SCHEDULE] Erreur notif Directeur pour {record_id}: {e}")
 #101
 
 import asyncio
