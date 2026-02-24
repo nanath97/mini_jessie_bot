@@ -135,6 +135,7 @@ def create_programmation_vip_record(jour, heure_locale, run_at_utc, message_data
         "Content": message_data["content"],
         "Caption": message_data.get("caption", ""),
         "Status": "pending",
+        "Admin ID": str(admin_id),
         # "AdminID": str(admin_id),  # à activer si tu crées la colonne dans Airtable
     }
 
