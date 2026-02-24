@@ -1766,12 +1766,15 @@ async def handle_annoter_vip(callback_query: types.CallbackQuery):
         await callback_query.answer("Impossible d'envoyer l'invite d'annotation.", show_alert=True)
 
 
-@dp.callback_query_handler(lambda c: c.data not in [
-    "vip_message_gratuit",
-    "confirmer_envoi_groupé",
-    "programmer_envoi_groupé",
-    "annuler_envoi_groupé"
-])
+@dp.callback_query_handler(lambda c: not (
+    c.data in [
+        "vip_message_gratuit",
+        "confirmer_envoi_groupé",
+        "programmer_envoi_groupé",
+        "annuler_envoi_groupé"
+    ]
+    or c.data.startswith("prog_jour_")
+))
 async def debug_all_callbacks(callback_query: types.CallbackQuery):
     print("📌 CALLBACK NON GÉRÉ :", callback_query.data)
     await callback_query.answer()
