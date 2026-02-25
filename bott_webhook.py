@@ -1118,36 +1118,72 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
     # ================================
-    media_url = None
-    is_media = bool(message.photo or message.video or message.document)
+        media_url = None
+    is_media = bool(
+        message.photo
+        or message.video
+        or message.document
+        or message.animation
+        or message.audio
+        or message.voice
+    )
 
     if is_media:
         try:
+            file_id = None
+            filename = "media"
+
             if message.photo:
                 file_id = message.photo[-1].file_id
+                filename = "photo.jpg"
+
             elif message.video:
                 file_id = message.video.file_id
-            else:
+                filename = message.video.file_name or "video.mp4"
+
+            elif message.document:
                 file_id = message.document.file_id
+                filename = message.document.file_name or "document"
+
+            elif message.animation:
+                file_id = message.animation.file_id
+                filename = message.animation.file_name or "animation.gif"
+
+            elif message.audio:
+                file_id = message.audio.file_id
+                filename = message.audio.file_name or "audio.mp3"
+
+            elif message.voice:
+                file_id = message.voice.file_id
+                filename = "voice.ogg"
+
+            if not file_id:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text="❌ Média non reconnu."
+                )
+                return
 
             tg_file = await bot.get_file(file_id)
-            file_bytes = await bot.download_file(tg_file.file_path)
+            file_stream = await bot.download_file(tg_file.file_path)
 
             files = {
-                "file": ("media_file", file_bytes.read())
+                "file": (filename, file_stream.read())
             }
+
             data = {
                 "sellerSlug": seller_slug,
                 "clientEmail": email,
                 "amount": amount_cents
             }
 
-            print("[BRIDGE UPLOAD] sending media...")
+            print("[BRIDGE UPLOAD] sending media:", filename)
+
             resp = requests.post(
                 f"{BRIDGE_API_URL}/upload-media",
                 files=files,
                 data=data,
-                timeout=20
+                timeout=30
             )
 
             result = resp.json()
