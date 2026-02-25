@@ -1190,7 +1190,7 @@ async def envoyer_contenu_payant(message: types.Message):
             print("[BRIDGE RESPONSE]", result)
 
             if result.get("success"):
-                media_url = result.get("mediaUrl")
+                media_url = result.get("mediaUrl") or result.get("secure_url")
             else:
                 await bot.send_message(
                     chat_id=admin_id,
