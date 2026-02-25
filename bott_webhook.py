@@ -1118,7 +1118,7 @@ async def envoyer_contenu_payant(message: types.Message):
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
     # ================================
-        media_url = None
+    media_url = None
     is_media = bool(
         message.photo
         or message.video
