@@ -1534,6 +1534,10 @@ async def handle_admin_message(message: types.Message):
 
     # 4) Envoi vers le client (fix définitif double caption)
     try:
+        if message.text and message.content_type == types.ContentType.TEXT:
+             await bot.send_message(chat_id=user_id, text=message.text)
+
+
         if message.content_type == types.ContentType.PHOTO:
             await bot.send_photo(
                 chat_id=user_id,
@@ -1567,9 +1571,6 @@ async def handle_admin_message(message: types.Message):
                 chat_id=user_id,
                 voice=message.voice.file_id
             )
-
-        elif message.content_type == types.ContentType.TEXT:
-            await bot.send_message(chat_id=user_id, text=message.text)
 
         else:
             await bot.send_message(
