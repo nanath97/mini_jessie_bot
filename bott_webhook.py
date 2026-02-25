@@ -1532,44 +1532,43 @@ async def handle_admin_message(message: types.Message):
         )
         return
 
-    # 4) Envoi vers le client
-    # 4) Envoi vers le client (fix double caption)
+    # 4) Envoi vers le client (fix définitif double caption)
     try:
-        if message.photo:
+        if message.content_type == types.ContentType.PHOTO:
             await bot.send_photo(
                 chat_id=user_id,
                 photo=message.photo[-1].file_id,
                 caption=message.caption or ""
             )
 
-        elif message.video:
+        elif message.content_type == types.ContentType.VIDEO:
             await bot.send_video(
                 chat_id=user_id,
                 video=message.video.file_id,
                 caption=message.caption or ""
             )
 
-        elif message.document:
+        elif message.content_type == types.ContentType.DOCUMENT:
             await bot.send_document(
                 chat_id=user_id,
                 document=message.document.file_id,
                 caption=message.caption or ""
             )
 
-        elif message.audio:
+        elif message.content_type == types.ContentType.AUDIO:
             await bot.send_audio(
                 chat_id=user_id,
                 audio=message.audio.file_id,
                 caption=message.caption or ""
             )
 
-        elif message.voice:
+        elif message.content_type == types.ContentType.VOICE:
             await bot.send_voice(
                 chat_id=user_id,
                 voice=message.voice.file_id
             )
 
-        elif message.text:
+        elif message.content_type == types.ContentType.TEXT:
             await bot.send_message(chat_id=user_id, text=message.text)
 
         else:
@@ -1577,6 +1576,12 @@ async def handle_admin_message(message: types.Message):
                 chat_id=admin_id,
                 text="📂 Type de message non supporté."
             )
+
+    except Exception as e:
+        await bot.send_message(
+            chat_id=admin_id,
+            text=f"❗Erreur admin -> client : {e}"
+        )
 
     except Exception as e:
         await bot.send_message(
