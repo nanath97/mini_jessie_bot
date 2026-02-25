@@ -2253,12 +2253,37 @@ async def process_due_programmations_once():
                         }
 
                         bridge_url = os.getenv("BRIDGE_API_URL")
+
                         if bridge_url:
-                            r = requests.post(
-                                f"{bridge_url}/pwa/send-admin-message",
-                                json=payload,
-                                timeout=5
-                            )
+                            if msg_type == "text":
+                                payload = {
+                                    "email": email,
+                                    "sellerSlug": seller_slug,
+                                    "text": content,
+                                }
+
+                                r = requests.post(
+                                    f"{bridge_url}/pwa/send-admin-message",
+                                    json=payload,
+                                    timeout=5
+                                )
+
+                            else:
+                                # 🔥 MEDIA PROGRAMMÉ
+                                payload = {
+                                    "email": email,
+                                    "sellerSlug": seller_slug,
+                                    "text": caption or "",   # caption affichée comme message séparé
+                                    "mediaUrl": content      # ⚠️ content doit être URL Cloudinary
+                                }
+
+                                r = requests.post(
+                                    f"{bridge_url}/pwa/send-admin-media",
+                                    json=payload,
+                                    timeout=5
+                                )
+
+                            print(f"[SCHEDULE][PWA] Sent to {email} → {r.status_code}")
                             print(f"[SCHEDULE][PWA] Sent to {email} → {r.status_code}")
                         else:
                             print("[SCHEDULE][PWA] BRIDGE_API_URL manquant")
