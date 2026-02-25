@@ -1191,6 +1191,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
             if result.get("success"):
                 media_url = result.get("mediaUrl") or result.get("secure_url")
+                print("DEBUG media_url =", media_url)
             else:
                 await bot.send_message(
                     chat_id=admin_id,
