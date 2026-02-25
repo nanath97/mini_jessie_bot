@@ -2252,10 +2252,13 @@ async def process_due_programmations_once():
                             "text": content if msg_type == "text" else caption,
                         }
 
+
+
                         bridge_url = os.getenv("BRIDGE_API_URL")
 
                         if bridge_url:
                             if msg_type == "text":
+                                # TEXTE SIMPLE
                                 payload = {
                                     "email": email,
                                     "sellerSlug": seller_slug,
@@ -2269,22 +2272,67 @@ async def process_due_programmations_once():
                                 )
 
                             else:
-                                # 🔥 MEDIA PROGRAMMÉ
-                                payload = {
-                                    "email": email,
-                                    "sellerSlug": seller_slug,
-                                    "text": caption or "",   # caption affichée comme message séparé
-                                    "mediaUrl": content      # ⚠️ content doit être URL Cloudinary
-                                }
+                                # 🔥 MEDIA PROGRAMMÉ (file_id → Cloudinary → PWA)
+                                try:
+                                    # 1️⃣ Télécharger le fichier Telegram
+                                    tg_file = await bot.get_file(content)
+                                    file_stream = await bot.download_file(tg_file.file_path)
 
-                                r = requests.post(
-                                    f"{bridge_url}/pwa/send-admin-media",
-                                    json=payload,
-                                    timeout=5
-                                )
+                                    filename = "media.bin"
+                                    if msg_type == "photo":
+                                        filename = "photo.jpg"
+                                    elif msg_type == "video":
+                                        filename = "video.mp4"
+                                    elif msg_type == "audio":
+                                        filename = "audio.mp3"
+                                    elif msg_type == "voice":
+                                        filename = "voice.ogg"
+                                    elif msg_type == "document":
+                                        filename = "document"
 
-                            print(f"[SCHEDULE][PWA] Sent to {email} → {r.status_code}")
-                            print(f"[SCHEDULE][PWA] Sent to {email} → {r.status_code}")
+                                    files = {
+                                        "file": (filename, file_stream.read())
+                                    }
+
+                                    data_upload = {
+                                        "sellerSlug": seller_slug,
+                                        "clientEmail": email,
+                                    }
+
+                                    # 2️⃣ Upload vers Cloudinary via le bridge
+                                    upload_resp = requests.post(
+                                        f"{bridge_url}/upload-media",
+                                        files=files,
+                                        data=data_upload,
+                                        timeout=30
+                                    )
+
+                                    upload_result = upload_resp.json()
+                                    media_url = upload_result.get("mediaUrl")
+
+                                    if not media_url:
+                                        print("[SCHEDULE][UPLOAD ERROR]", upload_result)
+                                    else:
+                                        print(f"[SCHEDULE][UPLOAD OK] {media_url}")
+
+                                        # 3️⃣ Envoi vers la PWA avec URL
+                                        payload = {
+                                            "email": email,
+                                            "sellerSlug": seller_slug,
+                                            "text": caption or "",   # caption envoyée en bulle séparée
+                                            "mediaUrl": media_url,
+                                        }
+
+                                        r = requests.post(
+                                            f"{bridge_url}/pwa/send-admin-media",
+                                            json=payload,
+                                            timeout=5
+                                        )
+
+                                        print(f"[SCHEDULE][PWA MEDIA] Sent to {email} → {r.status_code}")
+
+                                except Exception as e:
+                                    print(f"[SCHEDULE][UPLOAD MEDIA ERROR] topic {topic_id}: {e}")
                         else:
                             print("[SCHEDULE][PWA] BRIDGE_API_URL manquant")
 
