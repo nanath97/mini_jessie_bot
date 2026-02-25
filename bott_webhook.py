@@ -1533,11 +1533,9 @@ async def handle_admin_message(message: types.Message):
         return
 
     # 4) Envoi vers le client
+    # 4) Envoi vers le client (fix double caption)
     try:
-        if message.text:
-            await bot.send_message(chat_id=user_id, text=message.text)
-
-        elif message.photo:
+        if message.photo:
             await bot.send_photo(
                 chat_id=user_id,
                 photo=message.photo[-1].file_id,
@@ -1558,18 +1556,21 @@ async def handle_admin_message(message: types.Message):
                 caption=message.caption or ""
             )
 
-        elif message.voice:
-            await bot.send_voice(
-                chat_id=user_id,
-                voice=message.voice.file_id
-            )
-
         elif message.audio:
             await bot.send_audio(
                 chat_id=user_id,
                 audio=message.audio.file_id,
                 caption=message.caption or ""
             )
+
+        elif message.voice:
+            await bot.send_voice(
+                chat_id=user_id,
+                voice=message.voice.file_id
+            )
+
+        elif message.text:
+            await bot.send_message(chat_id=user_id, text=message.text)
 
         else:
             await bot.send_message(
