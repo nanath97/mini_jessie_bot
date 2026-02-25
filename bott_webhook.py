@@ -1131,7 +1131,7 @@ async def envoyer_contenu_payant(message: types.Message):
     if is_media:
         try:
             file_id = None
-            filename = "media"
+            filename = "media.bin"  # fallback safe
 
             if message.photo:
                 file_id = message.photo[-1].file_id
