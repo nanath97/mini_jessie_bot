@@ -2470,7 +2470,7 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     envoyes = 0
     erreurs = 0
 
-    # 3️⃣ Envoi dans chaque topic + PWA
+     # 3️⃣ Envoi dans chaque topic + PWA
     for idx, topic_id in enumerate(topic_ids):
         email = client_keys[idx]
 
@@ -2527,12 +2527,23 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                     {
                         "chat_id": STAFF_GROUP_ID,
                         "message_thread_id": topic_id,
-                        "voice": message_data["content"],
+                        "aVoice": message_data["content"],
+                    },
+                )
+
+            elif message_data["type"] == "document":
+                await bot.request(
+                    "sendDocument",
+                    {
+                        "chat_id": STAFF_GROUP_ID,
+                        "message_thread_id": topic_id,
+                        "document": message_data["content"],
+                        "caption": message_data.get("caption", ""),
                     },
                 )
 
             # ==========================
-            # B) ENVOI DIRECT VERS PWA (message humain)
+            # B) ENVOI DIRECT VERS PWA (AVEC MEDIA)
             # ==========================
             try:
                 url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
@@ -2546,23 +2557,70 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                     print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
                 else:
                     seller_slug = records[0]["fields"].get("seller_slug")
+                    bridge_url = os.getenv("BRIDGE_API_URL")
+
+                    media_url = None
+
+                    # 🔥 Upload média si nécessaire
+                    if message_data["type"] in ["photo", "video", "audio", "voice", "document"]:
+                        file_id = message_data["content"]
+
+                        tg_file = await bot.get_file(file_id)
+                        file_stream = await bot.download_file(tg_file.file_path)
+
+                        filename = "media.bin"
+                        if message_data["type"] == "photo":
+                            filename = "photo.jpg"
+                        elif message_data["type"] == "video":
+                            filename = "video.mp4"
+                        elif message_data["type"] == "audio":
+                            filename = "audio.mp3"
+                        elif message_data["type"] == "voice":
+                            filename = "voice.ogg"
+                        elif message_data["type"] == "document":
+                            filename = "document"
+
+                        files = {
+                            "file": (filename, file_stream.read())
+                        }
+
+                        data_upload = {
+                            "sellerSlug": seller_slug,
+                            "clientEmail": email,
+                        }
+
+                        upload_resp = requests.post(
+                            f"{bridge_url}/upload-media",
+                            files=files,
+                            data=data_upload,
+                            timeout=30
+                        )
+
+                        upload_result = upload_resp.json()
+                        if upload_result.get("success"):
+                            media_url = upload_result.get("mediaUrl") or upload_result.get("secure_url")
+                            print(f"[MASS_VIP][UPLOAD OK] {media_url}")
+                        else:
+                            print("[MASS_VIP][UPLOAD ERROR]", upload_result)
 
                     payload = {
                         "email": email,
                         "sellerSlug": seller_slug,
                         "text": message_data["content"] if message_data["type"] == "text" else message_data.get("caption", ""),
+                        "mediaUrl": media_url,
                     }
 
-                    bridge_url = os.getenv("BRIDGE_API_URL")
-                    if bridge_url:
-                        r = requests.post(
-                            f"{bridge_url}/pwa/send-admin-message",
-                            json=payload,
-                            timeout=5
-                        )
-                        print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
+                    if message_data["type"] == "text":
+                        endpoint = "/pwa/send-admin-message"
                     else:
-                        print("[MASS_VIP][PWA] BRIDGE_API_URL manquant")
+                        endpoint = "/pwa/send-admin-media"
+
+                    r = requests.post(
+                        f"{bridge_url}{endpoint}",
+                        json=payload,
+                        timeout=5
+                    )
+                    print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
 
             except Exception as e:
                 print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
@@ -2579,4 +2637,3 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
     )
 
     pending_mass_message.pop(admin_id, None)
-
