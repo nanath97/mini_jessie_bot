@@ -2167,6 +2167,7 @@ async def process_due_programmations_once():
         for idx, topic_id in enumerate(topic_ids):
             try:
                 # A) Envoi dans le topic staff (trace interne)
+                print(f"[DEBUG MEDIA] msg_type={msg_type} content={content}")
                 if msg_type == "text":
                     await bot.request(
                         "sendMessage",
@@ -2257,6 +2258,7 @@ async def process_due_programmations_once():
                         bridge_url = os.getenv("BRIDGE_API_URL")
 
                         if bridge_url:
+                            print(f"[DEBUG MEDIA] msg_type={msg_type} content={content}")
                             if msg_type == "text":
                                 # TEXTE SIMPLE
                                 payload = {
