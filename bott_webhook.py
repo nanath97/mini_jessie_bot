@@ -2290,7 +2290,7 @@ async def process_due_programmations_once():
                                     elif msg_type == "voice":
                                         filename = "voice.ogg"
                                     elif msg_type == "document":
-                                        filename = "document"
+                                        filename = "document.pdf"
 
                                     files = {
                                         "file": (filename, file_stream.read())
@@ -2665,7 +2665,7 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                         elif message_data["type"] == "voice":
                             filename = "voice.ogg"
                         elif message_data["type"] == "document":
-                            filename = "document"
+                            filename = "document.pdf"
 
                         files = {
                             "file": (filename, file_stream.read())
