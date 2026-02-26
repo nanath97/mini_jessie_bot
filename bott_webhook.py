@@ -1168,7 +1168,7 @@ async def envoyer_contenu_payant(message: types.Message):
             file_stream = await bot.download_file(tg_file.file_path)
 
             files = {
-                "file": (filename, file_stream.read())
+                "file": (filename, file_stream.read(), "video/mp4")
             }
 
             data = {
