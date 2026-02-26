@@ -2309,6 +2309,17 @@ async def process_due_programmations_once():
 
                                     upload_result = upload_resp.json()
                                     media_url = upload_result.get("mediaUrl")
+                                    # 🔍 Détection du type média
+                                    if msg_type == "photo":
+                                        media_type = "photo"
+                                    elif msg_type == "video":
+                                        media_type = "video"
+                                    elif msg_type == "document":
+                                        media_type = "document"
+                                    elif msg_type in ["audio", "voice"]:
+                                        media_type = "audio"
+                                    else:
+                                        media_type = "photo"  # fallback
 
                                     if not media_url:
                                         print("[SCHEDULE][UPLOAD ERROR]", upload_result)
@@ -2321,6 +2332,7 @@ async def process_due_programmations_once():
                                             "sellerSlug": seller_slug,
                                             "text": caption or "",   # caption envoyée en bulle séparée
                                             "mediaUrl": media_url,
+                                            "mediaType": media_type, 
                                         }
 
                                         r = requests.post(
