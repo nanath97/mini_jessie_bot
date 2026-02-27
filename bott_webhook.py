@@ -1167,8 +1167,23 @@ async def envoyer_contenu_payant(message: types.Message):
             tg_file = await bot.get_file(file_id)
             file_stream = await bot.download_file(tg_file.file_path)
 
+            mime_type = "application/octet-stream"
+
+            if message.photo:
+                mime_type = "image/jpeg"
+            elif message.video:
+                mime_type = "video/mp4"
+            elif message.document:
+                mime_type = "application/octet-stream"
+            elif message.animation:
+                mime_type = "image/gif"
+            elif message.audio:
+                mime_type = "audio/mpeg"
+            elif message.voice:
+                mime_type = "audio/ogg"
+
             files = {
-                "file": (filename, file_stream.read(), "video/mp4")
+                "file": (filename, file_stream.read(), mime_type)
             }
 
             data = {
