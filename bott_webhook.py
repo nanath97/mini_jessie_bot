@@ -2644,88 +2644,92 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                     },
                 )
 
-            # ==========================
-            # B) ENVOI DIRECT VERS PWA (AVEC MEDIA)
-            # ==========================
-            try:
-                url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
-                headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-                params = {"filterByFormula": f"{{email}}='{email}'"}
+                # ==========================
+                # B) ENVOI DIRECT VERS PWA (AVEC MEDIA)
+                # ==========================
+                try:
+                    url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+                    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+                    params = {"filterByFormula": f"{{email}}='{email}'"}
 
-                resp = requests.get(url, headers=headers, params=params)
-                records = resp.json().get("records", [])
+                    resp = requests.get(url, headers=headers, params=params)
+                    records = resp.json().get("records", [])
 
-                if not records:
-                    print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
-                else:
-                    seller_slug = records[0]["fields"].get("seller_slug")
-                    bridge_url = os.getenv("BRIDGE_API_URL")
-
-                    media_url = None
-
-                    # 🔥 Upload média si nécessaire
-                    if message_data["type"] in ["photo", "video", "audio", "voice", "document"]:
-                        file_id = message_data["content"]
-
-                        tg_file = await bot.get_file(file_id)
-                        file_stream = await bot.download_file(tg_file.file_path)
-
-                        filename = "media.bin"
-                        if message_data["type"] == "photo":
-                            filename = "photo.jpg"
-                        elif message_data["type"] == "video":
-                            filename = "video.mp4"
-                        elif message_data["type"] == "audio":
-                            filename = "audio.mp3"
-                        elif message_data["type"] == "voice":
-                            filename = "voice.ogg"
-                        elif message_data["type"] == "document":
-                            filename = "document.pdf"
-
-                        files = {
-                            "file": (filename, file_stream.read())
-                        }
-
-                        data_upload = {
-                            "sellerSlug": seller_slug,
-                            "clientEmail": email,
-                        }
-
-                        upload_resp = requests.post(
-                            f"{bridge_url}/upload-media",
-                            files=files,
-                            data=data_upload,
-                            timeout=30
-                        )
-
-                        upload_result = upload_resp.json()
-                        if upload_result.get("success"):
-                            media_url = upload_result.get("mediaUrl") or upload_result.get("secure_url")
-                            print(f"[MASS_VIP][UPLOAD OK] {media_url}")
-                        else:
-                            print("[MASS_VIP][UPLOAD ERROR]", upload_result)
-
-                    payload = {
-                        "email": email,
-                        "sellerSlug": seller_slug,
-                        "text": message_data["content"] if message_data["type"] == "text" else message_data.get("caption", ""),
-                        "mediaUrl": media_url,
-                    }
-
-                    if message_data["type"] == "text":
-                        endpoint = "/pwa/send-admin-message"
+                    if not records:
+                        print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
                     else:
-                        endpoint = "/pwa/send-admin-media"
+                        seller_slug = records[0]["fields"].get("seller_slug")
+                        bridge_url = os.getenv("BRIDGE_API_URL")
 
-                    r = requests.post(
-                        f"{bridge_url}{endpoint}",
-                        json=payload,
-                        timeout=5
-                    )
-                    print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
+                        media_url = None
+                        media_type = None  # 🔥 IMPORTANT : toujours défini
 
-            except Exception as e:
-                print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
+                        # 🔥 Upload média si nécessaire
+                        if message_data["type"] in ["photo", "video", "audio", "voice", "document"]:
+                            file_id = message_data["content"]
+
+                            tg_file = await bot.get_file(file_id)
+                            file_stream = await bot.download_file(tg_file.file_path)
+
+                            filename = "media.bin"
+                            if message_data["type"] == "photo":
+                                filename = "photo.jpg"
+                                media_type = "photo"
+                            elif message_data["type"] == "video":
+                                filename = "video.mp4"
+                                media_type = "video"
+                            elif message_data["type"] == "audio":
+                                filename = "audio.mp3"
+                                media_type = "audio"
+                            elif message_data["type"] == "voice":
+                                filename = "voice.ogg"
+                                media_type = "audio"
+                            elif message_data["type"] == "document":
+                                filename = "document.pdf"
+                                media_type = "document"
+
+                            files = {
+                                "file": (filename, file_stream.read())
+                            }
+
+                            data_upload = {
+                                "sellerSlug": seller_slug,
+                                "clientEmail": email,
+                            }
+
+                            upload_resp = requests.post(
+                                f"{bridge_url}/upload-media",
+                                files=files,
+                                data=data_upload,
+                                timeout=30
+                            )
+
+                            upload_result = upload_resp.json()
+                            if upload_result.get("success"):
+                                media_url = upload_result.get("mediaUrl") or upload_result.get("secure_url")
+                                print(f"[MASS_VIP][UPLOAD OK] {media_url}")
+                            else:
+                                print("[MASS_VIP][UPLOAD ERROR]", upload_result)
+
+                        payload = {
+                            "email": email,
+                            "sellerSlug": seller_slug,
+                            "text": message_data["content"] if message_data["type"] == "text" else message_data.get("caption", ""),
+                            "mediaUrl": media_url,
+                            "mediaType": media_type  # 🔥 maintenant sûr à 100%
+                        }
+
+                        endpoint = "/pwa/send-admin-message" if message_data["type"] == "text" else "/pwa/send-admin-media"
+
+                        r = requests.post(
+                            f"{bridge_url}{endpoint}",
+                            json=payload,
+                            timeout=5
+                        )
+                        print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
+
+                except Exception as e:
+                    print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
 
             envoyes += 1
 
