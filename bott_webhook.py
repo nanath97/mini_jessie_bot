@@ -2536,191 +2536,141 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         await call.message.edit_text("❌ Aucun message en attente à envoyer.")
         return
 
-    # 1️⃣ Récupérer tous les Client Key uniques (emails) avec Status = Paid
+    # ✅ Désactiver DOCUMENT uniquement en envoi groupé
+    if message_data["type"] == "document":
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Les documents/PDF ne sont pas supportés en envoi groupé (pour l’instant). Utilise un envoi privé."
+        )
+        pending_mass_message.pop(admin_id, None)
+        return
+
+    # 1) Récupérer clients payants
     try:
         client_keys = get_paid_client_keys_for_admin(admin_id)
     except Exception as e:
         print(f"[MASS_VIP] Erreur récupération client_keys : {e}")
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❌ Impossible de récupérer les clients payants pour le moment."
-        )
+        await bot.send_message(chat_id=admin_id, text="❌ Impossible de récupérer les clients payants.")
         pending_mass_message.pop(admin_id, None)
         return
 
     if not client_keys:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="ℹ️ Aucun client payant trouvé pour cet admin."
-        )
+        await bot.send_message(chat_id=admin_id, text="ℹ️ Aucun client payant trouvé.")
         pending_mass_message.pop(admin_id, None)
         return
 
-    # 2️⃣ Mapper vers topic_id via la table PWA Clients
+    # 2) Mapper topic_ids
     try:
         topic_ids = get_topic_ids_from_client_keys(client_keys)
     except Exception as e:
         print(f"[MASS_VIP] Erreur mapping topic_ids : {e}")
-        await bot.send_message(
-            chat_id=admin_id,
-            text="❌ Impossible de mapper les conversations clients."
-        )
+        await bot.send_message(chat_id=admin_id, text="❌ Impossible de mapper les conversations clients.")
         pending_mass_message.pop(admin_id, None)
         return
 
     if not topic_ids:
-        await bot.send_message(
-            chat_id=admin_id,
-            text="ℹ️ Aucun topic trouvé pour ces clients payants."
-        )
+        await bot.send_message(chat_id=admin_id, text="ℹ️ Aucun topic trouvé pour ces clients.")
         pending_mass_message.pop(admin_id, None)
         return
 
-    await bot.send_message(
-        chat_id=admin_id,
-        text=f"⏳ Envoi du message à {len(topic_ids)} VIP(s)..."
-    )
+    await bot.send_message(chat_id=admin_id, text=f"⏳ Envoi à {len(topic_ids)} VIP(s)...")
 
-    envoyes = 0
-    erreurs = 0
+    envoyes, erreurs = 0, 0
 
-     # 3️⃣ Envoi dans chaque topic + PWA
     for idx, topic_id in enumerate(topic_ids):
         email = client_keys[idx]
 
         try:
             # ==========================
-            # A) ENVOI DANS TOPIC STAFF
+            # A) ENVOI DANS TOPIC STAFF (trace)
             # ==========================
             if message_data["type"] == "text":
-                await bot.request(
-                    "sendMessage",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "text": message_data["content"],
-                    },
-                )
+                await bot.request("sendMessage", {
+                    "chat_id": STAFF_GROUP_ID,
+                    "message_thread_id": topic_id,
+                    "text": message_data["content"],
+                })
 
             elif message_data["type"] == "photo":
-                await bot.request(
-                    "sendPhoto",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "photo": message_data["content"],
-                        "caption": message_data.get("caption", ""),
-                    },
-                )
+                await bot.request("sendPhoto", {
+                    "chat_id": STAFF_GROUP_ID,
+                    "message_thread_id": topic_id,
+                    "photo": message_data["content"],
+                    "caption": message_data.get("caption", ""),
+                })
 
             elif message_data["type"] == "video":
-                await bot.request(
-                    "sendVideo",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "video": message_data["content"],
-                        "caption": message_data.get("caption", ""),
-                    },
-                )
+                await bot.request("sendVideo", {
+                    "chat_id": STAFF_GROUP_ID,
+                    "message_thread_id": topic_id,
+                    "video": message_data["content"],
+                    "caption": message_data.get("caption", ""),
+                })
 
             elif message_data["type"] == "audio":
-                await bot.request(
-                    "sendAudio",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "audio": message_data["content"],
-                        "caption": message_data.get("caption", ""),
-                    },
-                )
+                await bot.request("sendAudio", {
+                    "chat_id": STAFF_GROUP_ID,
+                    "message_thread_id": topic_id,
+                    "audio": message_data["content"],
+                    "caption": message_data.get("caption", ""),
+                })
 
             elif message_data["type"] == "voice":
-                await bot.request(
-                    "sendVoice",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "aVoice": message_data["content"],
-                    },
-                )
+                await bot.request("sendVoice", {
+                    "chat_id": STAFF_GROUP_ID,
+                    "message_thread_id": topic_id,
+                    "voice": message_data["content"],  # ✅ pas "aVoice"
+                })
 
-            elif message_data["type"] == "document":
-                await bot.request(
-                    "sendDocument",
-                    {
-                        "chat_id": STAFF_GROUP_ID,
-                        "message_thread_id": topic_id,
-                        "document": message_data["content"],
-                        "caption": message_data.get("caption", ""),
-                    },
-                )
+            # ==========================
+            # B) ENVOI VERS PWA (TOUJOURS) — sauf document (déjà filtré)
+            # ==========================
+            try:
+                url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+                headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+                params = {"filterByFormula": f"{{email}}='{email}'"}
 
-                # ==========================
-                # B) ENVOI DIRECT VERS PWA (AVEC MEDIA)
-                # ==========================
-                try:
-                    url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
-                    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-                    params = {"filterByFormula": f"{{email}}='{email}'"}
+                resp = requests.get(url, headers=headers, params=params)
+                records = resp.json().get("records", [])
 
-                    resp = requests.get(url, headers=headers, params=params)
-                    records = resp.json().get("records", [])
+                if not records:
+                    print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
+                else:
+                    seller_slug = records[0]["fields"].get("seller_slug")
+                    bridge_url = os.getenv("BRIDGE_API_URL")
 
-                    if not records:
-                        print(f"[MASS_VIP][PWA] Aucun record PWA pour {email}")
+                    if not bridge_url:
+                        print("[MASS_VIP][PWA] BRIDGE_API_URL manquant")
                     else:
-                        seller_slug = records[0]["fields"].get("seller_slug")
-                        bridge_url = os.getenv("BRIDGE_API_URL")
+                        # TEXTE
+                        if message_data["type"] == "text":
+                            payload = {"email": email, "sellerSlug": seller_slug, "text": message_data["content"]}
+                            r = requests.post(f"{bridge_url}/pwa/send-admin-message", json=payload, timeout=5)
+                            print(f"[MASS_VIP][PWA] text → {email} status {r.status_code}")
 
-                        media_url = None
-                        media_type = None  # 🔥 IMPORTANT : toujours défini
-
-                        # 🔥 Upload média si nécessaire
-                        if message_data["type"] in ["photo", "video", "audio", "voice", "document"]:
+                        else:
+                            # MEDIA: file_id -> upload-media -> send-admin-media
                             file_id = message_data["content"]
 
                             tg_file = await bot.get_file(file_id)
                             file_stream = await bot.download_file(tg_file.file_path)
 
-                            filename = "media.bin"
-                            if message_data["type"] == "photo":
-                                filename = "photo.jpg"
-                                media_type = "photo"
-                            elif message_data["type"] == "video":
-                                filename = "video.mp4"
-                                media_type = "video"
-                            elif message_data["type"] == "audio":
-                                filename = "audio.mp3"
-                                media_type = "audio"
-                            elif message_data["type"] == "voice":
-                                filename = "voice.ogg"
-                                media_type = "audio"
-                            elif message_data["type"] == "document":
-                                filename = "document.pdf"
-                                media_type = "document"
+                            # filename + mimetype
+                            t = message_data["type"]
+                            if t == "photo":
+                                filename, mime_type, media_type = "photo.jpg", "image/jpeg", "photo"
+                            elif t == "video":
+                                filename, mime_type, media_type = "video.mp4", "video/mp4", "video"
+                            elif t == "audio":
+                                filename, mime_type, media_type = "audio.mp3", "audio/mpeg", "audio"
+                            elif t == "voice":
+                                filename, mime_type, media_type = "voice.ogg", "audio/ogg", "audio"
+                            else:
+                                # sécurité
+                                filename, mime_type, media_type = "media.bin", "application/octet-stream", "photo"
 
-                            # Définir explicitement le mimetype pour éviter "text/plain"
-                            mime_type = "application/octet-stream"
-                            if message_data["type"] == "photo":
-                                mime_type = "image/jpeg"
-                            elif message_data["type"] == "video":
-                                mime_type = "video/mp4"
-                            elif message_data["type"] == "audio":
-                                mime_type = "audio/mpeg"
-                            elif message_data["type"] == "voice":
-                                mime_type = "audio/ogg"
-                            elif message_data["type"] == "document":
-                                mime_type = "application/pdf"
-
-                            files = {
-                                "file": (filename, file_stream.read(), mime_type)
-                            }
-
-                            data_upload = {
-                                "sellerSlug": seller_slug,
-                                "clientEmail": email,
-                            }
+                            files = {"file": (filename, file_stream.read(), mime_type)}
+                            data_upload = {"sellerSlug": seller_slug, "clientEmail": email}
 
                             upload_resp = requests.post(
                                 f"{bridge_url}/upload-media",
@@ -2728,33 +2678,24 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                                 data=data_upload,
                                 timeout=30
                             )
-
                             upload_result = upload_resp.json()
-                            if upload_result.get("success"):
-                                media_url = upload_result.get("mediaUrl") or upload_result.get("secure_url")
-                                print(f"[MASS_VIP][UPLOAD OK] {media_url}")
-                            else:
+
+                            if not upload_result.get("success"):
                                 print("[MASS_VIP][UPLOAD ERROR]", upload_result)
+                            else:
+                                media_url = upload_result.get("mediaUrl")
+                                payload = {
+                                    "email": email,
+                                    "sellerSlug": seller_slug,
+                                    "text": message_data.get("caption", "") or "",
+                                    "mediaUrl": media_url,
+                                    "mediaType": media_type,
+                                }
+                                r = requests.post(f"{bridge_url}/pwa/send-admin-media", json=payload, timeout=5)
+                                print(f"[MASS_VIP][PWA] media({media_type}) → {email} status {r.status_code}")
 
-                        payload = {
-                            "email": email,
-                            "sellerSlug": seller_slug,
-                            "text": message_data["content"] if message_data["type"] == "text" else message_data.get("caption", ""),
-                            "mediaUrl": media_url,
-                            "mediaType": media_type  # 🔥 maintenant sûr à 100%
-                        }
-
-                        endpoint = "/pwa/send-admin-message" if message_data["type"] == "text" else "/pwa/send-admin-media"
-
-                        r = requests.post(
-                            f"{bridge_url}{endpoint}",
-                            json=payload,
-                            timeout=5
-                        )
-                        print(f"[MASS_VIP][PWA] Sent to {email} → status {r.status_code}")
-
-                except Exception as e:
-                    print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
+            except Exception as e:
+                print(f"[MASS_VIP][PWA] Erreur envoi PWA pour {email}: {e}")
 
             envoyes += 1
 
@@ -2762,9 +2703,5 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
             print(f"[MASS_VIP] Erreur envoi topic {topic_id}: {e}")
             erreurs += 1
 
-    await bot.send_message(
-        chat_id=admin_id,
-        text=f"✅ Envoyé à {envoyes} VIP(s) via la PWA.\n⚠️ Échecs : {erreurs}"
-    )
-
+    await bot.send_message(chat_id=admin_id, text=f"✅ Envoyé à {envoyes} VIP(s).\n⚠️ Échecs : {erreurs}")
     pending_mass_message.pop(admin_id, None)
