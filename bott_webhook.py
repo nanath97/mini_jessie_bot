@@ -2143,6 +2143,11 @@ async def process_due_programmations_once():
         msg_type = fields.get("Type")
         content = fields.get("Content")
         caption = fields.get("Caption", "")
+        # 🚫 Désactiver les documents UNIQUEMENT pour envoi groupé
+        if msg_type == "document":
+            print(f"[SCHEDULE] Document ignoré pour envoi groupé (record {record_id})")
+            mark_programmation_as_sent(record_id)
+            continue
 
         if not msg_type or not content:
             print(f"[SCHEDULE] Record {record_id} incomplet, skip.")
@@ -2307,18 +2312,16 @@ async def process_due_programmations_once():
                                     elif msg_type == "document":
                                         filename = "document.pdf"
 
-                                    # Définir explicitement le mimetype pour éviter "text/plain"
+                                   # Définir explicitement le mimetype pour éviter "text/plain"
                                     mime_type = "application/octet-stream"
-                                    if message_data["type"] == "photo":
+                                    if msg_type == "photo":
                                         mime_type = "image/jpeg"
-                                    elif message_data["type"] == "video":
+                                    elif msg_type == "video":
                                         mime_type = "video/mp4"
-                                    elif message_data["type"] == "audio":
+                                    elif msg_type == "audio":
                                         mime_type = "audio/mpeg"
-                                    elif message_data["type"] == "voice":
+                                    elif msg_type == "voice":
                                         mime_type = "audio/ogg"
-                                    elif message_data["type"] == "document":
-                                        mime_type = "application/pdf"
 
                                     files = {
                                         "file": (filename, file_stream.read(), mime_type)
