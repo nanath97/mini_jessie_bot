@@ -2307,10 +2307,22 @@ async def process_due_programmations_once():
                                     elif msg_type == "document":
                                         filename = "document.pdf"
 
-                                    files = {
-                                        "file": (filename, file_stream.read())
-                                    }
+                                    # Définir explicitement le mimetype pour éviter "text/plain"
+                                    mime_type = "application/octet-stream"
+                                    if message_data["type"] == "photo":
+                                        mime_type = "image/jpeg"
+                                    elif message_data["type"] == "video":
+                                        mime_type = "video/mp4"
+                                    elif message_data["type"] == "audio":
+                                        mime_type = "audio/mpeg"
+                                    elif message_data["type"] == "voice":
+                                        mime_type = "audio/ogg"
+                                    elif message_data["type"] == "document":
+                                        mime_type = "application/pdf"
 
+                                    files = {
+                                        "file": (filename, file_stream.read(), mime_type)
+                                    }
                                     data_upload = {
                                         "sellerSlug": seller_slug,
                                         "clientEmail": email,
@@ -2688,8 +2700,21 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
                                 filename = "document.pdf"
                                 media_type = "document"
 
+                            # Définir explicitement le mimetype pour éviter "text/plain"
+                            mime_type = "application/octet-stream"
+                            if message_data["type"] == "photo":
+                                mime_type = "image/jpeg"
+                            elif message_data["type"] == "video":
+                                mime_type = "video/mp4"
+                            elif message_data["type"] == "audio":
+                                mime_type = "audio/mpeg"
+                            elif message_data["type"] == "voice":
+                                mime_type = "audio/ogg"
+                            elif message_data["type"] == "document":
+                                mime_type = "application/pdf"
+
                             files = {
-                                "file": (filename, file_stream.read())
+                                "file": (filename, file_stream.read(), mime_type)
                             }
 
                             data_upload = {
