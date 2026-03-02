@@ -2488,6 +2488,49 @@ def get_paid_client_keys_for_admin(admin_id: int):
 
     return list(client_keys)
 
+def get_email_topic_pairs_for_admin(admin_id: int):
+    """
+    Retourne une liste de tuples (email, topic_id)
+    pour tous les clients PAYÉS de cet admin.
+    """
+    client_keys = get_paid_client_keys_for_admin(admin_id)
+
+    if not client_keys:
+        return []
+
+    url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+    }
+
+    pairs = []
+
+    for email in client_keys:
+        params = {
+            "filterByFormula": f"{{email}}='{email}'",
+            "pageSize": 1,
+        }
+
+        resp = requests.get(url, headers=headers, params=params)
+        data = resp.json()
+
+        if resp.status_code >= 300:
+            print(f"[PAIR ERROR] Airtable PWA Clients {resp.status_code}: {data}")
+            continue
+
+        records = data.get("records", [])
+        if not records:
+            print(f"[PAIR WARNING] Aucun topic trouvé pour {email}")
+            continue
+
+        topic_id = records[0].get("fields", {}).get("topic_id")
+
+        if topic_id:
+            pairs.append((email.strip().lower(), int(topic_id)))
+
+    print(f"[PAIR DEBUG] Pairs générées: {pairs}")
+
+    return pairs
 
 def get_topic_ids_from_client_keys(client_keys):
     """
@@ -2549,40 +2592,18 @@ async def confirmer_envoi_groupé(call: types.CallbackQuery):
         return
 
     # 1) Récupérer clients payants
-    try:
-        client_keys = get_paid_client_keys_for_admin(admin_id)
-    except Exception as e:
-        print(f"[MASS_VIP] Erreur récupération client_keys : {e}")
-        await bot.send_message(chat_id=admin_id, text="❌ Impossible de récupérer les clients payants.")
+    pairs = get_email_topic_pairs_for_admin(admin_id)
+
+    if not pairs:
+        await bot.send_message(chat_id=admin_id, text="ℹ️ Aucun client PWA trouvé.")
         pending_mass_message.pop(admin_id, None)
         return
 
-    if not client_keys:
-        await bot.send_message(chat_id=admin_id, text="ℹ️ Aucun client payant trouvé.")
-        pending_mass_message.pop(admin_id, None)
-        return
-
-    # 2) Mapper topic_ids
-    try:
-        topic_ids = get_topic_ids_from_client_keys(client_keys)
-    except Exception as e:
-        print(f"[MASS_VIP] Erreur mapping topic_ids : {e}")
-        await bot.send_message(chat_id=admin_id, text="❌ Impossible de mapper les conversations clients.")
-        pending_mass_message.pop(admin_id, None)
-        return
-
-    if not topic_ids:
-        await bot.send_message(chat_id=admin_id, text="ℹ️ Aucun topic trouvé pour ces clients.")
-        pending_mass_message.pop(admin_id, None)
-        return
-
-    await bot.send_message(chat_id=admin_id, text=f"⏳ Envoi à {len(topic_ids)} VIP(s)...")
+    await bot.send_message(chat_id=admin_id, text=f"⏳ Envoi à {len(pairs)} VIP(s)...")
 
     envoyes, erreurs = 0, 0
 
-    for idx, topic_id in enumerate(topic_ids):
-        email = client_keys[idx]
-
+    for email, topic_id in pairs:
         try:
             # ==========================
             # A) ENVOI DANS TOPIC STAFF (trace)
