@@ -2245,7 +2245,7 @@ async def process_due_programmations_once():
 
                 # B) 🔥 Envoi message humain vers la PWA via bridge
                 try:
-                    email = client_keys[idx]
+                    
 
                     # récupérer seller_slug depuis PWA Clients
                     url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
