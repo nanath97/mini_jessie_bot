@@ -2159,32 +2159,23 @@ async def process_due_programmations_once():
             print(f"[SCHEDULE] Admin ID manquant pour record {record_id}")
             continue
 
+# 🔥 1) Récupérer les paires email + topic_id (MÊME LOGIQUE QUE DIRECT)
         try:
-            client_keys = get_paid_client_keys_for_admin(admin_id)
+            pairs = get_email_topic_pairs_for_admin(int(admin_id))
         except Exception as e:
-            print(f"[SCHEDULE] Erreur récupération client_keys : {e}")
+            print(f"[SCHEDULE] Erreur récupération pairs : {e}")
             continue
 
-        if not client_keys:
+        if not pairs:
             print(f"[SCHEDULE] Aucun client payant pour admin {admin_id}")
-            continue
-
-        # 🔥 2) Mapper vers topic_ids PWA
-        try:
-            topic_ids = get_topic_ids_from_client_keys(client_keys)
-        except Exception as e:
-            print(f"[SCHEDULE] Erreur mapping topic_ids : {e}")
-            continue
-
-        if not topic_ids:
-            print(f"[SCHEDULE] Aucun topic trouvé pour admin {admin_id}")
             continue
 
         envoyes = 0
         erreurs = 0
 
-        # 🔥 3) Envoi pour chaque client (topic PWA)
-        for idx, topic_id in enumerate(topic_ids):
+        # 🔥 2) Envoi pour chaque client
+        for email, topic_id in pairs:
+            
             try:
                 # A) Envoi dans le topic staff (trace interne)
                 print(f"[DEBUG MEDIA] msg_type={msg_type} content={content}")
