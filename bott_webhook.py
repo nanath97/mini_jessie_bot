@@ -1335,12 +1335,12 @@ async def envoyer_contenu_payant(message: types.Message):
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
-        "🔒 */envxx* – Envoyer un contenu payant ou juste le lien de paiment €\n"
+        "🔒 */envxx* – Envoyer un contenu payant !\n"
         "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
         "_ou_\n\n"
-        "_Tape cette commande avec le bon montant (ex. /env14) sans images, ni videos ou fichiers. Ton client recevra directement son lien de paiment._\n\n"
-        "⚠️ ** – N'oublies pas de sélectionner le message du client à qui tu veux répondre\n\n"
-        "⚠️ ** – Voici la liste des prix : 9, 14, 19, 24.....\n\n"
+        "_Tape cette commande avec le bon montant (ex. /env14) sans images, ni videos ou fichiers. Ton client recevra directement son lien de paiment. Idéal pour les demandes d'acomptes_\n\n"
+        "⚠️ ** – N'oublies pas que les prix à virgule doivent séparés par une virgule, et non par un point - exemple : /env10,78 et pas /env10.78\n\n"
+        "⚠️ ** – Un seul média à la fois pour le mode normal ! Un seul média à la fois pour le mode payant\n\n"
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
 
@@ -1521,7 +1521,7 @@ async def handle_admin_message(message: types.Message):
     if not message.reply_to_message or message.chat.id != STAFF_GROUP_ID:
         await bot.send_message(
             chat_id=admin_id,
-            text="❗Pour répondre à un client, réponds en *reply* au message transféré du client dans le groupe staff (dans son topic).",
+            text=" Message transmis avec succès.",
             parse_mode="Markdown"
         )
         return
@@ -1541,8 +1541,7 @@ async def handle_admin_message(message: types.Message):
     ):
         await bot.send_message(
             chat_id=admin_id,
-            text="❗Impossible d'identifier le *client* destinataire. "
-                 "Réponds bien au **dernier message transféré du client** dans son topic.",
+            text="Message transmis avec succès",
             parse_mode="Markdown"
         )
         return
