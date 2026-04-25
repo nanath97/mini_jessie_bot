@@ -648,10 +648,9 @@ async def handle_start(message: types.Message):
                 json={
                     "email": client_key,
                     "sellerSlug": seller_slug,
+
                     "text": (
-                        f"✅ Merci pour votre paiement de {montant_euros} € ! "
-                        f"Votre facture vous sera transmise directement par mail.\n\n"
-                        f"❗️Si vous avez le moindre souci avec votre commande, contactez-nous directement ici"
+                        f"✅ Merci pour votre paiement de {montant_euros} € !\n\n"
                     ),
                 },
                 timeout=5,
