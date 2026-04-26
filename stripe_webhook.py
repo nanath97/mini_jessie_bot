@@ -59,7 +59,8 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
             json={
                 "fields": {
                     "Status": "Paid",
-                    "Paid At": datetime.utcnow().isoformat()
+                    "Paid At": datetime.utcnow().isoformat(),
+                    "Invoice Number": invoice_number
                 }
             }
         )

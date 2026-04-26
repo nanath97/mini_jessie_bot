@@ -515,7 +515,7 @@ async def export_factures(callback_query: types.CallbackQuery):
 
             motif = f.get("Caption", "")
 
-            numero = f"NP-{datetime.now().strftime('%Y%m')}-{str(total_records - i + 1).zfill(3)}"
+            numero = f.get("Invoice Number", "")
 
             writer.writerow([
                 numero,
