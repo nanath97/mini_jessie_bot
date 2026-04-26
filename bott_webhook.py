@@ -58,6 +58,22 @@ authorized_admin_ids = {7334072965, 6545079601}
 def is_admin(user_id: int) -> bool:
     return user_id in authorized_admin_ids or user_id == OWNER_ID
 
+def get_pwa_client_by_email(email):
+    url = f"https://api.airtable.com/v0/{BASE_ID}/PWA%20Clients"
+    headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+
+    params = {
+        "filterByFormula": f"{{email}}='{email}'",
+        "maxRecords": 1
+    }
+
+    resp = requests.get(url, headers=headers, params=params)
+    records = resp.json().get("records", [])
+
+    if not records:
+        return {}
+
+    return records[0].get("fields", {})
 
 # Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
 VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
@@ -491,8 +507,12 @@ async def export_factures(callback_query: types.CallbackQuery):
         writer.writerow([
             "Numero facture",
             "Date",
+            "Type client",
+            "Nom entreprise",
             "Client",
             "Email",
+            "SIRET",
+            "TVA",
             "Montant HT",
             "TVA (%)",
             "Montant TVA",
@@ -509,7 +529,14 @@ async def export_factures(callback_query: types.CallbackQuery):
 
             raw_date = f.get("Paid At") or f.get("Date", "")
             email = f.get("Client Key", "")
-            client = email
+            client_data = get_pwa_client_by_email(email)
+
+            type_client = client_data.get("type_client", "")
+            nom_entreprise = client_data.get("entreprise_nom", "")
+            siret = client_data.get("siret", "")
+            tva_number = client_data.get("tva", "")
+
+            client = nom_entreprise if str(type_client).lower() == "entreprise" else email
 
             amount_ttc = (f.get("Amount Cents", 0) or 0) / 100
 
@@ -523,8 +550,12 @@ async def export_factures(callback_query: types.CallbackQuery):
             writer.writerow([
                 numero,
                 raw_date,
+                type_client,
+                nom_entreprise,
                 client,
                 email,
+                siret,
+                tva_number,
                 round(amount_ht, 2),
                 int(tva_rate * 100),
                 round(tva_amount, 2),
@@ -533,6 +564,7 @@ async def export_factures(callback_query: types.CallbackQuery):
                 motif,
                 "PRESTATION"
             ])
+
 
         # 🔥 IMPORTANT : ENCODAGE APRÈS ÉCRITURE
         csv_content = output.getvalue()
