@@ -480,7 +480,7 @@ async def export_factures(callback_query: types.CallbackQuery):
         from io import StringIO
 
         output = StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, delimiter=";")
 
         # HEADER
         writer.writerow([
@@ -514,7 +514,10 @@ async def export_factures(callback_query: types.CallbackQuery):
             motif = f.get("Caption", "")
 
             # Numéro facture simple
-            numero = f"NP-{datetime.now().strftime('%Y%m')}-{i}"
+            total_records = len(records)
+
+            numero = f"NP-{datetime.now().strftime('%Y%m')}-{str(total_records - i + 1).zfill(3)}"
+            
 
             writer.writerow([
                 numero,
