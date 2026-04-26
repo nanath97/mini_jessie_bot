@@ -328,7 +328,9 @@ async def handle_stat(message: types.Message):
         vip_button = InlineKeyboardMarkup().add(
             InlineKeyboardButton("📋 Voir mes VIPs", callback_data="voir_mes_vips")
         )
-
+        vip_button.add(
+            InlineKeyboardButton("📤 Export factures", callback_data="export_factures")
+        )
         await bot.send_message(
             message.chat.id,
             message_final,
@@ -453,7 +455,91 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
         parse_mode="Markdown"
     )
 #fin du 19 juillet 2025 mettre le tableau de vips
+@dp.callback_query_handler(lambda c: c.data == "export_factures")
+async def export_factures(callback_query: types.CallbackQuery):
+    admin_id = str(callback_query.from_user.id)
 
+    await callback_query.answer("📤 Génération du CSV...")
+
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
+        headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
+
+        params = {
+            "filterByFormula": f"AND({{ADMIN ID}}='{admin_id}', {{Status}}='Paid')"
+        }
+
+        response = requests.get(url, headers=headers, params=params)
+        records = response.json().get("records", [])
+
+        if not records:
+            await bot.send_message(admin_id, "❌ Aucune facture trouvée.")
+            return
+
+        import csv
+        from io import StringIO
+
+        output = StringIO()
+        writer = csv.writer(output)
+
+        # HEADER
+        writer.writerow([
+            "Date",
+            "Client",
+            "Montant (€)",
+            "Motif"
+        ])
+
+        from datetime import datetime
+
+        for i, r in enumerate(records, start=1):
+            f = r.get("fields", {})
+
+            # Date
+            raw_date = f.get("Paid At") or f.get("Date", "")
+
+            # Client
+            client = f.get("Client Key", "")
+
+            # Montant TTC
+            amount_ttc = (f.get("Amount Cents", 0) or 0) / 100
+
+            # TVA (mets 0 ou 0.20 selon ton cas)
+            tva_rate = 0
+
+            amount_ht = amount_ttc / (1 + tva_rate) if tva_rate > 0 else amount_ttc
+            tva_amount = amount_ttc - amount_ht
+
+            # Motif
+            motif = f.get("Caption", "")
+
+            # Numéro facture simple
+            numero = f"NP-{datetime.now().strftime('%Y%m')}-{i}"
+
+            writer.writerow([
+                numero,
+                raw_date,
+                client,
+                client,
+                round(amount_ht, 2),
+                round(tva_amount, 2),
+                round(amount_ttc, 2),
+                "EUR",
+                motif
+            ])
+        output.seek(0)
+
+        await bot.send_document(
+            chat_id=admin_id,
+            document=types.InputFile(
+                output,
+                filename=f"factures_{datetime.now().strftime('%Y_%m')}.csv"
+            )
+        )
+
+    except Exception as e:
+        print(f"[EXPORT ERROR] {e}")
+        await bot.send_message(admin_id, "❌ Erreur export CSV.")
 
 import requests
 from datetime import datetime
