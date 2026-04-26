@@ -20,6 +20,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from decimal import Decimal, ROUND_HALF_UP
 from vip_topics import _user_topics, save_pwa_note_to_airtable
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
+import json
 
 
 
@@ -29,6 +30,12 @@ from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")  # https://novapulse-bridge.onrender.com
+
+# ================================
+# CHARGEMENT DES MOTIFS
+# ================================
+with open("motifs.json", "r", encoding="utf-8") as f:
+    MOTIFS = json.load(f)
 
 
 dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
@@ -977,6 +984,14 @@ def nettoyer_commande_env(texte: str) -> str:
     if not texte:
         return ""
     return re.sub(r"/env([\d.,]+|vip)", "", texte, flags=re.IGNORECASE).strip()
+def detect_motif(text):
+    text = text.lower()
+
+    for keyword, motif in MOTIFS.items():
+        if keyword in text:
+            return motif
+
+    return "Prestation"
 
 
 from aiogram.dispatcher.handler import CancelHandler
@@ -1065,6 +1080,7 @@ async def envoyer_contenu_payant(message: types.Message):
 
     # 🔥 IMPORTANT : on nettoie le texte pour la PWA
     nouvelle_legende = nettoyer_commande_env(texte)
+    motif = detect_motif(nouvelle_legende)
 
     if raw_code == "vip":
         await bot.send_message(chat_id=admin_id, text="❗ /envvip n'est pas géré ici. Utilise un montant (ex: /env9).")
@@ -1094,25 +1110,10 @@ async def envoyer_contenu_payant(message: types.Message):
         admin_id=str(admin_id),
         amount_cents=amount_cents,
         checkout_session_id=session_id,
+        caption=motif
     )
-    # ================================
-    # PARSE /envXX
-    # ================================
-    texte = message.caption or message.text or ""
-    match = re.search(r"/env([\d.,]+|vip)", texte.lower())
 
-    if not match:
-        await bot.send_message(chat_id=admin_id, text="❗ Code /env invalide.")
-        return
 
-    raw_code = str(match.group(1)).lower()
-
-    # 🔥 ICI EXACTEMENT (juste après le match)
-    nouvelle_legende = nettoyer_commande_env(texte)
-
-    if raw_code == "vip":
-        await bot.send_message(chat_id=admin_id, text="❗ /envvip n'est pas géré ici. Utilise un montant (ex: /env9).")
-        return
 
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
