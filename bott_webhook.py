@@ -489,15 +489,17 @@ async def export_factures(callback_query: types.CallbackQuery):
 
         # HEADER
         writer.writerow([
-            "Numero Facture",
+            "Numero facture",
             "Date",
             "Client",
             "Email",
             "Montant HT",
-            "TVA",
+            "TVA (%)",
+            "Montant TVA",
             "Montant TTC",
             "Devise",
-            "Description"
+            "Description",
+            "Type"
         ])
 
         total_records = len(records)
@@ -506,27 +508,30 @@ async def export_factures(callback_query: types.CallbackQuery):
             f = r.get("fields", {})
 
             raw_date = f.get("Paid At") or f.get("Date", "")
-            client = f.get("Client Key", "")
+            email = f.get("Client Key", "")
+            client = email
+
             amount_ttc = (f.get("Amount Cents", 0) or 0) / 100
 
             tva_rate = 0
-            amount_ht = amount_ttc / (1 + tva_rate) if tva_rate > 0 else amount_ttc
+            amount_ht = amount_ttc if tva_rate == 0 else amount_ttc / (1 + tva_rate)
             tva_amount = amount_ttc - amount_ht
 
             motif = f.get("Caption", "")
-
             numero = f.get("Invoice Number", "")
 
             writer.writerow([
                 numero,
                 raw_date,
                 client,
-                client,
+                email,
                 round(amount_ht, 2),
+                int(tva_rate * 100),
                 round(tva_amount, 2),
                 round(amount_ttc, 2),
                 "EUR",
-                motif
+                motif,
+                "PRESTATION"
             ])
 
         # 🔥 IMPORTANT : ENCODAGE APRÈS ÉCRITURE
