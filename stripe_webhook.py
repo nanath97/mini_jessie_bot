@@ -98,9 +98,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
-        checkout_session_id = session.get("id")
-        montant_cents = session.get("amount_total") or 0
-        metadata = session.get("metadata", {}) or {}
+        checkout_session_id = session["id"]
+        montant_cents = session("amount_total") or 0
+        metadata = session("metadata", {}) or {}
 
         client_key = metadata.get("client_key")  # email client PWA
         content_id = metadata.get("content_id")
