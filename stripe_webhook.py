@@ -102,11 +102,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         montant_cents = session["amount_total"] or 0
         metadata = session["metadata"] or {}
 
-        client_key = metadata.get("client_key")  # email client PWA
-        content_id = metadata.get("content_id")
-        channel = metadata.get("channel")
-        seller_slug = metadata.get("seller_slug")
-        client_username = metadata.get("username") or client_key or "client"
+        client_key = metadata["client_key"] if "client_key" in metadata else None
+        content_id = metadata["content_id"] if "content_id" in metadata else None
+        channel = metadata["channel"] if "channel" in metadata else None
+        seller_slug = metadata["seller_slug"] if "seller_slug" in metadata else None
+        client_username = metadata["username"] if "username" in metadata else client_key or "client"
 
         montant_euros = round(montant_cents / 100, 2)
 
