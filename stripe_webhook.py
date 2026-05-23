@@ -52,7 +52,7 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
 
         record_id = records[0]["id"]
         patch_url = f"{url}/{record_id}"
-
+        invoice_number = f"NP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
         update_resp = requests.patch(
             patch_url,
             headers=headers,
