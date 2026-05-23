@@ -99,8 +99,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         session = event["data"]["object"]
 
         checkout_session_id = session["id"]
-        montant_cents = session("amount_total") or 0
-        metadata = session("metadata", {}) or {}
+        montant_cents = session["amount_total"] or 0
+        metadata = session["metadata"] or {}
 
         client_key = metadata.get("client_key")  # email client PWA
         content_id = metadata.get("content_id")
