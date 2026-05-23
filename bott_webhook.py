@@ -786,6 +786,7 @@ async def handle_start(message: types.Message):
 
                     "text": (
                         f"✅ Merci pour votre paiement de {montant_euros} € !\n\n"
+                        f"👉 Laisser un avis : REVIEW_BUTTON"
                     ),
                 },
                 timeout=5,
