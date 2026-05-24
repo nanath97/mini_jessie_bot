@@ -1,4 +1,4 @@
-from detect_links_whitelist import lien_non_autorise  # Pour filtrer les liens
+
 from aiogram import types
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.dispatcher.handler import CancelHandler
@@ -86,16 +86,7 @@ class PaymentFilterMiddleware(BaseMiddleware):
             if text.startswith(b):
                 return
 
-        # Autoriser liens admin (filtrés) quand c'est toi en privé
-        if user_id == ADMIN_ID and message.text:
-            if lien_non_autorise(message.text):
-                try:
-                    await message.delete()
-                    await message.answer("🚫 Seuls les liens autorisés sont acceptés.")
-                except:
-                    pass
-                raise CancelHandler()
-            return
+        
 
         # 🔁 Nouvelle règle finale :
         # On NE bloque plus les non-VIP ici.

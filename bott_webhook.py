@@ -645,25 +645,7 @@ def lien_non_autorise(text):
                 return True
     return False
 
-@dp.message_handler(lambda message: (message.text and ("http://" in message.text or "https://" in message.text)) or (message.caption and ("http://" in message.caption or "https://" in message.caption)), content_types=types.ContentType.ANY)
-async def verifier_les_liens_uniquement(message: types.Message):
-    text_to_check = message.text or message.caption or ""
-    if lien_non_autorise(text_to_check):
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-            await bot.send_message(chat_id=message.chat.id, text="🚫 Les liens extérieurs sont interdits.")
-            
-            # Message perso au CEO pour avertir des fraudeurs
-            await bot.send_message(DIRECTEUR_ID,
-                                   f"🚨 Tentative de lien interdit détectée !\n\n"
-            f"👤 User: {message.from_user.username or message.from_user.first_name}\n"
-            f"🆔 ID: {message.from_user.id}\n"
-            f"🔗 Lien envoyé : {text_to_check}")
 
-            print(f"🔴 Lien interdit supprimé : {text_to_check}")
-        except Exception as e:
-            print(f"Erreur lors de la suppression du lien interdit : {e}")
-        raise CancelHandler()
 
 
 # Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
