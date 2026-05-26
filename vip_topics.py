@@ -6,7 +6,6 @@ import requests
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from core import bot, authorized_users
-import os
 
 
 
