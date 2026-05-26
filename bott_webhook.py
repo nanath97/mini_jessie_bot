@@ -1,22 +1,15 @@
 from core import bot, dp
 from aiogram import types
 import os
-from datetime import datetime
 from aiogram.dispatcher.handler import CancelHandler
 import requests
 from core import authorized_users
-from detect_links_whitelist import lien_non_autorise
 from collections import defaultdict
-from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from ban_storage import ban_list
-from middlewares.payment_filter import PaymentFilterMiddleware
 from vip_topics import is_vip, get_user_id_by_topic_id, get_panel_message_id_by_user, update_vip_info, _user_topics
 import re
 from urllib.parse import quote
-from datetime import datetime, timezone
-from payment_links import create_dynamic_checkout
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from vip_topics import _user_topics, save_pwa_note_to_airtable
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
@@ -38,7 +31,7 @@ with open("motifs.json", "r", encoding="utf-8") as f:
     MOTIFS = json.load(f)
 
 
-dp.middleware.setup(PaymentFilterMiddleware(authorized_users))
+
 
 
 # map (chat_id, message_id) -> chat_id du client
@@ -75,10 +68,6 @@ def get_pwa_client_by_email(email):
 
     return records[0].get("fields", {})
 
-# Constantes pour le bouton VIP et la vidéo de bienvenue (défaut)
-VIP_URL = "https://buy.stripe.com/7sYfZg2OxenB389gm97AI0G"
-WELCOME_VIDEO_FILE_ID = "BAACAgQAAxkBAAKpUWmAlbi3I44n7CiO8xrsKNReEYgKAAJBIAACZWgAAVB4wLe2WMU9rTgE"
-
 
 
 pending_mass_message = {}
@@ -95,12 +84,8 @@ ADMIN_EMAILS = {
 paiements_recents = defaultdict(list)  # ex : {14: [datetime1, datetime2]}
 
 
-# 1.=== Variables globales ===
-DEFAULT_FLOU_IMAGE_FILE_ID = "AgACAgEAAxkBAAIOgWgSLV1I3pOt7vxnpci_ba-hb9UXAAK6rjEbM2KQRDdrQA-mqmNwAQADAgADeAADNgQ" # Remplace par le vrai file_id Telegram
 
 
-# Fonction de détection de lien non autorisé
-ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",")
 
 # --- CONFIGURATION AIRTABLE ---
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
@@ -498,8 +483,6 @@ async def export_factures(callback_query: types.CallbackQuery):
 
         import csv
         from io import StringIO, BytesIO
-        from datetime import datetime
-
         output = StringIO()
         writer = csv.writer(output, delimiter=";")
 
@@ -584,7 +567,6 @@ async def export_factures(callback_query: types.CallbackQuery):
         await bot.send_message(admin_id, "❌ Erreur export CSV.")
 
 import requests
-from datetime import datetime
 
 def get_vip_ids_for_admin_email(email: str):
     """
@@ -625,107 +607,6 @@ def get_vip_ids_for_admin_email(email: str):
     return vip_ids
 
 
-# Liste des prix autorisés
-prix_list = [1, 3, 9, 14, 19, 24, 29, 34, 39, 44, 49, 59, 69, 79, 89, 99]
-
-# Liste blanche des liens autorisés
-WHITELIST_LINKS = [
-    "https://novapulseonline.wixsite.com/",
-    "https://buy.stripe.com/",
-    "https://t.me/NovaPulsetestbot?start=cdan"
-    "https://calendar.google.com/calendar/u/0/r" # 22 Rajouter à la ligne en bas le lien propre de l'admin
-]
-
-
-def lien_non_autorise(text):
-    words = text.split()
-    for word in words:
-        if word.startswith("http://") or word.startswith("https://"):
-            if not any(domain.strip() in word for domain in ALLOWED_DOMAINS):
-                return True
-    return False
-
-
-
-
-# Fonction pour ajouter un paiement à Airtable 22 Changer l'adresse mail par celui de l'admin
-
-def log_to_airtable(
-    pseudo,
-    user_id,
-    type_acces,
-    montant,
-    contenu="Paiement Telegram",
-    email="vinteo.ac@gmail.com",
-):
-    if not type_acces:
-        type_acces = "Paiement"  # Par défaut pour éviter erreurs
-
-    url_base = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME.replace(' ', '%20')}"
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    now = datetime.now()
-
-    # Champs communs qu'on veut toujours écrire / mettre à jour
-    fields = {
-        "Pseudo Telegram": pseudo or "-",
-        "ID Telegram": str(user_id),
-        "Type acces": str(type_acces),
-        "Montant": float(montant),
-        "Contenu": contenu,
-        "Email": email,
-        "Date": now.isoformat(),
-        "Mois": now.strftime("%Y-%m")
-    }
-
-    try:
-        # 🔹 Cas particulier : accès VIP
-        if str(type_acces).lower() == "vip":
-            # On cherche la/les lignes VIP existantes pour ce user
-            params = {
-                "filterByFormula": f"AND({{ID Telegram}} = '{user_id}', {{Type acces}} = 'VIP')"
-            }
-            r = requests.get(url_base, headers=headers, params=params)
-            r.raise_for_status()
-            records = r.json().get("records", [])
-
-            if records:
-                # On choisit de préférence une ligne qui a déjà un Topic ID
-                rec_to_update = records[0]
-                for rec in records:
-                    if rec.get("fields", {}).get("Topic ID"):
-                        rec_to_update = rec
-                        break
-
-                rec_id = rec_to_update["id"]
-                patch_url = f"{url_base}/{rec_id}"
-
-                # ⚠️ Important : on n'envoie PAS "Topic ID" ici → Airtable le conserve tel quel
-                data = {"fields": fields}
-                response = requests.patch(patch_url, json=data, headers=headers)
-            else:
-                # Sécurité : si aucune ligne VIP n'existe (cas improbable),
-                # on crée une nouvelle ligne comme avant
-                data = {"fields": fields}
-                response = requests.post(url_base, json=data, headers=headers)
-
-        # 🔹 Tous les autres types d'accès (Paiement simple, groupé, etc.)
-        else:
-            data = {"fields": fields}
-            response = requests.post(url_base, json=data, headers=headers)
-
-        if response.status_code != 200:
-            print(f"❌ Erreur Airtable : {response.text}")
-        else:
-            print("✅ Paiement ajouté dans Airtable avec succès !")
-
-    except Exception as e:
-        print(f"Erreur lors de l'envoi à Airtable : {e}")
-
-
 
 # Création du clavier
 
@@ -743,8 +624,6 @@ keyboard_admin.add(
 )
 
 from aiogram import types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import datetime, timedelta
 
 @dp.message_handler(commands=["start"])
 async def handle_start(message: types.Message):
@@ -822,62 +701,6 @@ async def handle_start(message: types.Message):
             print(f"[VIP_TOPICS_ERROR] {e}")
 
 
-    # === Cas B : /start=vipcdan (retour après paiement VIP) ===
-    if param == "vipcdan":
-        # 1) Le user devient VIP côté système (payeurs)
-        authorized_users.add(user_id)
-
-        # 2) On crée / récupère le topic pour ce client
-        try:
-            from vip_topics import ensure_topic_for_vip
-            topic_id = await ensure_topic_for_vip(message.from_user)
-        except Exception as e:
-            print(f"[VIP] Erreur ensure_topic_for_vip pour {user_id}: {e}")
-            topic_id = None  # pour éviter un NameError plus loin
-
-        # 3) Log Airtable en tant que VIP (sans envoyer de cadeau auto au client)
-        log_to_airtable(
-            pseudo=message.from_user.username or message.from_user.first_name,
-            user_id=user_id,
-            type_acces="VIP",
-            montant=9.0,  # adapte si besoin selon ton lien Stripe VIP
-            contenu="Accès VIP confirmé via Stripe"
-        )
-
-        # 4) Notifier tous les admins (mais pas le client)
-        for adm in authorized_admin_ids:
-            try:
-                await bot.send_message(
-                    adm,
-                    f"🌟 Nouveau VIP confirmé : {message.from_user.username or message.from_user.first_name} (paiement VIP)."
-                )
-            except Exception:
-                pass
-
-        # 5) Notification dans le TOPIC du client (si on a réussi à le récupérer)
-        if topic_id is not None:
-            try:
-                await bot.request(
-                    "sendMessage",
-                    {
-                        "chat_id": int(os.getenv("STAFF_GROUP_ID", "0")),
-                        "message_thread_id": topic_id,
-                        "text": (
-                            f"🌟 *Nouveau VIP confirmé*\n\n"
-                            f"👤 Client : @{message.from_user.username or message.from_user.first_name}\n"
-                            f"💶 Montant : 9 €\n"
-                            f"📊 Accès VIP enregistré dans le dashboard."
-                        ),
-                        "parse_mode": "Markdown"
-                    }
-                )
-            except Exception as e:
-                print(f"[VIP_TOPICS] Erreur envoi notif VIP dans topic {topic_id} : {e}")
-
-        # ⚠️ Important : on NE renvoie RIEN au client ici.
-        # Il continue à parler normalement, il recevra seulement les contenus que l'admin lui vend.
-        return  # on sort ici pour ne pas passer à l’accueil normal
-
     # === Cas C : /start simple (accueil normal) ===
     if is_admin(user_id):
         await bot.send_message(
@@ -932,20 +755,6 @@ async def handle_services(call: types.CallbackQuery):
     )
 
     await call.answer()
-
-
-    # Envoi à tous les admins (vendeurs)
-    try:
-        for adm in authorized_admin_ids:
-            await bot.send_message(adm, texte_alerte_admin, parse_mode="Markdown")
-    except Exception as e:
-        print(f"Erreur envoi admin : {e}")
-
-    # Envoi au directeur (toi)
-    try:
-        await bot.send_message(DIRECTEUR_ID, texte_alerte_directeur, parse_mode="Markdown")
-    except Exception as e:
-        print(f"Erreur envoi directeur : {e}")
 
 
 # TEST  DEBUT
@@ -1714,11 +1523,9 @@ async def handle_admin_message(message: types.Message):
 
 # ========== IMPORTS ESSENTIELS ==========
 from aiogram import types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 # ========== HANDLER CLIENT : transfert vers admin ==========
-
-from ban_storage import ban_list  # à ajouter tout en haut si pas déjà fait
 
 
 STAFF_GROUP_ID = int(os.getenv("STAFF_GROUP_ID", "0"))
@@ -1735,39 +1542,6 @@ async def relay_from_client(message: types.Message):
     user_id = message.from_user.id
     print(f"[RELAY] message from {user_id} (chat {message.chat.id}), authorized={user_id in authorized_users}")
 
-    # 1) Vérifier la ban_list
-    for admin_id, clients_bannis in ban_list.items():
-        if user_id in clients_bannis:
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            try:
-                await bot.send_message(
-                    user_id,
-                    "🚫 Tu as été banni, tu ne peux plus envoyer de messages."
-                )
-            except Exception:
-                pass
-            return
-
-    # 2) 🔎 Détection des mots "call" / "custom" (UNIQUEMENT TEXTE)
-    if message.content_type == types.ContentType.TEXT:
-        texte = (message.text or "").lower()
-        if any(mot in texte for mot in ("call", "custom")):
-            try:
-                await bot.send_message(
-                    DIRECTEUR_ID,
-                    (
-                        "📞 Mot clé détecté : *call/custom*\n\n"
-                        f"👤 User : @{message.from_user.username or message.from_user.first_name}\n"
-                        f"🆔 ID : `{message.from_user.id}`\n"
-                        f"💬 Message : {message.text}"
-                    ),
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                print(f"Erreur lors de l'avertissement du directeur : {e}")
 
     # 3) Création / récupération du topic dédié pour ce client + transfert
     topic_id = None
@@ -2524,7 +2298,7 @@ async def process_due_programmations_once():
 #101
 
 import asyncio
-from datetime import datetime, timezone
+
 # ... (le reste de tes imports)
 
 async def scheduler_loop():
