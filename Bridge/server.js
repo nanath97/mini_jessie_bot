@@ -762,6 +762,19 @@ app.post("/webhook", async (req, res) => {
           return res.sendStatus(200);
         }
 
+              // Tous les callbacks non-PWA vont au bot Python
+      try {
+        await axios.post(
+          `http://127.0.0.1:3000/bot/${TELEGRAM_BOT_TOKEN}`,
+          update,
+          { timeout: 20000 }
+        );
+      } catch (err) {
+        console.error("❌ PYTHON CALLBACK FORWARD ERROR:", err.response?.data || err.message);
+      }
+
+      return res.sendStatus(200);
+
         const seller_slug = normSlug(records[0].fields.seller_slug);
 
         // On met le topic en mode "attente note"
