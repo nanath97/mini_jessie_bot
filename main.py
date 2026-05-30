@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import requests
+import traceback
 from pydantic import BaseModel
 
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
@@ -41,8 +42,9 @@ async def telegram_webhook(request: Request):
         await dp.process_update(update)
 
     except Exception as e:
-        print("❌ Erreur dans webhook :", e)
-        return {"ok": False, "error": str(e)}
+        print("❌ Erreur dans webhook :", repr(e))
+        traceback.print_exc()
+        return {"ok": False, "error": repr(e)}
 
     return {"ok": True}
 
