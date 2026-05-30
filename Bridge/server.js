@@ -746,7 +746,6 @@ app.post("/webhook", async (req, res) => {
 
       // ✅ On ne gère ici QUE les callbacks PWA
       if (data.startsWith("annoter_pwa_") && threadId) {
-        // On récupère le client (seller_slug) via topic_id pour être cohérent
         const records = await tablePWA
           .select({
             filterByFormula: `{topic_id}='${threadId}'`,
@@ -762,22 +761,8 @@ app.post("/webhook", async (req, res) => {
           return res.sendStatus(200);
         }
 
-              // Tous les callbacks non-PWA vont au bot Python
-      try {
-        await axios.post(
-          `http://127.0.0.1:3000/bot/${TELEGRAM_BOT_TOKEN}`,
-          update,
-          { timeout: 20000 }
-        );
-      } catch (err) {
-        console.error("❌ PYTHON CALLBACK FORWARD ERROR:", err.response?.data || err.message);
-      }
-
-      return res.sendStatus(200);
-
         const seller_slug = normSlug(records[0].fields.seller_slug);
 
-        // On met le topic en mode "attente note"
         pendingPwaNotes[threadId] = { seller_slug, startedAt: Date.now() };
 
         await tgSendMessage({
@@ -786,6 +771,20 @@ app.post("/webhook", async (req, res) => {
         });
 
         return res.sendStatus(200);
+      }
+
+      // ✅ Tous les callbacks non-PWA vont au bot Python
+      try {
+        await axios.post(
+          `http://127.0.0.1:3000/bot/${TELEGRAM_BOT_TOKEN}`,
+          update,
+          { timeout: 20000 }
+        );
+      } catch (err) {
+        console.error(
+          "❌ PYTHON CALLBACK FORWARD ERROR:",
+          err.response?.data || err.message
+        );
       }
 
       return res.sendStatus(200);
