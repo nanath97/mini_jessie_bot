@@ -134,26 +134,31 @@ app.post("/bot/:token", async (req, res) => {
   }
 });
 
-app.post("/stripe/webhook", async (req, res) => {
-  try {
-    const response = await axios.post(
-      "http://127.0.0.1:3000/stripe/webhook",
-      req.body,
-      {
-        headers: {
-          "stripe-signature": req.headers["stripe-signature"],
-          "content-type": req.headers["content-type"],
-        },
-        timeout: 20000,
-      }
-    );
+app.post(
+  "/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:3000/stripe/webhook",
+        req.body,
+        {
+          headers: {
+            "stripe-signature": req.headers["stripe-signature"],
+            "content-type": "application/json",
+          },
+          transformRequest: [(data) => data],
+          timeout: 20000,
+        }
+      );
 
-    return res.status(response.status).json(response.data);
-  } catch (err) {
-    console.error("❌ STRIPE PROXY ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ ok: false });
+      return res.status(response.status).json(response.data);
+    } catch (err) {
+      console.error("❌ STRIPE PROXY ERROR:", err.response?.data || err.message);
+      return res.status(500).json({ ok: false });
+    }
   }
-});
+);
 
 app.use(
   "/create-checkout",
