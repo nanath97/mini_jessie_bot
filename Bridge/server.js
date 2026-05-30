@@ -768,12 +768,22 @@ if (!update || !update.message) return res.sendStatus(200);
 // on transfère au bot Python
 const incomingMessage = update.message;
 
+const incomingMessage = update.message;
+
+const incomingText = (
+  incomingMessage.text ||
+  incomingMessage.caption ||
+  ""
+).trim();
+
+const isEnvCommand = incomingText.toLowerCase().includes("/env");
+
 const isStaffTopicMessage =
   incomingMessage.chat?.type === "supergroup" &&
   incomingMessage.message_thread_id &&
   !incomingMessage.from?.is_bot;
 
-if (!isStaffTopicMessage) {
+if (!isStaffTopicMessage || isEnvCommand) {
   try {
     await axios.post(
       `http://127.0.0.1:3000/bot/${TELEGRAM_BOT_TOKEN}`,
