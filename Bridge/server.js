@@ -117,14 +117,22 @@ app.use(express.json({ limit: "20mb" })); // un peu plus safe pour certains payl
 // PROXY -> PYTHON FASTAPI
 // =======================
 
-app.use(
-  "/bot",
-  createProxyMiddleware({
-    target: "http://127.0.0.1:3000",
-    changeOrigin: true,
-    pathRewrite: (path) => `/bot${path}`,
-  })
-);
+app.post("/bot/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+
+    await axios.post(
+      `http://127.0.0.1:3000/bot/${token}`,
+      req.body,
+      { timeout: 20000 }
+    );
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ BOT PROXY ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ ok: false });
+  }
+});
 
 app.use(
   "/stripe/webhook",
