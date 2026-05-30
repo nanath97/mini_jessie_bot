@@ -134,13 +134,26 @@ app.post("/bot/:token", async (req, res) => {
   }
 });
 
-app.use(
-  "/stripe/webhook",
-  createProxyMiddleware({
-    target: "http://127.0.0.1:3000",
-    changeOrigin: true,
-  })
-);
+app.post("/stripe/webhook", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "http://127.0.0.1:3000/stripe/webhook",
+      req.body,
+      {
+        headers: {
+          "stripe-signature": req.headers["stripe-signature"],
+          "content-type": req.headers["content-type"],
+        },
+        timeout: 20000,
+      }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (err) {
+    console.error("❌ STRIPE PROXY ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ ok: false });
+  }
+});
 
 app.use(
   "/create-checkout",
