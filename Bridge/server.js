@@ -764,6 +764,28 @@ app.post("/webhook", async (req, res) => {
 // 2) MESSAGE (supergroup topics)
 // =========================
 if (!update || !update.message) return res.sendStatus(200);
+// Si ce n'est pas un message de topic staff PWA,
+// on transfère au bot Python
+const incomingMessage = update.message;
+
+const isStaffTopicMessage =
+  incomingMessage.chat?.type === "supergroup" &&
+  incomingMessage.message_thread_id &&
+  !incomingMessage.from?.is_bot;
+
+if (!isStaffTopicMessage) {
+  try {
+    await axios.post(
+      `http://127.0.0.1:3000/bot/${TELEGRAM_BOT_TOKEN}`,
+      update,
+      { timeout: 20000 }
+    );
+  } catch (err) {
+    console.error("❌ PYTHON FORWARD ERROR:", err.response?.data || err.message);
+  }
+
+  return res.sendStatus(200);
+}
 
 const message = update.message;
 const caption = (message.caption || "").toLowerCase();
