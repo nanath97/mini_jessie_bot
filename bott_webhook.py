@@ -22,7 +22,7 @@ import json
 
 
 BOT_USERNAME = os.getenv("BOT_USERNAME")
-BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")  # https://novapulse-bridge.onrender.com
+BRIDGE_API_URL = os.getenv("BRIDGE_API_URL") 
 
 # ================================
 # CHARGEMENT DES MOTIFS

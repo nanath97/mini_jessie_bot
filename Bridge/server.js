@@ -838,7 +838,7 @@ updateAdminActivity();
     [
       {
         text: "📄 Créer un devis",
-        url: `https://novapulse-bridge.onrender.com/quote?topic=${threadId}`
+        url: `${process.env.BRIDGE_API_URL}/quote?topic=${threadId}`
       },
     ],
   ],
@@ -1833,7 +1833,7 @@ app.post("/pwa/register-client", async (req, res) => {
   [
     {
       text: "📄 Créer un devis",
-      url: `https://novapulse-bridge.onrender.com/quote?topic=${topicId}`,
+      url: `${process.env.BRIDGE_API_URL}/quote?topic=${topicId}`,
     },
   ],
 ],
