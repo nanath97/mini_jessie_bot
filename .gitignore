@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Env
+.env
+Bridge/.env
+
+# Node
+node_modules/
+Bridge/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

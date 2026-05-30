@@ -1,0 +1,37 @@
+{
+  "name": "novapulse-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanath97/novapulse-bridge.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nanath97/novapulse-bridge/issues"
+  },
+  "homepage": "https://github.com/nanath97/novapulse-bridge#readme",
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "axios": "^1.13.5",
+    "cloudinary": "^2.9.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "http-proxy-middleware": "^4.0.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
+    "socket.io": "^4.8.3",
+    "streamifier": "^0.1.1",
+    "web-push": "^3.6.7"
+  }
+}

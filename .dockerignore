@@ -1,0 +1,9 @@
+.env
+Bridge/.env
+node_modules
+Bridge/node_modules
+__pycache__
+*.pyc
+.git
+.gitignore
+aiogram-fastapi-webhook-render-template
