@@ -631,30 +631,6 @@ async def handle_start(message: types.Message):
     param = (message.get_args() or "").strip()
     print(f"[DEBUG START PARAM] reçu: '{param}'")
 
-    # ============================================================
-    # 🔔 NOTIFICATIONS POST-PAIEMENT (CORRIGÉES)
-    # ============================================================
-
-        # 1️⃣ Confirmation client → PWA via bridge (admin_message)
-    try:
-        BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
-        if client_key and seller_slug and BRIDGE_API_URL:
-            resp = requests.post(
-                f"{BRIDGE_API_URL}/pwa/send-admin-message",
-                json={
-                    "email": client_key,
-                    "sellerSlug": seller_slug,
-
-                    "text": (
-                        f"✅ Merci pour votre paiement de {montant_euros} € !\n\n"
-                        f"👉 Laisser un avis : REVIEW_BUTTON"
-                    ),
-                },
-                timeout=5,
-            )
-            print(f"📩 Confirmation client PWA: {resp.status_code} {resp.text}")
-    except Exception as e:
-        print(f"❌ Erreur confirmation client PWA: {e}")
 
 
     # 2️⃣ Notification admins → Telegram
