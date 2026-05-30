@@ -768,8 +768,6 @@ if (!update || !update.message) return res.sendStatus(200);
 // on transfère au bot Python
 const incomingMessage = update.message;
 
-const incomingMessage = update.message;
-
 const incomingText = (
   incomingMessage.text ||
   incomingMessage.caption ||
