@@ -111,7 +111,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
-app.use(express.json({ limit: "20mb" })); // un peu plus safe pour certains payloads
+
 
 // =======================
 // PROXY -> PYTHON FASTAPI
@@ -147,7 +147,7 @@ app.post(
             "stripe-signature": req.headers["stripe-signature"],
             "content-type": "application/json",
           },
-          transformRequest: [(data) => data],
+          
           timeout: 20000,
         }
       );
@@ -159,7 +159,7 @@ app.post(
     }
   }
 );
-
+app.use(express.json({ limit: "20mb" })); // un peu plus safe pour certains payloads
 app.use(
   "/create-checkout",
   createProxyMiddleware({
