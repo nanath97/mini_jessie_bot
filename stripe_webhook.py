@@ -20,7 +20,7 @@ BASE_ID = os.getenv("BASE_ID")
 PAYMENT_LINKS_TABLE = "Payment Links"
 
 
-def mark_payment_link_as_paid_by_session(checkout_session_id: str):
+def mark_payment_link_as_paid_by_session(checkout_session_id: str, buyer_fields: dict = None):
     """
     Met à jour dans Airtable la ligne correspondant au Checkout Session ID.
     """
@@ -53,16 +53,20 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str):
         record_id = records[0]["id"]
         patch_url = f"{url}/{record_id}"
         invoice_number = f"NP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+
+        airtable_fields = {
+            "Status": "Paid",
+            "Paid At": datetime.utcnow().isoformat(),
+            "Invoice Number": invoice_number
+        }
+
+        if buyer_fields:
+            airtable_fields.update(buyer_fields)
+
         update_resp = requests.patch(
             patch_url,
             headers=headers,
-            json={
-                "fields": {
-                    "Status": "Paid",
-                    "Paid At": datetime.utcnow().isoformat(),
-                    "Invoice Number": invoice_number
-                }
-            }
+            json={"fields": airtable_fields}
         )
 
         print("PATCH RESPONSE =", update_resp.text)
@@ -101,6 +105,49 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         checkout_session_id = session["id"]
         montant_cents = session["amount_total"] or 0
         metadata = session["metadata"] or {}
+        customer_details = session.get("customer_details") or {}
+        address = customer_details.get("address") or {}
+
+        custom_fields = session.get("custom_fields") or []
+
+        buyer_company_name = ""
+        buyer_siret = ""
+
+        for field in custom_fields:
+            key = field.get("key")
+            value = field.get("text", {}).get("value", "")
+
+            if key == "buyer_company_name":
+                buyer_company_name = value
+
+            if key == "buyer_siret":
+                buyer_siret = value
+
+        tax_ids = customer_details.get("tax_ids") or []
+        buyer_vat = ""
+
+        if tax_ids:
+            buyer_vat = tax_ids[0].get("value", "")
+
+        buyer_type = "Entreprise" if buyer_company_name or buyer_siret or buyer_vat else "Particulier"
+
+        buyer_fields = {
+            "Buyer Name": customer_details.get("name", ""),
+            "Buyer Email": customer_details.get("email", ""),
+            "Buyer Phone": customer_details.get("phone", ""),
+            "Buyer Address Line 1": address.get("line1", ""),
+            "Buyer Address Line 2": address.get("line2", ""),
+            "Buyer Postal Code": address.get("postal_code", ""),
+            "Buyer City": address.get("city", ""),
+            "Buyer Country": address.get("country", ""),
+            "Buyer Company Name": buyer_company_name,
+            "Buyer SIRET": buyer_siret,
+            "Buyer VAT": buyer_vat,
+            "Buyer Type": buyer_type,
+            "Stripe Customer ID": session.get("customer", ""),
+            "Stripe Invoice ID": session.get("invoice", ""),
+            "Stripe Payment Intent ID": session.get("payment_intent", ""),
+        }
 
         client_key = metadata["client_key"] if "client_key" in metadata else None
         content_id = metadata["content_id"] if "content_id" in metadata else None
@@ -116,7 +163,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         )
 
         # 3) Update Airtable
-        mark_payment_link_as_paid_by_session(checkout_session_id)
+        mark_payment_link_as_paid_by_session(checkout_session_id, buyer_fields)
 
         # ============================================================
         # 🔔 NOUVEAU : NOTIFICATIONS POST-PAIEMENT

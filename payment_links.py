@@ -34,6 +34,36 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
         }],
         mode="payment",
 
+        # Collecte infos acheteur pour export facture / PDP
+        customer_creation="always",
+        billing_address_collection="required",
+        phone_number_collection={"enabled": True},
+        tax_id_collection={"enabled": True},
+        invoice_creation={"enabled": True},
+
+        custom_fields=[
+            {
+                "key": "buyer_company_name",
+                "label": {
+                    "type": "custom",
+                    "custom": "Nom de l'entreprise acheteuse (optionnel)"
+                },
+                "type": "text",
+                "optional": True,
+            },
+            {
+                "key": "buyer_siret",
+                "label": {
+                    "type": "custom",
+                    "custom": "SIRET / SIREN acheteur (optionnel)"
+                },
+                "type": "text",
+                "optional": True,
+            },
+        ],
+
+        
+
         # IMPORTANT: redirection vers PWA
         success_url=f"{success_url}?paid=1&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=cancel_url,
