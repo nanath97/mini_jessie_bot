@@ -105,10 +105,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         checkout_session_id = session["id"]
         montant_cents = session["amount_total"] or 0
         metadata = session["metadata"] or {}
-        customer_details = session.get("customer_details") or {}
+        customer_details = session["customer_details"] if "customer_details" in session else {}
         address = customer_details.get("address") or {}
 
-        custom_fields = session.get("custom_fields") or []
+        custom_fields = session["custom_fields"] if "custom_fields" in session else []
 
         buyer_company_name = ""
         buyer_siret = ""
@@ -144,9 +144,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             "Buyer SIRET": buyer_siret,
             "Buyer VAT": buyer_vat,
             "Buyer Type": buyer_type,
-            "Stripe Customer ID": session.get("customer", ""),
-            "Stripe Invoice ID": session.get("invoice", ""),
-            "Stripe Payment Intent ID": session.get("payment_intent", ""),
+            "Stripe Customer ID": session["customer"] if "customer" in session else "",
+            "Stripe Invoice ID": session["invoice"] if "invoice" in session else "",
+            "Stripe Payment Intent ID": session["payment_intent"] if "payment_intent" in session else "",
         }
 
         client_key = metadata["client_key"] if "client_key" in metadata else None
