@@ -485,17 +485,34 @@ async def export_factures(callback_query: types.CallbackQuery):
         from io import StringIO, BytesIO
         output = StringIO()
         writer = csv.writer(output, delimiter=";")
-
         # HEADER
         writer.writerow([
             "Numero facture",
             "Date",
+
+            # VENDEUR
             "Type client",
             "Nom entreprise",
             "Client",
             "Email",
             "SIRET",
             "TVA",
+
+            # ACHETEUR
+            "Acheteur Nom",
+            "Acheteur Email",
+            "Acheteur Telephone",
+            "Acheteur Adresse 1",
+            "Acheteur Adresse 2",
+            "Acheteur Code Postal",
+            "Acheteur Ville",
+            "Acheteur Pays",
+            "Acheteur Type",
+            "Acheteur Entreprise",
+            "Acheteur SIRET",
+            "Acheteur TVA",
+
+            # TRANSACTION
             "Montant HT",
             "TVA (%)",
             "Montant TVA",
@@ -514,12 +531,27 @@ async def export_factures(callback_query: types.CallbackQuery):
             email = f.get("Client Key", "")
             client_data = get_pwa_client_by_email(email)
 
+            # VENDEUR
             type_client = client_data.get("type_client", "")
             nom_entreprise = client_data.get("entreprise_nom", "")
             siret = client_data.get("siret", "")
             tva_number = client_data.get("tva", "")
 
             client = nom_entreprise if str(type_client).lower() == "entreprise" else email
+
+            # ACHETEUR
+            buyer_name = f.get("Buyer Name", "")
+            buyer_email = f.get("Buyer Email", "")
+            buyer_phone = f.get("Buyer Phone", "")
+            buyer_address_1 = f.get("Buyer Address Line 1", "")
+            buyer_address_2 = f.get("Buyer Address Line 2", "")
+            buyer_postal_code = f.get("Buyer Postal Code", "")
+            buyer_city = f.get("Buyer City", "")
+            buyer_country = f.get("Buyer Country", "")
+            buyer_type = f.get("Buyer Type", "")
+            buyer_company_name = f.get("Buyer Company Name", "")
+            buyer_siret = f.get("Buyer SIRET", "")
+            buyer_vat = f.get("Buyer VAT", "")
 
             amount_ttc = (f.get("Amount Cents", 0) or 0) / 100
 
@@ -533,12 +565,30 @@ async def export_factures(callback_query: types.CallbackQuery):
             writer.writerow([
                 numero,
                 raw_date,
+
+                # VENDEUR
                 type_client,
                 nom_entreprise,
                 client,
                 email,
                 siret,
                 tva_number,
+
+                # ACHETEUR
+                buyer_name,
+                buyer_email,
+                buyer_phone,
+                buyer_address_1,
+                buyer_address_2,
+                buyer_postal_code,
+                buyer_city,
+                buyer_country,
+                buyer_type,
+                buyer_company_name,
+                buyer_siret,
+                buyer_vat,
+
+                # TRANSACTION
                 round(amount_ht, 2),
                 int(tva_rate * 100),
                 round(tva_amount, 2),
