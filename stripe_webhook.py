@@ -106,7 +106,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         montant_cents = session["amount_total"] or 0
         metadata = session["metadata"] or {}
         customer_details = session["customer_details"] if "customer_details" in session else {}
-        address = customer_details.get("address") or {}
+        address = customer_details["address"] if "address" in customer_details else {}
 
         custom_fields = session["custom_fields"] if "custom_fields" in session else []
 
@@ -132,14 +132,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         buyer_type = "Entreprise" if buyer_company_name or buyer_siret or buyer_vat else "Particulier"
 
         buyer_fields = {
-            "Buyer Name": customer_details.get("name", ""),
-            "Buyer Email": customer_details.get("email", ""),
-            "Buyer Phone": customer_details.get("phone", ""),
-            "Buyer Address Line 1": address.get("line1", ""),
-            "Buyer Address Line 2": address.get("line2", ""),
-            "Buyer Postal Code": address.get("postal_code", ""),
-            "Buyer City": address.get("city", ""),
-            "Buyer Country": address.get("country", ""),
+
+            "Buyer Name": customer_details["name"] if "name" in customer_details else "",
+            "Buyer Email": customer_details["email"] if "email" in customer_details else "",
+            "Buyer Phone": customer_details["phone"] if "phone" in customer_details else "",
+            "Buyer Address Line 1": address["line1"] if "line1" in address else "",
+            "Buyer Address Line 2": address["line2"] if "line2" in address else "",
+            "Buyer Postal Code": address["postal_code"] if "postal_code" in address else "",
+            "Buyer City": address["city"] if "city" in address else "",
+            "Buyer Country": address["country"] if "country" in address else "",
             "Buyer Company Name": buyer_company_name,
             "Buyer SIRET": buyer_siret,
             "Buyer VAT": buyer_vat,
