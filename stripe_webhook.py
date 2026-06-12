@@ -114,8 +114,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         buyer_siret = ""
 
         for field in custom_fields:
-            key = field.get("key")
-            value = field.get("text", {}).get("value", "")
+            key = field["key"] if "key" in field else ""
+
+            text_data = field["text"] if "text" in field else {}
+            value = text_data["value"] if "value" in text_data else ""
 
             if key == "buyer_company_name":
                 buyer_company_name = value
@@ -123,11 +125,12 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             if key == "buyer_siret":
                 buyer_siret = value
 
-        tax_ids = customer_details.get("tax_ids") or []
+        tax_ids = customer_details["tax_ids"] if "tax_ids" in customer_details else []
         buyer_vat = ""
 
         if tax_ids:
-            buyer_vat = tax_ids[0].get("value", "")
+            first_tax_id = tax_ids[0]
+            buyer_vat = first_tax_id["value"] if "value" in first_tax_id else ""
 
         buyer_type = "Entreprise" if buyer_company_name or buyer_siret or buyer_vat else "Particulier"
 
