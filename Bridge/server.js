@@ -2351,20 +2351,75 @@ return res.status(400).json({error:"missing data"})
 
 // ===== CREATE PDF =====
 
+// ===== CLIENT + SELLER CONFIG =====
+let clientEmail = email || ""
+let sellerSlug = seller || ""
+let sellerConfig = {}
+let sellerCompany = {}
+
+try {
+  const pwaRows = await tablePWA
+    .select({
+      filterByFormula: `{topic_id}='${String(topic)}'`,
+      maxRecords: 1,
+    })
+    .firstPage()
+
+  if (pwaRows.length) {
+    clientEmail = pwaRows[0].fields.email || clientEmail
+    sellerSlug = pwaRows[0].fields.seller_slug || sellerSlug
+  }
+
+  const configPath = path.join(
+    __dirname,
+    "public",
+    "sellers",
+    sellerSlug,
+    "config.json"
+  )
+
+  if (sellerSlug && fs.existsSync(configPath)) {
+    sellerConfig = JSON.parse(fs.readFileSync(configPath, "utf8"))
+    sellerCompany = sellerConfig.company || {}
+  }
+} catch (err) {
+  console.error("❌ Erreur lecture config vendeur pour devis:", err.message)
+}
 // ===== CREATE PDF =====
 
 const doc = new PDFDocument({ margin: 40 })
 // ICI 👇 on ajoute le titre
 
+const displayCompanyName =
+  sellerCompany.name ||
+  sellerConfig.name ||
+  "NovaPulse"
+
 doc.font("Helvetica-Bold")
-doc.fontSize(32)
-doc.text("NovaPulse", { align: "center" })
+doc.fontSize(26)
+doc.text(displayCompanyName, { align: "center" })
 
 doc.moveDown(0.3)
 
 doc.font("Helvetica")
 doc.fontSize(14)
 doc.text("DEVIS", { align: "center" })
+
+doc.moveDown(0.5)
+
+const sellerLines = []
+
+if (sellerCompany.siret) sellerLines.push(`SIRET : ${sellerCompany.siret}`)
+if (sellerCompany.address) sellerLines.push(sellerCompany.address)
+if (sellerCompany.email) sellerLines.push(sellerCompany.email)
+if (sellerCompany.phone) sellerLines.push(sellerCompany.phone)
+
+if (sellerLines.length) {
+  doc.font("Helvetica").fontSize(9)
+  sellerLines.forEach(line => {
+    doc.text(line, { align: "center" })
+  })
+}
 
 doc.moveDown()
 
@@ -2448,7 +2503,7 @@ function drawItemRow(y, item) {
 doc.font("Helvetica").fontSize(11)
 
 const yInfo = doc.y + 10
-doc.text(`Client : ${email || "-"}`, left, yInfo, { width: 260 })
+doc.text(`Client : ${clientEmail || "-"}`, left, yInfo, { width: 260 })
 doc.text(`Date : ${new Date().toLocaleDateString("fr-FR")}`, 0, yInfo, { align: "right" })
 
 doc.moveDown(2)
