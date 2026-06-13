@@ -2385,7 +2385,14 @@ try {
 
 console.log("SELLER SLUG:", sellerSlug)
 console.log("CONFIG PATH:", configPath)
-console.log("SELLER CONFIG:", sellerConfig)
+
+console.log("CONFIG EXISTS:", fs.existsSync(configPath))
+console.log("CONFIG PATH:", configPath)
+
+if (fs.existsSync(configPath)) {
+  const rawConfig = fs.readFileSync(configPath, "utf8")
+  console.log("RAW CONFIG:", rawConfig)
+}
 console.log("SELLER COMPANY:", sellerCompany)
 } catch (err) {
   console.error("❌ Erreur lecture config vendeur pour devis:", err.message)
