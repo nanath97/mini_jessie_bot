@@ -2379,9 +2379,14 @@ try {
   )
 
   if (sellerSlug && fs.existsSync(configPath)) {
-    sellerConfig = JSON.parse(fs.readFileSync(configPath, "utf8"))
-    sellerCompany = sellerConfig.company || {}
-  }
+  sellerConfig = JSON.parse(fs.readFileSync(configPath, "utf8"))
+  sellerCompany = sellerConfig.company || {}
+}
+
+console.log("SELLER SLUG:", sellerSlug)
+console.log("CONFIG PATH:", configPath)
+console.log("SELLER CONFIG:", sellerConfig)
+console.log("SELLER COMPANY:", sellerCompany)
 } catch (err) {
   console.error("❌ Erreur lecture config vendeur pour devis:", err.message)
 }
