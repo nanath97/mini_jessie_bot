@@ -2350,7 +2350,6 @@ return res.status(400).json({error:"missing data"})
 }
 
 // ===== CREATE PDF =====
-
 // ===== CLIENT + SELLER CONFIG =====
 let clientEmail = email || ""
 let sellerSlug = seller || ""
@@ -2370,32 +2369,25 @@ try {
     sellerSlug = pwaRows[0].fields.seller_slug || sellerSlug
   }
 
-  const configPath = path.join(
-    __dirname,
-    "public",
-    "sellers",
-    sellerSlug,
-    "config.json"
-  )
+  console.log("SELLER SLUG:", sellerSlug)
 
-  if (sellerSlug && fs.existsSync(configPath)) {
-  sellerConfig = JSON.parse(fs.readFileSync(configPath, "utf8"))
-  sellerCompany = sellerConfig.company || {}
-}
+  if (sellerSlug) {
+    const configUrl =
+      `https://novapulse-pwa.onrender.com/sellers/${sellerSlug}/config.json`
 
-console.log("SELLER SLUG:", sellerSlug)
-console.log("CONFIG PATH:", configPath)
+    console.log("CONFIG URL:", configUrl)
 
-console.log("CONFIG EXISTS:", fs.existsSync(configPath))
-console.log("CONFIG PATH:", configPath)
+    const configResp = await axios.get(configUrl, { timeout: 10000 })
 
-if (fs.existsSync(configPath)) {
-  const rawConfig = fs.readFileSync(configPath, "utf8")
-  console.log("RAW CONFIG:", rawConfig)
-}
-console.log("SELLER COMPANY:", sellerCompany)
+    sellerConfig = configResp.data || {}
+    sellerCompany = sellerConfig.company || {}
+  }
+
+  console.log("SELLER CONFIG:", sellerConfig)
+  console.log("SELLER COMPANY:", sellerCompany)
+
 } catch (err) {
-  console.error("❌ Erreur lecture config vendeur pour devis:", err.message)
+  console.error("❌ Erreur chargement config vendeur pour devis:", err.message)
 }
 // ===== CREATE PDF =====
 
