@@ -168,17 +168,20 @@ app.use(
   })
 );
 
-app.use(
-  "/reminder",
-  createProxyMiddleware({
-    target: "http://127.0.0.1:3000",
-    changeOrigin: true,
-    pathRewrite: {
-      "^/reminder": "/reminder",
-    },
-    logLevel: "debug",
-  })
-);
+app.post("/reminder", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "http://127.0.0.1:3000/reminder",
+      req.body,
+      { timeout: 20000 }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (err) {
+    console.error("❌ REMINDER PROXY ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ ok: false, error: err.response?.data || err.message });
+  }
+});
 
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
