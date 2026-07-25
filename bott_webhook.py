@@ -17,6 +17,7 @@ import json
 
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+import fitz
 
 
 
@@ -942,9 +943,8 @@ def detect_motif(text):
 
 
 from aiogram.dispatcher.handler import CancelHandler
-
 # ================================
-# HANDLER /fi → FILIGRANE IMAGE
+# HANDLER /fi → FILIGRANE IMAGE + PDF
 # ================================
 @dp.message_handler(
     lambda m: (m.text or m.caption) and "/fi" in (m.text or m.caption).lower(),
@@ -958,99 +958,27 @@ async def envoyer_contenu_filigrane(message: types.Message):
 
     print("🔥 COMMANDE /fi DÉTECTÉE")
 
-    # Pour l'instant : uniquement les photos Telegram
-    if not message.photo:
+    # ================================
+    # 1. DÉTECTION DU TYPE DE MÉDIA
+    # ================================
+    is_photo = bool(message.photo)
+
+    is_pdf = bool(
+        message.document
+        and message.document.mime_type == "application/pdf"
+    )
+
+    if not is_photo and not is_pdf:
         await bot.send_message(
             chat_id=admin_id,
-            text="❌ Pour l'instant, /fi fonctionne uniquement avec une image."
+            text="❌ /fi fonctionne avec une image ou un PDF."
         )
         raise CancelHandler()
 
     try:
-        # 1. Récupérer l'image en meilleure qualité
-        file_id = message.photo[-1].file_id
-        file_info = await bot.get_file(file_id)
-        downloaded = await bot.download_file(file_info.file_path)
-
-        # 2. Ouvrir l'image
-        image = Image.open(BytesIO(downloaded.read())).convert("RGBA")
-
-        # 3. Créer un calque transparent pour le filigrane
-        watermark_layer = Image.new("RGBA", image.size, (255, 255, 255, 0))
-
-        # Taille du texte adaptée à la taille de l'image
-        font_size = max(24, int(image.width / 8))
-
-        try:
-            font = ImageFont.truetype(
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                font_size
-            )
-        except Exception:
-            font = ImageFont.load_default()
-
-        # 4. Créer un gros APERÇU diagonal
-        text = "APERÇU"
-
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        padding = int(font_size * 0.8)
-
-        tile_width = text_width + padding * 2
-        tile_height = text_height + padding * 2
-
-        tile = Image.new(
-            "RGBA",
-            (tile_width, tile_height),
-            (255, 255, 255, 0)
-        )
-
-        tile_draw = ImageDraw.Draw(tile)
-
-        tile_draw.text(
-            (padding, padding),
-            text,
-            font=font,
-            fill=(255, 255, 255, 95)
-        )
-
-        # Rotation diagonale
-        tile = tile.rotate(
-            30,
-            expand=True,
-            resample=Image.Resampling.BICUBIC
-        )
-
-        # 5. Répéter APERÇU sur toute l'image
-        step_x = max(1, tile.width + int(font_size * 0.5))
-        step_y = max(1, tile.height + int(font_size * 0.5))
-
-        for y in range(-tile.height, image.height + tile.height, step_y):
-            for x in range(-tile.width, image.width + tile.width, step_x):
-                watermark_layer.alpha_composite(tile, (x, y))
-
-        # 6. Fusionner l'image originale + filigrane
-        result = Image.alpha_composite(image, watermark_layer).convert("RGB")
-
-        # 7. Préparer l'image pour Telegram
-        output = BytesIO()
-        output.name = "apercu.jpg"
-
-        result.save(
-            output,
-            format="JPEG",
-            quality=92,
-            optimize=True
-        )
-
-        output.seek(0)
-
-
 
         # ================================
-        # 8. IDENTIFIER LE CLIENT PWA
+        # 2. IDENTIFIER LE CLIENT PWA
         # ================================
         raw = message.to_python()
         thread_id = raw.get("message_thread_id")
@@ -1076,16 +1004,205 @@ async def envoyer_contenu_filigrane(message: types.Message):
         seller_slug = client["seller_slug"]
 
 
+        # ============================================================
+        # 3A. TRAITEMENT IMAGE
+        # ============================================================
+        if is_photo:
+
+            file_id = message.photo[-1].file_id
+            file_info = await bot.get_file(file_id)
+            downloaded = await bot.download_file(file_info.file_path)
+
+            image = Image.open(
+                BytesIO(downloaded.read())
+            ).convert("RGBA")
+
+            watermark_layer = Image.new(
+                "RGBA",
+                image.size,
+                (255, 255, 255, 0)
+            )
+
+            font_size = max(24, int(image.width / 8))
+
+            try:
+                font = ImageFont.truetype(
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    font_size
+                )
+            except Exception:
+                font = ImageFont.load_default()
+
+            text = "APERÇU"
+
+            bbox = font.getbbox(text)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            padding = int(font_size * 0.8)
+
+            tile = Image.new(
+                "RGBA",
+                (
+                    text_width + padding * 2,
+                    text_height + padding * 2
+                ),
+                (255, 255, 255, 0)
+            )
+
+            tile_draw = ImageDraw.Draw(tile)
+
+            tile_draw.text(
+                (padding, padding),
+                text,
+                font=font,
+                fill=(255, 255, 255, 95)
+            )
+
+            tile = tile.rotate(
+                30,
+                expand=True,
+                resample=Image.Resampling.BICUBIC
+            )
+
+            step_x = max(
+                1,
+                tile.width + int(font_size * 0.5)
+            )
+
+            step_y = max(
+                1,
+                tile.height + int(font_size * 0.5)
+            )
+
+            for y in range(
+                -tile.height,
+                image.height + tile.height,
+                step_y
+            ):
+                for x in range(
+                    -tile.width,
+                    image.width + tile.width,
+                    step_x
+                ):
+                    watermark_layer.alpha_composite(
+                        tile,
+                        (x, y)
+                    )
+
+            result = Image.alpha_composite(
+                image,
+                watermark_layer
+            ).convert("RGB")
+
+            output = BytesIO()
+            output.name = "apercu.jpg"
+
+            result.save(
+                output,
+                format="JPEG",
+                quality=92,
+                optimize=True
+            )
+
+            output.seek(0)
+
+            upload_filename = "apercu.jpg"
+            upload_mime = "image/jpeg"
+
+            print("✅ FILIGRANE IMAGE CRÉÉ")
+
+
+        # ============================================================
+        # 3B. TRAITEMENT PDF
+        # ============================================================
+        elif is_pdf:
+
+            file_id = message.document.file_id
+            file_info = await bot.get_file(file_id)
+            downloaded = await bot.download_file(file_info.file_path)
+
+            pdf_bytes = downloaded.read()
+
+            pdf = fitz.open(
+                stream=pdf_bytes,
+                filetype="pdf"
+            )
+
+            print(
+                f"📄 PDF reçu : {len(pdf)} page(s)"
+            )
+
+            for page_number, page in enumerate(pdf):
+
+                rect = page.rect
+
+                # Taille du texte proportionnelle à la page
+                font_size = max(
+                    22,
+                    rect.width / 12
+                )
+
+                # Espacement du motif
+                step_x = rect.width / 3
+                step_y = rect.height / 5
+
+                y = 0
+
+                while y < rect.height:
+
+                    x = -rect.width / 6
+
+                    while x < rect.width:
+
+                        page.insert_text(
+                            fitz.Point(x, y),
+                            "APERÇU",
+                            fontsize=font_size,
+                            fontname="helv",
+                            color=(0.65, 0.65, 0.65),
+                            fill_opacity=0.30,
+                            rotate=0,
+                            overlay=True
+                        )
+
+                        x += step_x
+
+                    y += step_y
+
+                print(
+                    f"✅ Filigrane PDF page {page_number + 1}"
+                )
+
+            output = BytesIO()
+
+            pdf.save(
+                output,
+                garbage=4,
+                deflate=True
+            )
+
+            pdf.close()
+
+            output.seek(0)
+            output.name = "apercu.pdf"
+
+            upload_filename = "apercu.pdf"
+            upload_mime = "application/pdf"
+
+            print("✅ PDF FILIGRANÉ CRÉÉ")
+
+
         # ================================
-        # 9. UPLOAD IMAGE FILIGRANÉE
+        # 4. UPLOAD VERS LE BRIDGE
         # ================================
         output.seek(0)
 
         files = {
             "file": (
-                "apercu.jpg",
+                upload_filename,
                 output.read(),
-                "image/jpeg"
+                upload_mime
             )
         }
 
@@ -1094,7 +1211,9 @@ async def envoyer_contenu_filigrane(message: types.Message):
             "clientEmail": email
         }
 
-        print("[FI BRIDGE UPLOAD] Envoi image filigranée...")
+        print(
+            f"[FI BRIDGE UPLOAD] {upload_filename}"
+        )
 
         resp = requests.post(
             f"{BRIDGE_API_URL}/upload-media",
@@ -1105,7 +1224,10 @@ async def envoyer_contenu_filigrane(message: types.Message):
 
         upload_result = resp.json()
 
-        print("[FI BRIDGE RESPONSE]", upload_result)
+        print(
+            "[FI BRIDGE RESPONSE]",
+            upload_result
+        )
 
         if not upload_result.get("success"):
             raise Exception(
@@ -1118,13 +1240,13 @@ async def envoyer_contenu_filigrane(message: types.Message):
         )
 
         if not media_url:
-            raise Exception("Le Bridge n'a retourné aucune mediaUrl.")
-
-        print(f"[FI MEDIA URL] {media_url}")
+            raise Exception(
+                "Le Bridge n'a retourné aucune mediaUrl."
+            )
 
 
         # ================================
-        # 10. ENVOYER À LA PWA
+        # 5. ENVOI À LA PWA
         # ================================
         payload = {
             "email": email,
@@ -1148,7 +1270,8 @@ async def envoyer_contenu_filigrane(message: types.Message):
 
         if not pwa_resp.ok:
             raise Exception(
-                f"Échec envoi PWA : {pwa_resp.status_code} {pwa_resp.text}"
+                f"Échec envoi PWA : "
+                f"{pwa_resp.status_code} {pwa_resp.text}"
             )
 
         await bot.send_message(
@@ -1156,39 +1279,14 @@ async def envoyer_contenu_filigrane(message: types.Message):
             text="✅ Aperçu filigrané envoyé au client."
         )
 
-        print("✅ IMAGE FILIGRANÉE → PWA")
-       
+        if is_pdf:
+            print("✅ PDF FILIGRANÉ → PWA")
+        else:
+            print("✅ IMAGE FILIGRANÉE → PWA")
 
-        # ================================
-        # DETECTION DU TOPIC
-        # ================================
-        raw = message.to_python()
-        thread_id = raw.get("message_thread_id")
-
-        if not thread_id and message.reply_to_message:
-            raw_reply = message.reply_to_message.to_python()
-            thread_id = raw_reply.get("message_thread_id")
-
-        print(f"[FI TOPIC DETECTED] {thread_id}")
-
-        # ================================
-        # RESOLVE CLIENT PWA
-        # ================================
-        client = get_pwa_client_by_topic(thread_id)
-
-        print(f"[FI PWA RESOLVE] topic={thread_id} -> client={client}")
-
-        if not client:
-            await bot.send_message(
-                chat_id=admin_id,
-                text="❗ Aucun client PWA trouvé pour ce topic."
-            )
-            raise CancelHandler()
-
-        email = client["email"]
-        seller_slug = client["seller_slug"]
 
     except Exception as e:
+
         print(f"❌ ERREUR /fi : {e}")
 
         await bot.send_message(
