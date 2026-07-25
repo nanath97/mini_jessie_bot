@@ -1258,19 +1258,11 @@ app.post("/upload-media", upload.single("file"), async (req, res) => {
 
 
 
-    const finalUploadOpts = forcePdfExtension && mimeType.includes("pdf")
-  ? {
-      folder: "novapulse_media",
-      resource_type: "raw",
-      public_id: `${baseName}_${Date.now()}.pdf`,
-    }
-  : {
-      folder: "novapulse_media",
-      resource_type: resourceType,
-    };
-
     const uploadStream = cloudinary.uploader.upload_stream(
-      finalUploadOpts,
+  {
+    folder: "novapulse_media",
+    resource_type: resourceType,
+  },
       (error, result) => {
         if (error) {
           console.error("❌ Cloudinary error:", error);
