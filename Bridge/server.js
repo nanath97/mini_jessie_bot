@@ -2101,7 +2101,7 @@ app.get("/pwa/reviews/:sellerSlug", async (req, res) => {
 // =======================
 app.post("/pwa/send-admin-media", async (req, res) => {
   try {
-    const { email, sellerSlug, text, mediaUrl, mediaType } = req.body;
+    const { email, sellerSlug, text, mediaUrl, mediaType, fileName } = req.body;
 
     const room = pwaRoom(email, sellerSlug);
     // 🔥 Persistance mémoire des médias admin (groupé / programmé / direct)
