@@ -6,5 +6,4 @@ python-dotenv
 requests
 stripe
 openai>=1.0.0
-
-
+Pillow

@@ -15,7 +15,8 @@ from vip_topics import _user_topics, save_pwa_note_to_airtable
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 import json
 
-
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
 
 
 
@@ -941,8 +942,9 @@ def detect_motif(text):
 
 
 from aiogram.dispatcher.handler import CancelHandler
+
 # ================================
-# HANDLER /fi → FILIGRANE
+# HANDLER /fi → FILIGRANE IMAGE
 # ================================
 @dp.message_handler(
     lambda m: (m.text or m.caption) and "/fi" in (m.text or m.caption).lower(),
@@ -951,16 +953,116 @@ from aiogram.dispatcher.handler import CancelHandler
 async def envoyer_contenu_filigrane(message: types.Message):
     admin_id = message.from_user.id
 
-    # Seul un admin peut utiliser /fi
     if not is_admin(admin_id):
         raise CancelHandler()
 
     print("🔥 COMMANDE /fi DÉTECTÉE")
 
-    await bot.send_message(
-        chat_id=admin_id,
-        text="✅ Commande /fi détectée."
-    )
+    # Pour l'instant : uniquement les photos Telegram
+    if not message.photo:
+        await bot.send_message(
+            chat_id=admin_id,
+            text="❌ Pour l'instant, /fi fonctionne uniquement avec une image."
+        )
+        raise CancelHandler()
+
+    try:
+        # 1. Récupérer l'image en meilleure qualité
+        file_id = message.photo[-1].file_id
+        file_info = await bot.get_file(file_id)
+        downloaded = await bot.download_file(file_info.file_path)
+
+        # 2. Ouvrir l'image
+        image = Image.open(BytesIO(downloaded.read())).convert("RGBA")
+
+        # 3. Créer un calque transparent pour le filigrane
+        watermark_layer = Image.new("RGBA", image.size, (255, 255, 255, 0))
+
+        # Taille du texte adaptée à la taille de l'image
+        font_size = max(24, int(image.width / 8))
+
+        try:
+            font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                font_size
+            )
+        except Exception:
+            font = ImageFont.load_default()
+
+        # 4. Créer un gros APERÇU diagonal
+        text = "APERÇU"
+
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        padding = int(font_size * 0.8)
+
+        tile_width = text_width + padding * 2
+        tile_height = text_height + padding * 2
+
+        tile = Image.new(
+            "RGBA",
+            (tile_width, tile_height),
+            (255, 255, 255, 0)
+        )
+
+        tile_draw = ImageDraw.Draw(tile)
+
+        tile_draw.text(
+            (padding, padding),
+            text,
+            font=font,
+            fill=(255, 255, 255, 95)
+        )
+
+        # Rotation diagonale
+        tile = tile.rotate(
+            30,
+            expand=True,
+            resample=Image.Resampling.BICUBIC
+        )
+
+        # 5. Répéter APERÇU sur toute l'image
+        step_x = max(1, tile.width + int(font_size * 0.5))
+        step_y = max(1, tile.height + int(font_size * 0.5))
+
+        for y in range(-tile.height, image.height + tile.height, step_y):
+            for x in range(-tile.width, image.width + tile.width, step_x):
+                watermark_layer.alpha_composite(tile, (x, y))
+
+        # 6. Fusionner l'image originale + filigrane
+        result = Image.alpha_composite(image, watermark_layer).convert("RGB")
+
+        # 7. Préparer l'image pour Telegram
+        output = BytesIO()
+        output.name = "apercu.jpg"
+
+        result.save(
+            output,
+            format="JPEG",
+            quality=92,
+            optimize=True
+        )
+
+        output.seek(0)
+
+        # 8. Envoyer la copie filigranée
+        await bot.send_photo(
+            chat_id=admin_id,
+            photo=output,
+            caption="🔒 Aperçu protégé"
+        )
+
+        print("✅ IMAGE FILIGRANÉE ENVOYÉE")
+
+    except Exception as e:
+        print(f"❌ ERREUR /fi : {e}")
+
+        await bot.send_message(
+            chat_id=admin_id,
+            text=f"❌ Erreur pendant la création du filigrane : {e}"
+        )
 
     raise CancelHandler()
 # ================================
