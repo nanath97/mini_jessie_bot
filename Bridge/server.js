@@ -1229,6 +1229,8 @@ app.post("/upload-media", upload.single("file"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, error: "No file uploaded" });
     }
+    const forcePdfExtension =
+      req.body.forcePdfExtension === "true";
 
     const mimeType = req.file.mimetype || "";
     const originalName = req.file.originalname || "file";
@@ -1256,23 +1258,19 @@ app.post("/upload-media", upload.single("file"), async (req, res) => {
 
 
 
-    const uploadOpts = {
+    const finalUploadOpts = forcePdfExtension && mimeType.includes("pdf")
+  ? {
+      folder: "novapulse_media",
+      resource_type: "raw",
+      public_id: `${baseName}_${Date.now()}.pdf`,
+    }
+  : {
       folder: "novapulse_media",
       resource_type: resourceType,
     };
 
-    // 🔥 Si c’est un RAW (pdf, doc, etc.), on force un nom + format
-    if (resourceType === "raw") {
-      uploadOpts.public_id = `${baseName}_${Date.now()}`;
-      if (ext) uploadOpts.format = ext; // ex: "pdf"
-    }
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: "novapulse_media",
-        resource_type: resourceType,
-        // IMPORTANT: on ne force PAS le format dans l'URL pour raw.
-        // On garde l'URL Cloudinary telle qu'elle est retournée.
-      },
+      finalUploadOpts,
       (error, result) => {
         if (error) {
           console.error("❌ Cloudinary error:", error);

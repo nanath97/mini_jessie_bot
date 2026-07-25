@@ -1206,9 +1206,11 @@ async def envoyer_contenu_filigrane(message: types.Message):
             )
         }
 
+        
         data = {
             "sellerSlug": seller_slug,
-            "clientEmail": email
+            "clientEmail": email,
+            "forcePdfExtension": "true" if is_pdf else "false"
         }
 
         print(
