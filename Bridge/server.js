@@ -2114,7 +2114,7 @@ app.post("/pwa/send-admin-media", async (req, res) => {
       type: "media",
       mediaType: mediaType,
       url: mediaUrl,
-      fileName: mediaUrl?.split("/").pop(),
+      fileName: fileName || mediaUrl?.split("/").pop(),
       text: text || "",
       ts: Date.now(),
     });
