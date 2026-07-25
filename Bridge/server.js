@@ -811,7 +811,10 @@ const incomingText = (
   ""
 ).trim();
 
-const isEnvCommand = incomingText.toLowerCase().includes("/env");
+
+const isEnvCommand =
+  incomingText.toLowerCase().includes("/env") ||
+  incomingText.toLowerCase().includes("/fi");
 
 const isStaffTopicMessage =
   incomingMessage.chat?.type === "supergroup" &&

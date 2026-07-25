@@ -941,7 +941,28 @@ def detect_motif(text):
 
 
 from aiogram.dispatcher.handler import CancelHandler
+# ================================
+# HANDLER /fi → FILIGRANE
+# ================================
+@dp.message_handler(
+    lambda m: (m.text or m.caption) and "/fi" in (m.text or m.caption).lower(),
+    content_types=types.ContentType.ANY
+)
+async def envoyer_contenu_filigrane(message: types.Message):
+    admin_id = message.from_user.id
 
+    # Seul un admin peut utiliser /fi
+    if not is_admin(admin_id):
+        raise CancelHandler()
+
+    print("🔥 COMMANDE /fi DÉTECTÉE")
+
+    await bot.send_message(
+        chat_id=admin_id,
+        text="✅ Commande /fi détectée."
+    )
+
+    raise CancelHandler()
 # ================================
 # HANDLER /envXX → PWA + MEDIA UPLOAD
 # ================================
