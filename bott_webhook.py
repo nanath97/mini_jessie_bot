@@ -1047,14 +1047,146 @@ async def envoyer_contenu_filigrane(message: types.Message):
 
         output.seek(0)
 
-        # 8. Envoyer la copie filigranée
-        await bot.send_photo(
-            chat_id=admin_id,
-            photo=output,
-            caption="🔒 Aperçu protégé"
+
+
+        # ================================
+        # 8. IDENTIFIER LE CLIENT PWA
+        # ================================
+        raw = message.to_python()
+        thread_id = raw.get("message_thread_id")
+
+        if not thread_id and message.reply_to_message:
+            raw_reply = message.reply_to_message.to_python()
+            thread_id = raw_reply.get("message_thread_id")
+
+        print(f"[FI TOPIC DETECTED] {thread_id}")
+
+        client = get_pwa_client_by_topic(thread_id)
+
+        print(f"[FI PWA RESOLVE] topic={thread_id} -> client={client}")
+
+        if not client:
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❗ Aucun client PWA trouvé pour ce topic."
+            )
+            raise CancelHandler()
+
+        email = client["email"]
+        seller_slug = client["seller_slug"]
+
+
+        # ================================
+        # 9. UPLOAD IMAGE FILIGRANÉE
+        # ================================
+        output.seek(0)
+
+        files = {
+            "file": (
+                "apercu.jpg",
+                output.read(),
+                "image/jpeg"
+            )
+        }
+
+        data = {
+            "sellerSlug": seller_slug,
+            "clientEmail": email
+        }
+
+        print("[FI BRIDGE UPLOAD] Envoi image filigranée...")
+
+        resp = requests.post(
+            f"{BRIDGE_API_URL}/upload-media",
+            files=files,
+            data=data,
+            timeout=30
         )
 
-        print("✅ IMAGE FILIGRANÉE ENVOYÉE")
+        upload_result = resp.json()
+
+        print("[FI BRIDGE RESPONSE]", upload_result)
+
+        if not upload_result.get("success"):
+            raise Exception(
+                f"Échec upload Bridge : {upload_result}"
+            )
+
+        media_url = (
+            upload_result.get("mediaUrl")
+            or upload_result.get("secure_url")
+        )
+
+        if not media_url:
+            raise Exception("Le Bridge n'a retourné aucune mediaUrl.")
+
+        print(f"[FI MEDIA URL] {media_url}")
+
+
+        # ================================
+        # 10. ENVOYER À LA PWA
+        # ================================
+        payload = {
+            "email": email,
+            "sellerSlug": seller_slug,
+            "text": "🔒 Aperçu protégé",
+            "mediaUrl": media_url,
+            "isMedia": True
+        }
+
+        pwa_resp = requests.post(
+            f"{BRIDGE_API_URL}/pwa/send-admin-media",
+            json=payload,
+            timeout=10
+        )
+
+        print(
+            "[FI PWA RESPONSE]",
+            pwa_resp.status_code,
+            pwa_resp.text
+        )
+
+        if not pwa_resp.ok:
+            raise Exception(
+                f"Échec envoi PWA : {pwa_resp.status_code} {pwa_resp.text}"
+            )
+
+        await bot.send_message(
+            chat_id=admin_id,
+            text="✅ Aperçu filigrané envoyé au client."
+        )
+
+        print("✅ IMAGE FILIGRANÉE → PWA")
+       
+
+        # ================================
+        # DETECTION DU TOPIC
+        # ================================
+        raw = message.to_python()
+        thread_id = raw.get("message_thread_id")
+
+        if not thread_id and message.reply_to_message:
+            raw_reply = message.reply_to_message.to_python()
+            thread_id = raw_reply.get("message_thread_id")
+
+        print(f"[FI TOPIC DETECTED] {thread_id}")
+
+        # ================================
+        # RESOLVE CLIENT PWA
+        # ================================
+        client = get_pwa_client_by_topic(thread_id)
+
+        print(f"[FI PWA RESOLVE] topic={thread_id} -> client={client}")
+
+        if not client:
+            await bot.send_message(
+                chat_id=admin_id,
+                text="❗ Aucun client PWA trouvé pour ce topic."
+            )
+            raise CancelHandler()
+
+        email = client["email"]
+        seller_slug = client["seller_slug"]
 
     except Exception as e:
         print(f"❌ ERREUR /fi : {e}")
