@@ -1249,12 +1249,13 @@ async def envoyer_contenu_filigrane(message: types.Message):
         # 5. ENVOI À LA PWA
         # ================================
         payload = {
-            "email": email,
-            "sellerSlug": seller_slug,
-            "text": "🔒 Aperçu protégé",
-            "mediaUrl": media_url,
-            "isMedia": True
-        }
+        "email": email,
+        "sellerSlug": seller_slug,
+        "text": "🔒 Aperçu protégé",
+        "mediaUrl": media_url,
+        "mediaType": "document" if is_pdf else "photo",
+        "isMedia": True
+    }
 
         pwa_resp = requests.post(
             f"{BRIDGE_API_URL}/pwa/send-admin-media",
