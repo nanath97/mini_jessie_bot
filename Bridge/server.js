@@ -2139,7 +2139,7 @@ app.post("/pwa/send-admin-media", async (req, res) => {
     io.to(room).emit("admin_media", {
       type: finalType,
       url: mediaUrl,
-      fileName: mediaUrl?.split("/").pop(),
+      fileName: fileName || mediaUrl?.split("/").pop(),
       text: text || "",
       from: "admin",
     });
