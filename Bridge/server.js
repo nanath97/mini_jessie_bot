@@ -2824,6 +2824,38 @@ app.post("/pwa/quote/accept", async (req, res) => {
     ]);
 
     console.log(`✅ DEVIS ACCEPTÉ : ${quoteId} par ${signerName}`);
+    // ===== NOTIFIER LE VENDEUR DANS TELEGRAM =====
+
+const pwaRows = await tablePWA
+  .select({
+    filterByFormula: `{email}='${storedEmail}'`,
+    maxRecords: 1,
+  })
+  .firstPage();
+
+if (pwaRows.length) {
+  const topicId = pwaRows[0].fields.topic_id;
+
+  if (topicId) {
+    const message =
+      `✅ DEVIS ACCEPTÉ\n\n` +
+      `👤 Client : ${signerName.trim()}\n` +
+      `📧 Email : ${storedEmail}\n` +
+      `📄 Devis : ${quoteId}\n\n` +
+      `Le client a accepté le devis.`;
+
+    await axios.post(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: STAFF_GROUP_ID,
+        message_thread_id: String(topicId),
+        text: message,
+      }
+    );
+
+    console.log(`📨 Notification d'acceptation envoyée au topic ${topicId}`);
+  }
+}
 
     return res.json({
       success: true,
