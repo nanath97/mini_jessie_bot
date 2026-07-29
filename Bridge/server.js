@@ -2816,7 +2816,6 @@ app.post("/pwa/quote/accept", async (req, res) => {
         fields: {
           status: "accepted",
           signer_name: signerName.trim(),
-          accepted_at: new Date().toISOString(),
           consent: true,
           accepted_ip: acceptedIp,
           accepted_user_agent: userAgent,
