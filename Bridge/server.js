@@ -2657,7 +2657,20 @@ const room = pwaRoom(emailClient, sellerSlug)
 console.log("📡 Emitting quote to PWA room:", room)
 
 
-const quoteUrl = `data:application/pdf;base64,${pdfBuffer.toString("base64")}`
+const quoteUrl = await new Promise((resolve, reject) => {
+  const uploadStream = cloudinary.uploader.upload_stream(
+    {
+      folder: "novapulse_quotes",
+      resource_type: "raw",
+    },
+    (error, result) => {
+      if (error) return reject(error);
+      resolve(result.secure_url);
+    }
+  );
+
+  streamifier.createReadStream(pdfBuffer).pipe(uploadStream);
+});
 
 io.to(room).emit("admin_media",{
 type:"document",
