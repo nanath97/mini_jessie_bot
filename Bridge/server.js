@@ -2693,6 +2693,7 @@ await base("Quotes").create([
       client_email: emailClient,
       seller_slug: sellerSlug,
       pdf_url: quoteUrl,
+      pdf_hash: pdfHash,
       status: "pending",
     },
   },
