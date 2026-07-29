@@ -2692,20 +2692,24 @@ await base("Quotes").create([
 
 console.log(`📄 Devis enregistré dans Airtable : ${quoteId} → pending`);
 io.to(room).emit("admin_media",{
-type:"document",
-url: quoteUrl,
-fileName:"quote.pdf",
-text:"📄 Nouveau devis",
-from:"admin"
+  type:"document",
+  url: quoteUrl,
+  fileName:"quote.pdf",
+  text:"📄 Nouveau devis",
+  from:"admin",
+  quoteId: quoteId,
+  isQuote: true
 })
 
 pushPwaHistory(room,{
-from:"admin",
-type:"media",
-mediaType:"document",
-url: quoteUrl,
-fileName:"quote.pdf",
-text:"📄 Nouveau devis"
+  from:"admin",
+  type:"media",
+  mediaType:"document",
+  url: quoteUrl,
+  fileName:"quote.pdf",
+  text:"📄 Nouveau devis",
+  quoteId: quoteId,
+  isQuote: true
 })
 
 console.log("📄 Quote sent to PWA:", room)
