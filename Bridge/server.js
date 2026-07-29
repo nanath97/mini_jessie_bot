@@ -2338,10 +2338,14 @@ app.post("/generate-quote", async (req,res)=>{
 
 try{
 
-const {topic,email,seller,items,tva} = req.body
+const {topic,email,seller,items,tva,deposit} = req.body
 const tvaPercent = Number(tva || 0)
 const safeTvaPercent = isNaN(tvaPercent) ? 0 : Math.max(0, tvaPercent)
 const TVA_RATE = safeTvaPercent / 100
+const depositPercent = Number(deposit || 0)
+const safeDepositPercent = isNaN(depositPercent)
+  ? 0
+  : Math.min(100, Math.max(0, depositPercent))
 
 console.log("🧾 GENERATE QUOTE REQUEST:", { topic, email, seller, items })
 
@@ -2536,6 +2540,7 @@ hr(y - 6)
 const totalHT = total
 const tvaAmount = totalHT * TVA_RATE
 const totalTTC = totalHT + tvaAmount
+const depositAmount = totalTTC * (safeDepositPercent / 100)
 
 y += 18
 
@@ -2576,7 +2581,19 @@ doc.text(euro(totalTTC), colTotalX, y - 4, {
   width: colTotalW,
   align: "right"
 })
+y += 30
 
+doc.font("Helvetica-Bold").fontSize(11)
+
+doc.text(`Acompte demandé (${safeDepositPercent}%)`, colPriceX - 80, y, {
+  width: colPriceW + 80,
+  align: "right"
+})
+
+doc.text(euro(depositAmount), colTotalX, y, {
+  width: colTotalW,
+  align: "right"
+})
 
 // Footer
 doc.font("Helvetica").fontSize(9)
