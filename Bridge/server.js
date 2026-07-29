@@ -2686,7 +2686,6 @@ await base("Quotes").create([
       seller_slug: sellerSlug,
       pdf_url: quoteUrl,
       status: "pending",
-      created_at: new Date().toISOString(),
     },
   },
 ]);
