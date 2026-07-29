@@ -2604,6 +2604,11 @@ doc.end()
 await new Promise(resolve => doc.on("end", resolve))
 
 const pdfBuffer = Buffer.concat(buffers)
+// ===== IDENTITÉ UNIQUE DU DEVIS =====
+
+const quoteId = `DEV-${Date.now()}`;
+
+console.log("📄 Quote ID créé :", quoteId);
 
 
 // ===== SEND TO TELEGRAM =====
@@ -2613,8 +2618,8 @@ const form = new FormData()
 form.append("chat_id", STAFF_GROUP_ID)
 form.append("message_thread_id", String(topic))
 form.append("document", pdfBuffer, {
-filename:"quote.pdf",
-contentType:"application/pdf"
+  filename:`${quoteId}.pdf`,
+  contentType:"application/pdf"
 })
 
 console.log("📤 Sending quote to Telegram topic:", topic)
