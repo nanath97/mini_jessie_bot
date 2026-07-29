@@ -8,8 +8,10 @@ const Airtable = require("airtable");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit")
 const fs = require("fs")
+const crypto = require("crypto");
 const webpush = require("web-push");
 const { createProxyMiddleware } = require("http-proxy-middleware");
+
 
 console.log("🔥 SERVER.JS BRIDGE LOADED");
 
@@ -2604,6 +2606,12 @@ doc.end()
 await new Promise(resolve => doc.on("end", resolve))
 
 const pdfBuffer = Buffer.concat(buffers)
+const pdfHash = crypto
+  .createHash("sha256")
+  .update(pdfBuffer)
+  .digest("hex");
+
+console.log("🔐 PDF HASH :", pdfHash);
 // ===== IDENTITÉ UNIQUE DU DEVIS =====
 
 const quoteId = `DEV-${Date.now()}`;
