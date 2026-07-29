@@ -2676,7 +2676,22 @@ const quoteUrl = await new Promise((resolve, reject) => {
 
   streamifier.createReadStream(pdfBuffer).pipe(uploadStream);
 });
+// ===== ENREGISTRER LE DEVIS DANS AIRTABLE =====
 
+await base("Quotes").create([
+  {
+    fields: {
+      quote_id: quoteId,
+      client_email: emailClient,
+      seller_slug: sellerSlug,
+      pdf_url: quoteUrl,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    },
+  },
+]);
+
+console.log(`📄 Devis enregistré dans Airtable : ${quoteId} → pending`);
 io.to(room).emit("admin_media",{
 type:"document",
 url: quoteUrl,
