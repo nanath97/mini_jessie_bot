@@ -2737,6 +2737,111 @@ res.status(500).json({success:false})
 })
 
 
+// =======================
+// PWA → ACCEPT QUOTE
+// =======================
+app.post("/pwa/quote/accept", async (req, res) => {
+  try {
+    const { quoteId, signerName, email, consent } = req.body;
+
+    console.log("📝 QUOTE ACCEPT REQUEST:", {
+      quoteId,
+      signerName,
+      email,
+      consent,
+    });
+
+    // Vérifications minimales
+    if (!quoteId || !signerName || !email || consent !== true) {
+      return res.status(400).json({
+        success: false,
+        error: "missing_or_invalid_data",
+      });
+    }
+
+    // Retrouver exactement le devis
+    const records = await base("Quotes")
+      .select({
+        filterByFormula: `{quote_id}='${quoteId}'`,
+        maxRecords: 1,
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "quote_not_found",
+      });
+    }
+
+    const quoteRecord = records[0];
+
+    // Le devis doit encore être en attente
+    if (quoteRecord.fields.status !== "pending") {
+      return res.status(409).json({
+        success: false,
+        error: "quote_already_processed",
+      });
+    }
+
+    // Sécurité : l'email doit correspondre au client du devis
+    const storedEmail = String(
+      quoteRecord.fields.client_email || ""
+    ).trim().toLowerCase();
+
+    const submittedEmail = String(email)
+      .trim()
+      .toLowerCase();
+
+    if (storedEmail !== submittedEmail) {
+      return res.status(403).json({
+        success: false,
+        error: "email_mismatch",
+      });
+    }
+
+    // Informations de traçabilité
+    const forwardedFor = req.headers["x-forwarded-for"];
+
+    const acceptedIp = forwardedFor
+      ? String(forwardedFor).split(",")[0].trim()
+      : req.socket?.remoteAddress || "";
+
+    const userAgent = req.headers["user-agent"] || "";
+
+    // Mise à jour Airtable
+    await base("Quotes").update([
+      {
+        id: quoteRecord.id,
+        fields: {
+          status: "accepted",
+          signer_name: signerName.trim(),
+          accepted_at: new Date().toISOString(),
+          consent: true,
+          accepted_ip: acceptedIp,
+          accepted_user_agent: userAgent,
+        },
+      },
+    ]);
+
+    console.log(`✅ DEVIS ACCEPTÉ : ${quoteId} par ${signerName}`);
+
+    return res.json({
+      success: true,
+      quoteId,
+      status: "accepted",
+    });
+
+  } catch (err) {
+    console.error("❌ quote accept error:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: "server_error",
+    });
+  }
+});
+
 const PORT = process.env.PORT || 10000;
 
 server.listen(PORT, () => {
