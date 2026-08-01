@@ -1571,6 +1571,39 @@ app.get("/pwa/history", async (req, res) => {
       };
     });
 
+
+    // =======================
+    // 3) Devis (Quotes)
+    // =======================
+
+    const quoteRecords = await base("Quotes")
+      .select({
+        filterByFormula: `AND(
+          {client_email}='${safeEmail}',
+          {seller_slug}='${safeSlug}'
+        )`,
+        maxRecords: 200,
+      })
+      .all();
+
+    const quoteEvents = quoteRecords.map((rec) => ({
+      text: "📄 Nouveau devis",
+      from: "admin",
+      type: "media",
+      mediaType: "document",
+
+      url: rec.fields.pdf_url || "",
+      fileName: `${rec.fields.quote_id || "devis"}.pdf`,
+
+      isQuote: true,
+      quoteId: rec.fields.quote_id || null,
+      quoteStatus: rec.fields.status || "pending",
+
+      createdTime:
+        rec.fields.created_at ||
+        rec._rawJson?.createdTime ||
+        null,
+    }));
     // =======================
     // 3) Fusion timeline
     // =======================
@@ -1590,6 +1623,7 @@ app.get("/pwa/history", async (req, res) => {
     const merged = [
       ...messageEvents,
       ...paymentEvents,
+      ...quoteEvents,
       ...memoryMedia,
     ].filter((e) => e.createdTime);
 
