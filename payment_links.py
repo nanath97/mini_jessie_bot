@@ -33,6 +33,9 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
             "quantity": 1,
         }],
         mode="payment",
+        payment_intent_data={
+            "setup_future_usage": "off_session",
+        },
 
         # Collecte infos acheteur pour export facture / PDP
         customer_creation="always",
