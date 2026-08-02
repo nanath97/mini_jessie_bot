@@ -14,6 +14,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from vip_topics import _user_topics, save_pwa_note_to_airtable
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
 import json
+import stripe
 
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -25,6 +26,7 @@ import fitz
 
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 BRIDGE_API_URL = os.getenv("BRIDGE_API_URL") 
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 # ================================
 # CHARGEMENT DES MOTIFS
@@ -1056,37 +1058,53 @@ async def encaisser_off_session(message: types.Message):
         )
 
         # 5. Déclenchement du paiement off-session
-        bridge_url = os.getenv("BRIDGE_API_URL") or os.getenv("BRIDGE_URL")
-
-        payment_response = requests.post(
-            f"{bridge_url}/test-off-session",
-            json={
-                "customer_id": customer_id,
-                "payment_method_id": payment_method_id,
-                "amount_cents": amount_cents,
-            },
-            timeout=20
-        )
-
-        payment_result = payment_response.json()
-
-        print("💳 OFF-SESSION RESPONSE =", payment_result)
-
-        if payment_result.get("status") == "success":
-            await message.reply(
-                f"✅ ENCAISSEMENT RÉUSSI\n\n"
-                f"👤 Client : {email}\n"
-                f"💰 Montant : {display_amount} €\n"
-                f"💳 Stripe : {payment_result.get('stripe_status')}\n"
-                f"🧾 PaymentIntent : {payment_result.get('payment_intent_id')}"
+        try:
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency="eur",
+                customer=customer_id,
+                payment_method=payment_method_id,
+                off_session=True,
+                confirm=True,
             )
 
-        else:
+            print(
+                "💳 OFF-SESSION DIRECT OK :",
+                payment_intent.id,
+                payment_intent.status
+            )
+
+            if payment_intent.status == "succeeded":
+                await message.reply(
+                    f"✅ ENCAISSEMENT RÉUSSI\n\n"
+                    f"👤 Client : {email}\n"
+                    f"💰 Montant : {display_amount} €\n"
+                    f"💳 Stripe : {payment_intent.status}\n"
+                    f"🧾 PaymentIntent : {payment_intent.id}"
+                )
+            else:
+                await message.reply(
+                    f"⚠️ Encaissement non finalisé\n\n"
+                    f"👤 Client : {email}\n"
+                    f"💰 Montant : {display_amount} €\n"
+                    f"💳 Statut Stripe : {payment_intent.status}"
+                )
+
+        except stripe.error.CardError as e:
+            print("❌ OFF-SESSION CARD ERROR :", e)
+
             await message.reply(
                 f"❌ ENCAISSEMENT ÉCHOUÉ\n\n"
                 f"👤 Client : {email}\n"
                 f"💰 Montant : {display_amount} €\n"
-                f"⚠️ Stripe : {payment_result.get('message', 'Erreur inconnue')}"
+                f"⚠️ Carte refusée ou authentification nécessaire."
+            )
+
+        except Exception as e:
+            print("❌ OFF-SESSION DIRECT ERROR :", e)
+
+            await message.reply(
+                f"❌ Erreur Stripe : {e}"
             )
 
         raise CancelHandler()
