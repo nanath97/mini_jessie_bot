@@ -1008,13 +1008,65 @@ async def encaisser_off_session(message: types.Message):
             f"client={email} | "
             f"montant={amount_cents} cents"
         )
+        # 4. Récupération du dernier moyen de paiement Stripe valide
+        url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
 
-        # TEST : aucun prélèvement à cette étape
-        await message.reply(
-            f"✅ Encaissement préparé\n\n"
-            f"👤 Client : {email}\n"
-            f"💰 Montant : {display_amount} €"
+        params = {
+            "filterByFormula": (
+                f"AND("
+                f"{{Client Key}}='{email}',"
+                f"{{Status}}='Paid',"
+                f"NOT({{Stripe Customer ID}}=''),"
+                f"NOT({{Stripe Payment Method ID}}='')"
+                f")"
+            ),
+            "sort[0][field]": "Paid At",
+            "sort[0][direction]": "desc",
+            "maxRecords": 1
+        }
+
+        resp = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=10
         )
+
+        data = resp.json()
+        records = data.get("records", [])
+
+        if not records:
+            await message.reply(
+                "❌ Aucun moyen de paiement Stripe enregistré pour ce client."
+            )
+            raise CancelHandler()
+
+        fields = records[0].get("fields", {})
+
+        customer_id = fields.get("Stripe Customer ID")
+        payment_method_id = fields.get("Stripe Payment Method ID")
+
+        print(
+            f"💳 STRIPE IDs trouvés | "
+            f"customer={customer_id} | "
+            f"payment_method={payment_method_id}"
+        )
+
+        await message.reply(
+            f"✅ Moyen de paiement retrouvé\n\n"
+            f"👤 Client : {email}\n"
+            f"💰 Montant : {display_amount} €\n"
+            f"🔑 Customer : {customer_id}\n"
+            f"💳 PaymentMethod : {payment_method_id}"
+        )
+
+        raise CancelHandler()
+
+    
+
 
     except CancelHandler:
         raise
