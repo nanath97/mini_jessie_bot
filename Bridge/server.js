@@ -823,7 +823,8 @@ const incomingText = (
 
 const isEnvCommand =
   incomingText.toLowerCase().includes("/env") ||
-  incomingText.toLowerCase().includes("/fi");
+  incomingText.toLowerCase().includes("/fi") ||
+  incomingText.toLowerCase().includes("/encaisser");
 
 const isStaffTopicMessage =
   incomingMessage.chat?.type === "supergroup" &&
