@@ -169,6 +169,13 @@ app.use(
     changeOrigin: true,
   })
 );
+app.use(
+  "/test-off-session",
+  createProxyMiddleware({
+    target: "http://127.0.0.1:3000",
+    changeOrigin: true,
+  })
+);
 
 app.post("/reminder", async (req, res) => {
   try {
