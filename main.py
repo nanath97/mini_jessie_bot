@@ -5,6 +5,7 @@ import os
 import asyncio
 import requests
 import traceback
+import stripe
 from pydantic import BaseModel
 
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
@@ -24,6 +25,7 @@ ADMIN_TO_SLUG = {
 }
 
 load_dotenv()
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 app = FastAPI()
 
 
@@ -229,7 +231,55 @@ async def create_checkout(data: dict = Body(...)):
         print("❌ Erreur create_checkout:", e)
         return {"status": "error", "message": str(e)}
 
+@app.post("/test-off-session")
+async def test_off_session(data: dict = Body(...)):
+    try:
+        customer_id = data.get("customer_id")
+        payment_method_id = data.get("payment_method_id")
+        amount_cents = int(data.get("amount_cents", 50))
 
+        if not customer_id or not payment_method_id:
+            return {
+                "status": "error",
+                "message": "customer_id ou payment_method_id manquant"
+            }
+
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount_cents,
+            currency="eur",
+            customer=customer_id,
+            payment_method=payment_method_id,
+            off_session=True,
+            confirm=True,
+        )
+
+        print(
+            "💳 OFF-SESSION TEST OK :",
+            payment_intent.id,
+            payment_intent.status
+        )
+
+        return {
+            "status": "success",
+            "payment_intent_id": payment_intent.id,
+            "stripe_status": payment_intent.status,
+        }
+
+    except stripe.error.CardError as e:
+        print("❌ OFF-SESSION CARD ERROR :", e)
+
+        return {
+            "status": "card_error",
+            "message": str(e),
+        }
+
+    except Exception as e:
+        print("❌ OFF-SESSION ERROR :", e)
+
+        return {
+            "status": "error",
+            "message": str(e),
+        }
 # ---------------------------
 # STRIPE WEBHOOK
 # ---------------------------
