@@ -133,7 +133,24 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             buyer_vat = first_tax_id["value"] if "value" in first_tax_id else ""
 
         buyer_type = "Entreprise" if buyer_company_name or buyer_siret or buyer_vat else "Particulier"
+        payment_method_id = ""
 
+        try:
+            payment_intent_id = session["payment_intent"] if "payment_intent" in session else None
+
+            if payment_intent_id:
+                payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+                payment_method_id = (
+                    payment_intent["payment_method"]
+                    if "payment_method" in payment_intent
+                    else ""
+                )
+
+                print("💳 STRIPE PAYMENT METHOD ID =", payment_method_id)
+
+        except Exception as e:
+            print("❌ Erreur récupération PaymentMethod :", e)
         buyer_fields = {
 
             "Buyer Name": customer_details["name"] if "name" in customer_details else "",
@@ -151,6 +168,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             "Stripe Customer ID": session["customer"] if "customer" in session else "",
             "Stripe Invoice ID": session["invoice"] if "invoice" in session else "",
             "Stripe Payment Intent ID": session["payment_intent"] if "payment_intent" in session else "",
+            "Stripe Payment Method ID": payment_method_id,
         }
 
         client_key = metadata["client_key"] if "client_key" in metadata else None
