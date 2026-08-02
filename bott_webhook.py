@@ -943,6 +943,87 @@ def detect_motif(text):
 
 
 from aiogram.dispatcher.handler import CancelHandler
+
+# ================================
+# HANDLER /encaisserXX
+# ================================
+@dp.message_handler(
+    lambda m: m.text and re.search(
+        r"/encaisser[\d.,]+",
+        m.text.lower()
+    )
+)
+async def encaisser_off_session(message: types.Message):
+    admin_id = message.from_user.id
+
+    if not is_admin(admin_id):
+        raise CancelHandler()
+
+    try:
+        # 1. Récupération du montant
+        match = re.search(
+            r"/encaisser([\d.,]+)",
+            message.text.lower()
+        )
+
+        if not match:
+            await message.reply(
+                "❌ Montant invalide. Exemple : /encaisser50"
+            )
+            raise CancelHandler()
+
+        raw_amount = match.group(1)
+
+        # Réutilise ta fonction existante
+        amount_cents = parse_amount_to_cents(raw_amount)
+
+        display_amount = format(
+            amount_cents / 100,
+            ".2f"
+        ).replace(".", ",")
+
+        # 2. Détection du topic
+        raw = message.to_python()
+        thread_id = raw.get("message_thread_id")
+
+        if not thread_id:
+            await message.reply(
+                "❌ Utilise cette commande dans le topic du client."
+            )
+            raise CancelHandler()
+
+        # 3. Identification du client PWA
+        client = get_pwa_client_by_topic(thread_id)
+
+        if not client:
+            await message.reply(
+                "❌ Aucun client PWA trouvé pour ce topic."
+            )
+            raise CancelHandler()
+
+        email = client["email"]
+
+        print(
+            f"💳 /encaisser détecté | "
+            f"client={email} | "
+            f"montant={amount_cents} cents"
+        )
+
+        # TEST : aucun prélèvement à cette étape
+        await message.reply(
+            f"✅ Encaissement préparé\n\n"
+            f"👤 Client : {email}\n"
+            f"💰 Montant : {display_amount} €"
+        )
+
+    except CancelHandler:
+        raise
+
+    except Exception as e:
+        print(f"❌ /encaisser ERROR : {e}")
+        await message.reply(f"❌ Erreur : {e}")
+
+    raise CancelHandler()
 # ================================
 # HANDLER /fi → FILIGRANE IMAGE + PDF
 # ================================
