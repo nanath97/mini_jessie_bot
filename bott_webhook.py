@@ -1055,13 +1055,39 @@ async def encaisser_off_session(message: types.Message):
             f"payment_method={payment_method_id}"
         )
 
-        await message.reply(
-            f"✅ Moyen de paiement retrouvé\n\n"
-            f"👤 Client : {email}\n"
-            f"💰 Montant : {display_amount} €\n"
-            f"🔑 Customer : {customer_id}\n"
-            f"💳 PaymentMethod : {payment_method_id}"
+        # 5. Déclenchement du paiement off-session
+        bridge_url = os.getenv("BRIDGE_API_URL") or os.getenv("BRIDGE_URL")
+
+        payment_response = requests.post(
+            f"{bridge_url}/test-off-session",
+            json={
+                "customer_id": customer_id,
+                "payment_method_id": payment_method_id,
+                "amount_cents": amount_cents,
+            },
+            timeout=20
         )
+
+        payment_result = payment_response.json()
+
+        print("💳 OFF-SESSION RESPONSE =", payment_result)
+
+        if payment_result.get("status") == "success":
+            await message.reply(
+                f"✅ ENCAISSEMENT RÉUSSI\n\n"
+                f"👤 Client : {email}\n"
+                f"💰 Montant : {display_amount} €\n"
+                f"💳 Stripe : {payment_result.get('stripe_status')}\n"
+                f"🧾 PaymentIntent : {payment_result.get('payment_intent_id')}"
+            )
+
+        else:
+            await message.reply(
+                f"❌ ENCAISSEMENT ÉCHOUÉ\n\n"
+                f"👤 Client : {email}\n"
+                f"💰 Montant : {display_amount} €\n"
+                f"⚠️ Stripe : {payment_result.get('message', 'Erreur inconnue')}"
+            )
 
         raise CancelHandler()
 
