@@ -2679,7 +2679,7 @@ doc
   .fontSize(8.5)
   .fillColor("#374151")
   .text(
-    "En acceptant ce devis, le client accepte l'enregistrement sécurisé du moyen de paiement utilisé pour l'acompte. Le solde restant dû devra être réglé dans les 24 heures suivant la mise à disposition de la version finale. À défaut de règlement dans ce délai, le prestataire pourra tenter l'encaissement du solde restant dû sur le moyen de paiement enregistré.",
+    "En acceptant ce devis, vous acceptez l'enregistrement sécurisé du moyen de paiement utilisé pour l'acompte. Le solde restant dû devra être réglé dans les 24 heures suivant la mise à disposition de la version finale. À défaut de règlement dans ce délai, le prestataire pourra tenter l'encaissement du solde restant dû sur le moyen de paiement enregistré.",
     paymentBoxX + 12,
     y + 28,
     {
