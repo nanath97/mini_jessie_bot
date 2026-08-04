@@ -2639,9 +2639,65 @@ doc.text(euro(depositAmount), colTotalX, y, {
   align: "right"
 })
 
+// ===== Modalités de paiement =====
+
+y += 42
+
+const paymentBoxX = left
+const paymentBoxW = right - left
+const paymentBoxH = 78
+
+doc.save()
+
+doc
+  .roundedRect(
+    paymentBoxX,
+    y,
+    paymentBoxW,
+    paymentBoxH,
+    6
+  )
+  .fill("#F3F4F6")
+
+doc.restore()
+
+doc
+  .fillColor("#111827")
+  .font("Helvetica-Bold")
+  .fontSize(10)
+  .text(
+    "Modalités de paiement",
+    paymentBoxX + 12,
+    y + 10,
+    {
+      width: paymentBoxW - 24
+    }
+  )
+
+doc
+  .font("Helvetica")
+  .fontSize(8.5)
+  .fillColor("#374151")
+  .text(
+    "En acceptant ce devis, le client accepte l'enregistrement sécurisé du moyen de paiement utilisé pour l'acompte. Le solde restant dû devra être réglé dans les 24 heures suivant la mise à disposition de la version finale. À défaut de règlement dans ce délai, le prestataire pourra tenter l'encaissement du solde restant dû sur le moyen de paiement enregistré.",
+    paymentBoxX + 12,
+    y + 28,
+    {
+      width: paymentBoxW - 24,
+      lineGap: 2
+    }
+  )
+
+doc.fillColor("black")
+
 // Footer
 doc.font("Helvetica").fontSize(9)
-doc.text("Propulsé par NovaPulse", 0, y + 50, { align: "center" })
+doc.text(
+  "Propulsé par NovaPulse",
+  0,
+  y + paymentBoxH + 22,
+  { align: "center" }
+)
 
 doc.end()
 
