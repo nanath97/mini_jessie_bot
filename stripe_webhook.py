@@ -299,7 +299,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     if event["type"] == "payment_intent.succeeded":
         payment_intent = event["data"]["object"]
 
-        metadata = payment_intent.get("metadata") or {}
+        metadata = (
+            payment_intent["metadata"]
+            if "metadata" in payment_intent
+            else {}
+        )
 
         # On traite uniquement les encaissements NovaPulse off-session
         if metadata.get("channel") == "novapulse_off_session":
