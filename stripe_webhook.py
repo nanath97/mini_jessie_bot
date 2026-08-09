@@ -456,7 +456,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                                         "email": client_key,
                                         "sellerSlug": seller_slug,
                                         "text": (
-                                            f"✅ Paiement du solde effectué\n\n"
+                                            f"✅ Paiement du solde effectué ! \n\n"
                                             f"Le solde restant de {montant_euros:.2f} € "
                                             f"a été débité sur le moyen de paiement enregistré, "
                                             f"conformément aux modalités de paiement acceptées lors de la validation du devis."
