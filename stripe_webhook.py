@@ -292,4 +292,119 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             except Exception as e:
                 print(f"❌ Erreur unlock bridge: {e}")
 
+
+    # ============================================================
+    # 5) PAIEMENT OFF-SESSION RÉUSSI
+    # ============================================================
+    if event["type"] == "payment_intent.succeeded":
+        payment_intent = event["data"]["object"]
+
+        metadata = payment_intent.get("metadata") or {}
+
+        # On traite uniquement les encaissements NovaPulse off-session
+        if metadata.get("channel") == "novapulse_off_session":
+
+            try:
+                client_key = metadata.get("client_key")
+                seller_slug = metadata.get("seller_slug")
+                admin_id = metadata.get("admin_id")
+                topic_id = metadata.get("topic_id")
+
+                amount_cents = int(
+                    payment_intent.get("amount_received") or 0
+                )
+
+                customer_id = payment_intent.get("customer") or ""
+                payment_method_id = payment_intent.get("payment_method") or ""
+                payment_intent_id = payment_intent.get("id") or ""
+
+                print(
+                    "💳 OFF-SESSION WEBHOOK SUCCESS :",
+                    payment_intent_id,
+                    client_key,
+                    amount_cents
+                )
+
+                airtable_url = (
+                    f"https://api.airtable.com/v0/"
+                    f"{BASE_ID}/{PAYMENT_LINKS_TABLE.replace(' ', '%20')}"
+                )
+
+                headers = {
+                    "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+
+                # Vérification anti-doublon
+                formula = (
+                    f"{{Stripe Payment Intent ID}}="
+                    f"'{payment_intent_id}'"
+                )
+
+                check_resp = requests.get(
+                    airtable_url,
+                    headers=headers,
+                    params={
+                        "filterByFormula": formula,
+                        "maxRecords": 1
+                    },
+                    timeout=10
+                )
+
+                existing = check_resp.json().get("records", [])
+
+                if existing:
+                    print(
+                        "⚠️ OFF-SESSION déjà enregistré :",
+                        payment_intent_id
+                    )
+
+                else:
+                    invoice_number = (
+                        f"NP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+                    )
+
+                    fields = {
+                        "Client Key": client_key or "",
+                        "ADMIN ID": str(admin_id or ""),
+                        "Amount Cents": amount_cents,
+                        "Status": "Paid",
+                        "Paid At": datetime.utcnow().isoformat(),
+                        "Sent At": datetime.utcnow().isoformat(),
+                        "Invoice Number": invoice_number,
+                        "Stripe Customer ID": customer_id,
+                        "Stripe Payment Intent ID": payment_intent_id,
+                        "Stripe Payment Method ID": payment_method_id,
+                        "Caption": "Encaissement off-session",
+                        "Content ID": (
+                            f"{seller_slug}_offsession_"
+                            f"{payment_intent_id}"
+                        ),
+                    }
+
+                    create_resp = requests.post(
+                        airtable_url,
+                        headers=headers,
+                        json={"fields": fields},
+                        timeout=10
+                    )
+
+                    print(
+                        "💾 OFF-SESSION AIRTABLE :",
+                        create_resp.status_code,
+                        create_resp.text
+                    )
+
+                    if create_resp.status_code not in (200, 201):
+                        print(
+                            "❌ Erreur création Payment Links off-session"
+                        )
+
+            except Exception as e:
+                print(
+                    "❌ OFF-SESSION WEBHOOK ERROR :",
+                    e
+                )
+
+
     return {"status": "ok"}
