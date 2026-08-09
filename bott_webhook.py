@@ -1060,13 +1060,22 @@ async def encaisser_off_session(message: types.Message):
         # 5. Déclenchement du paiement off-session
         try:
             payment_intent = stripe.PaymentIntent.create(
-                amount=amount_cents,
-                currency="eur",
-                customer=customer_id,
-                payment_method=payment_method_id,
-                off_session=True,
-                confirm=True,
-            )
+            amount=amount_cents,
+            currency="eur",
+            customer=customer_id,
+            payment_method=payment_method_id,
+            off_session=True,
+            confirm=True,
+
+            metadata={
+                "channel": "novapulse_off_session",
+                "client_key": email,
+                "seller_slug": client["seller_slug"],
+                "admin_id": str(admin_id),
+                "payment_type": "off_session",
+                "topic_id": str(thread_id),
+            },
+)
 
             print(
                 "💳 OFF-SESSION DIRECT OK :",
