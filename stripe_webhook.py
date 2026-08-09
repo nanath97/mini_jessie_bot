@@ -297,26 +297,70 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     # 5) PAIEMENT OFF-SESSION RÉUSSI
     # ============================================================
     if event["type"] == "payment_intent.succeeded":
-        payment_intent = event["data"]["object"].to_dict_recursive()
+        payment_intent = event["data"]["object"]
 
-        metadata = payment_intent.get("metadata") or {}
+        metadata = (
+            payment_intent["metadata"]
+            if "metadata" in payment_intent
+            else {}
+        )
 
-        # On traite uniquement les encaissements NovaPulse off-session
-        if metadata.get("channel") == "novapulse_off_session":
+        channel = (
+            metadata["channel"]
+            if "channel" in metadata
+            else None
+        )
+
+        if channel == "novapulse_off_session":
 
             try:
-                client_key = metadata.get("client_key")
-                seller_slug = metadata.get("seller_slug")
-                admin_id = metadata.get("admin_id")
-                topic_id = metadata.get("topic_id")
-
-                amount_cents = int(
-                    payment_intent.get("amount_received") or 0
+                client_key = (
+                    metadata["client_key"]
+                    if "client_key" in metadata
+                    else None
                 )
 
-                customer_id = payment_intent.get("customer") or ""
-                payment_method_id = payment_intent.get("payment_method") or ""
-                payment_intent_id = payment_intent.get("id") or ""
+                seller_slug = (
+                    metadata["seller_slug"]
+                    if "seller_slug" in metadata
+                    else None
+                )
+
+                admin_id = (
+                    metadata["admin_id"]
+                    if "admin_id" in metadata
+                    else None
+                )
+
+                topic_id = (
+                    metadata["topic_id"]
+                    if "topic_id" in metadata
+                    else None
+                )
+
+                amount_cents = int(
+                    payment_intent["amount_received"]
+                    if "amount_received" in payment_intent
+                    else 0
+                )
+
+                customer_id = (
+                    payment_intent["customer"]
+                    if "customer" in payment_intent
+                    else ""
+                )
+
+                payment_method_id = (
+                    payment_intent["payment_method"]
+                    if "payment_method" in payment_intent
+                    else ""
+                )
+
+                payment_intent_id = (
+                    payment_intent["id"]
+                    if "id" in payment_intent
+                    else ""
+                )
 
                 print(
                     "💳 OFF-SESSION WEBHOOK SUCCESS :",
