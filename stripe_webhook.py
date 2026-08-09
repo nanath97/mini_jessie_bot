@@ -443,7 +443,39 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                         print(
                             "❌ Erreur création Payment Links off-session"
                         )
+                    else:
+                        montant_euros = round(amount_cents / 100, 2)
 
+                        try:
+                            BRIDGE_API_URL = os.getenv("BRIDGE_API_URL")
+
+                            if client_key and seller_slug and BRIDGE_API_URL:
+                                notify_resp = requests.post(
+                                    f"{BRIDGE_API_URL}/pwa/send-admin-message",
+                                    json={
+                                        "email": client_key,
+                                        "sellerSlug": seller_slug,
+                                        "text": (
+                                            f"✅ Paiement du solde effectué\n\n"
+                                            f"Le solde restant de {montant_euros:.2f} € "
+                                            f"a été débité sur le moyen de paiement enregistré, "
+                                            f"conformément aux modalités de paiement acceptées lors de la validation du devis."
+                                        ),
+                                    },
+                                    timeout=5,
+                                )
+
+                                print(
+                                    "📩 OFF-SESSION CONFIRMATION CLIENT :",
+                                    notify_resp.status_code,
+                                    notify_resp.text
+                                )
+
+                        except Exception as e:
+                            print(
+                                "❌ OFF-SESSION CLIENT NOTIFY ERROR :",
+                                e
+                            )
             except Exception as e:
                 print(
                     "❌ OFF-SESSION WEBHOOK ERROR :",
