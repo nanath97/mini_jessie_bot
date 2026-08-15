@@ -2787,29 +2787,30 @@ const quoteUrl = await new Promise((resolve, reject) => {
 await base("Quotes").create([
   {
     fields: {
-      quote_id: quoteId,
-      client_email: emailClient,
-      seller_slug: sellerSlug,
-      pdf_url: quoteUrl,
-      pdf_hash: pdfHash,
+      quote_id: String(quoteId),
+      client_email: String(emailClient || ""),
+      seller_slug: String(sellerSlug || ""),
+      pdf_url: String(quoteUrl || ""),
+      pdf_hash: String(pdfHash || ""),
       status: "pending",
 
       // =========================
       // DONNÉES STRUCTURÉES DEVIS
+      // Tous les champs Airtable = Single line text
       // =========================
 
       items_json: JSON.stringify(items),
 
-      tva_percent: safeTvaPercent,
+      tva_percent: String(safeTvaPercent),
 
-      total_ht: Number(totalHT.toFixed(2)),
-      tva_amount: Number(tvaAmount.toFixed(2)),
-      total_ttc: Number(totalTTC.toFixed(2)),
+      total_ht: String(totalHT.toFixed(2)),
+      tva_amount: String(tvaAmount.toFixed(2)),
+      total_ttc: String(totalTTC.toFixed(2)),
 
-      deposit_percent: safeDepositPercent,
-      deposit_amount: Number(depositAmount.toFixed(2)),
+      deposit_percent: String(safeDepositPercent),
+      deposit_amount: String(depositAmount.toFixed(2)),
 
-      remaining_amount: Number(
+      remaining_amount: String(
         (totalTTC - depositAmount).toFixed(2)
       ),
 
