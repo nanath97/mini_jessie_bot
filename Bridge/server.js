@@ -2793,6 +2793,27 @@ await base("Quotes").create([
       pdf_url: quoteUrl,
       pdf_hash: pdfHash,
       status: "pending",
+
+      // =========================
+      // DONNÉES STRUCTURÉES DEVIS
+      // =========================
+
+      items_json: JSON.stringify(items),
+
+      tva_percent: safeTvaPercent,
+
+      total_ht: Number(totalHT.toFixed(2)),
+      tva_amount: Number(tvaAmount.toFixed(2)),
+      total_ttc: Number(totalTTC.toFixed(2)),
+
+      deposit_percent: safeDepositPercent,
+      deposit_amount: Number(depositAmount.toFixed(2)),
+
+      remaining_amount: Number(
+        (totalTTC - depositAmount).toFixed(2)
+      ),
+
+      created_at: new Date().toISOString(),
     },
   },
 ]);
