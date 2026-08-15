@@ -2813,8 +2813,6 @@ await base("Quotes").create([
       remaining_amount: String(
         (totalTTC - depositAmount).toFixed(2)
       ),
-
-      created_at: new Date().toISOString(),
     },
   },
 ]);
