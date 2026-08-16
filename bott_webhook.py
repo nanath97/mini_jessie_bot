@@ -965,6 +965,45 @@ def find_matching_accepted_quote(email: str, seller_slug: str, amount_cents: int
                 continue
 
             if deposit_cents == amount_cents:
+
+                # ==========================================
+                # GARDE-FOU : acompte déjà créé pour ce devis ?
+                # ==========================================
+                payment_url = (
+                    f"https://api.airtable.com/v0/"
+                    f"{BASE_ID}/Payment%20Links"
+                )
+
+                payment_params = {
+                    "filterByFormula": (
+                        f"AND("
+                        f"{{Quote ID}}='{quote_id}',"
+                        f"{{Payment Role}}='deposit',"
+                        f"OR("
+                        f"{{Status}}='Pending',"
+                        f"{{Status}}='Paid'"
+                        f")"
+                        f")"
+                    ),
+                    "maxRecords": 1
+                }
+
+                payment_resp = requests.get(
+                    payment_url,
+                    headers=headers,
+                    params=payment_params,
+                    timeout=10
+                )
+
+                existing_deposits = payment_resp.json().get("records", [])
+
+                if existing_deposits:
+                    print(
+                        f"⚠️ ACOMPTE DÉJÀ RATTACHÉ : {quote_id}"
+                    )
+                    continue
+
+                # Aucun acompte existant → devis utilisable
                 return {
                     "record_id": record.get("id"),
                     "quote_id": quote_id,
