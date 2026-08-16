@@ -1273,6 +1273,18 @@ async def encaisser_off_session(message: types.Message):
                 "admin_id": str(admin_id),
                 "payment_type": "off_session",
                 "topic_id": str(thread_id),
+
+                # Liaison avec le devis si /encaisser correspond à un solde
+                "quote_id": (
+                    matched_balance_quote["quote_id"]
+                    if matched_balance_quote
+                    else ""
+                ),
+                "payment_role": (
+                    "balance"
+                    if matched_balance_quote
+                    else ""
+                ),
             },
 )
 

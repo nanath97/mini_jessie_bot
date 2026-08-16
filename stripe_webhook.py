@@ -337,7 +337,17 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     if "topic_id" in metadata
                     else None
                 )
+                quote_id = (
+                    metadata["quote_id"]
+                    if "quote_id" in metadata
+                    else ""
+                )
 
+                payment_role = (
+                    metadata["payment_role"]
+                    if "payment_role" in metadata
+                    else ""
+                )
                 amount_cents = int(
                     payment_intent["amount_received"]
                     if "amount_received" in payment_intent
@@ -420,6 +430,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                         "Stripe Payment Intent ID": payment_intent_id,
                         "Stripe Payment Method ID": payment_method_id,
                         "Caption": "Encaissement off-session",
+                        "Quote ID": quote_id,
+                        "Payment Role": payment_role,
                         "Content ID": (
                             f"{seller_slug}_offsession_"
                             f"{payment_intent_id}"
