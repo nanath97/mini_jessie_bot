@@ -1103,6 +1103,24 @@ async def encaisser_off_session(message: types.Message):
 
         email = client["email"]
 
+        matched_balance_quote = find_matching_balance_quote(
+            email=email,
+            seller_slug=client["seller_slug"],
+            amount_cents=amount_cents
+        )
+
+        if matched_balance_quote:
+            print(
+                "📄 DEVIS MATCHÉ POUR /encaisser :",
+                matched_balance_quote["quote_id"],
+                "| solde =",
+                matched_balance_quote["remaining_amount"]
+            )
+        else:
+            print(
+                "ℹ️ /encaisser paiement normal : aucun solde de devis correspondant"
+            )
+
         print(
             f"💳 /encaisser détecté | "
             f"client={email} | "
@@ -1675,6 +1693,10 @@ async def envoyer_contenu_payant(message: types.Message):
 
     amount_cents = parse_amount_to_cents(raw_code)
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
+
+
+
+
     # ================================
     # RECHERCHE DU DEVIS CORRESPONDANT
     # ================================
@@ -1724,7 +1746,88 @@ async def envoyer_contenu_payant(message: types.Message):
     payment_role="deposit" if matched_quote else ""
 )
 
+def find_matching_balance_quote(email: str, seller_slug: str, amount_cents: int):
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/Quotes"
 
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
+
+        params = {
+            "filterByFormula": (
+                f"AND("
+                f"{{client_email}}='{email}',"
+                f"{{seller_slug}}='{seller_slug}',"
+                f"{{status}}='accepted'"
+                f")"
+            ),
+            "sort[0][field]": "created_at",
+            "sort[0][direction]": "desc",
+            "maxRecords": 10
+        }
+
+        resp = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=10
+        )
+
+        records = resp.json().get("records", [])
+
+        for record in records:
+            fields = record.get("fields", {})
+
+            quote_id = fields.get("quote_id", "")
+            remaining_raw = fields.get("remaining_amount", "")
+
+            try:
+                remaining_cents = int(
+                    Decimal(str(remaining_raw).replace(",", ".")) * 100
+                )
+            except Exception:
+                continue
+
+            if remaining_cents != amount_cents:
+                continue
+
+            # Vérifie que l'acompte existe déjà
+            payment_url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
+
+            payment_params = {
+                "filterByFormula": (
+                    f"AND("
+                    f"{{Quote ID}}='{quote_id}',"
+                    f"{{Payment Role}}='deposit',"
+                    f"{{Status}}='Paid'"
+                    f")"
+                ),
+                "maxRecords": 1
+            }
+
+            payment_resp = requests.get(
+                payment_url,
+                headers=headers,
+                params=payment_params,
+                timeout=10
+            )
+
+            deposit_records = payment_resp.json().get("records", [])
+
+            if not deposit_records:
+                continue
+
+            return {
+                "quote_id": quote_id,
+                "remaining_amount": remaining_raw
+            }
+
+        return None
+
+    except Exception as e:
+        print(f"❌ BALANCE QUOTE MATCH ERROR : {e}")
+        return None
 
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
