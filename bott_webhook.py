@@ -918,7 +918,66 @@ def get_pwa_client_by_topic(thread_id: int):
         print(f"[PWA LOOKUP ERROR] {e}")
         return None
 
+def find_matching_accepted_quote(email: str, seller_slug: str, amount_cents: int):
+    try:
+        url = f"https://api.airtable.com/v0/{BASE_ID}/Quotes"
 
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
+        }
+
+        formula = (
+            f"AND("
+            f"{{client_email}}='{email}',"
+            f"{{seller_slug}}='{seller_slug}',"
+            f"{{status}}='accepted'"
+            f")"
+        )
+
+        params = {
+            "filterByFormula": formula,
+            "sort[0][field]": "created_at",
+            "sort[0][direction]": "desc",
+            "maxRecords": 10
+        }
+
+        resp = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=10
+        )
+
+        records = resp.json().get("records", [])
+
+        for record in records:
+            fields = record.get("fields", {})
+
+            quote_id = fields.get("quote_id", "")
+            deposit_raw = fields.get("deposit_amount", "")
+
+            try:
+                deposit_cents = int(
+                    Decimal(str(deposit_raw).replace(",", "."))
+                    * 100
+                )
+            except Exception:
+                continue
+
+            if deposit_cents == amount_cents:
+                return {
+                    "record_id": record.get("id"),
+                    "quote_id": quote_id,
+                    "deposit_amount": deposit_raw,
+                    "total_ttc": fields.get("total_ttc", ""),
+                    "remaining_amount": fields.get("remaining_amount", "")
+                }
+
+        return None
+
+    except Exception as e:
+        print(f"❌ QUOTE MATCH ERROR : {e}")
+        return None
 # ================================
 # UTILS
 # ================================
@@ -1577,6 +1636,27 @@ async def envoyer_contenu_payant(message: types.Message):
 
     amount_cents = parse_amount_to_cents(raw_code)
     display_amount = format(amount_cents / 100, ".2f").replace(".", ",")
+    # ================================
+    # RECHERCHE DU DEVIS CORRESPONDANT
+    # ================================
+
+    matched_quote = find_matching_accepted_quote(
+        email=email,
+        seller_slug=seller_slug,
+        amount_cents=amount_cents
+    )
+
+    if matched_quote:
+        print(
+            "📄 DEVIS MATCHÉ POUR /env :",
+            matched_quote["quote_id"],
+            "| acompte =",
+            matched_quote["deposit_amount"]
+        )
+    else:
+        print(
+            "ℹ️ /env paiement normal : aucun acompte de devis correspondant"
+        )
 
     # ✅ Identifiants robustes pour l’après-paiement
     client_key = email  # PWA client key = email (stable)
