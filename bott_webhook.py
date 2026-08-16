@@ -1673,14 +1673,17 @@ async def envoyer_contenu_payant(message: types.Message):
 
     # ✅ Airtable: on log la ligne Pending avec session_id (indispensable)
     save_payment_link_to_airtable(
-        client_key=client_key,
-        content_id=content_id,
-        payment_link=checkout_url,
-        admin_id=str(admin_id),
-        amount_cents=amount_cents,
-        checkout_session_id=session_id,
-        caption=motif
-    )
+    client_key=client_key,
+    content_id=content_id,
+    payment_link=checkout_url,
+    admin_id=str(admin_id),
+    amount_cents=amount_cents,
+    checkout_session_id=session_id,
+    caption=motif,
+
+    quote_id=matched_quote["quote_id"] if matched_quote else "",
+    payment_role="deposit" if matched_quote else ""
+)
 
 
 

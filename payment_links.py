@@ -88,7 +88,9 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
 
 def save_payment_link_to_airtable(*, client_key: str, content_id: str, payment_link: str,
                                   admin_id: str, amount_cents: int, checkout_session_id: str,
-                                  caption: str = ""):
+                                  caption: str = "",
+                                  quote_id: str = "",
+                                  payment_role: str = ""):
     """
     Crée une ligne Airtable "Payment Links" en statut Pending,
     avec les 3 champs clés: Client Key / Content ID / Checkout Session ID.
@@ -113,6 +115,8 @@ def save_payment_link_to_airtable(*, client_key: str, content_id: str, payment_l
             "Status": "Pending",
             "Sent At": datetime.utcnow().isoformat(),
             "Caption": caption,
+            "Quote ID": str(quote_id or ""),
+            "Payment Role": str(payment_role or ""),
         }
     }
 
