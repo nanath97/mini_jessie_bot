@@ -3474,15 +3474,25 @@ function buildUblInvoiceXml(invoice) {
         </cac:Country>
       </cac:PostalAddress>
 
-      <cac:PartyTaxScheme>
-        <cbc:CompanyID>${escapeXml(
-          sellerVatId || seller.siret || seller.siren
-        )}</cbc:CompanyID>
-
-        <cac:TaxScheme>
-          <cbc:ID>VAT</cbc:ID>
-        </cac:TaxScheme>
-      </cac:PartyTaxScheme>
+      ${
+        sellerVatId
+          ? `
+            <cac:PartyTaxScheme>
+              <cbc:CompanyID>${escapeXml(sellerVatId)}</cbc:CompanyID>
+              <cac:TaxScheme>
+                <cbc:ID>VAT</cbc:ID>
+              </cac:TaxScheme>
+            </cac:PartyTaxScheme>`
+          : `
+            <cac:PartyTaxScheme>
+              <cbc:CompanyID>${escapeXml(
+                seller.siret || seller.siren
+              )}</cbc:CompanyID>
+              <cac:TaxScheme>
+                <cbc:ID>FC</cbc:ID>
+              </cac:TaxScheme>
+            </cac:PartyTaxScheme>`
+      }
 
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(sellerName)}</cbc:RegistrationName>
