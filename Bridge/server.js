@@ -2375,7 +2375,364 @@ app.get("/test-normal-invoice", async (req, res) => {
   }
 });
 
+app.get("/test-deposit-invoice", async (req, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || "").trim();
+    const sellerSlug = String(req.query.sellerSlug || "").trim();
 
+    if (!invoiceNumber || !sellerSlug) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing invoiceNumber or sellerSlug"
+      });
+    }
+
+    const records = await base("Payment Links")
+      .select({
+        filterByFormula: `{Invoice Number}='${invoiceNumber}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "Payment not found"
+      });
+    }
+
+    const paymentFields = records[0].fields;
+
+    const invoiceData = await buildDepositInvoiceData(
+      paymentFields,
+      sellerSlug
+    );
+
+    if (!invoiceData) {
+      return res.status(500).json({
+        success: false,
+        error: "Deposit invoice data build failed"
+      });
+    }
+
+    return res.json({
+      success: true,
+      invoice: invoiceData
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ TEST DEPOSIT INVOICE ERROR:",
+      err.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+async function buildDepositInvoiceData(paymentFields, sellerSlug) {
+  try {
+    // =========================
+    // 1. VÉRIFIER LE LIEN DEVIS
+    // =========================
+    const quoteId = String(
+      paymentFields["Quote ID"] || ""
+    ).trim();
+
+    const paymentRole = String(
+      paymentFields["Payment Role"] || ""
+    ).trim();
+
+    if (!quoteId || paymentRole !== "deposit") {
+      throw new Error(
+        "buildDepositInvoiceData appelé sur un paiement qui n'est pas un acompte de devis"
+      );
+    }
+
+    // =========================
+    // 2. CHARGER LE VENDEUR
+    // =========================
+    const sellerConfig = await getSellerConfig(sellerSlug);
+
+    if (!sellerConfig?.company) {
+      throw new Error(
+        `Configuration vendeur introuvable : ${sellerSlug}`
+      );
+    }
+
+    const company = sellerConfig.company;
+
+    // =========================
+    // 3. CHARGER LE DEVIS
+    // =========================
+    const quoteRecords = await base("Quotes")
+      .select({
+        filterByFormula: `{quote_id}='${quoteId}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!quoteRecords.length) {
+      throw new Error(
+        `Devis introuvable : ${quoteId}`
+      );
+    }
+
+    const quoteFields = quoteRecords[0].fields;
+
+    // =========================
+    // 4. DONNÉES FIGÉES DU DEVIS
+    // =========================
+    const totalHt = Number(
+      String(quoteFields["total_ht"] || 0).replace(",", ".")
+    );
+
+    const vatRate = Number(
+      String(quoteFields["tva_percent"] || 0).replace(",", ".")
+    );
+
+    const totalTtc = Number(
+      String(quoteFields["total_ttc"] || 0).replace(",", ".")
+    );
+
+    const depositPercent = Number(
+      String(quoteFields["deposit_percent"] || 0).replace(",", ".")
+    );
+
+    const depositTtc = Number(
+      String(quoteFields["deposit_amount"] || 0).replace(",", ".")
+    );
+
+    if (!Number.isFinite(depositTtc) || depositTtc <= 0) {
+      throw new Error("Montant acompte invalide");
+    }
+
+    // =========================
+    // 5. CALCUL HT / TVA DE L'ACOMPTE
+    // =========================
+    let depositHt = depositTtc;
+    let depositVat = 0;
+
+    let taxCategory;
+    let taxExemptionCode = "";
+    let taxExemptionReason = "";
+
+    if (vatRate > 0) {
+      depositHt =
+        depositTtc / (1 + vatRate / 100);
+
+      depositVat =
+        depositTtc - depositHt;
+
+      taxCategory = "S";
+    } else {
+      depositHt = depositTtc;
+      depositVat = 0;
+
+      if (String(company.vat_status || "") === "franchise_base") {
+        taxCategory = "E";
+        taxExemptionCode = "VATEX-FR-FRANCHISE";
+        taxExemptionReason =
+          "TVA non applicable, art. 293 B du CGI";
+      } else {
+        taxCategory = "Z";
+      }
+    }
+
+    depositHt = Number(depositHt.toFixed(2));
+    depositVat = Number(depositVat.toFixed(2));
+
+    const finalDepositTtc = Number(
+      depositTtc.toFixed(2)
+    );
+
+    // =========================
+    // 6. DATE
+    // =========================
+    const paidAt =
+      paymentFields["Paid At"] || "";
+
+    const invoiceDate = paidAt
+      ? String(paidAt).slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    // =========================
+    // 7. OBJET NORMALISÉ
+    // =========================
+    const invoiceData = {
+      invoice_type: "deposit",
+
+      invoice_number:
+        paymentFields["Invoice Number"] || "",
+
+      invoice_date: invoiceDate,
+
+      payment_date: paidAt,
+
+      currency: "EUR",
+
+      seller: {
+        seller_slug: sellerSlug,
+
+        name: company.name || "",
+        legal_name: company.legal_name || "",
+        legal_status: company.legal_status || "",
+
+        siren: company.siren || "",
+        siret: company.siret || "",
+
+        address: company.address || "",
+        postal_code: company.postal_code || "",
+        city: company.city || "",
+        country: company.country || "FR",
+
+        email: company.email || "",
+        phone: company.phone || "",
+
+        vat_status: company.vat_status || "",
+        vat_number: company.vat_number || "",
+        default_vat_rate: company.default_vat_rate || 0
+      },
+
+      buyer: {
+        type:
+          paymentFields["Buyer Type"] || "",
+
+        name:
+          paymentFields["Buyer Name"] || "",
+
+        company_name:
+          paymentFields["Buyer Company Name"] || "",
+
+        email:
+          paymentFields["Buyer Email"] || "",
+
+        phone:
+          paymentFields["Buyer Phone"] || "",
+
+        address_1:
+          paymentFields["Buyer Address Line 1"] || "",
+
+        address_2:
+          paymentFields["Buyer Address Line 2"] || "",
+
+        postal_code:
+          paymentFields["Buyer Postal Code"] || "",
+
+        city:
+          paymentFields["Buyer City"] || "",
+
+        country:
+          paymentFields["Buyer Country"] || "",
+
+        siret:
+          paymentFields["Buyer SIRET"] || "",
+
+        vat_number:
+          paymentFields["Buyer VAT"] || ""
+      },
+
+      quote: {
+        quote_id: quoteId,
+
+        total_ht: totalHt,
+
+        vat_rate: vatRate,
+
+        total_ttc: totalTtc,
+
+        deposit_percent: depositPercent,
+
+        deposit_ttc: finalDepositTtc
+      },
+
+      lines: [
+        {
+          line_number: 1,
+
+          description:
+            `Acompte ${depositPercent}% - ${quoteId}`,
+
+          quantity: 1,
+
+          unit: "C62",
+
+          unit_price_ht: depositHt,
+
+          line_total_ht: depositHt,
+
+          vat_rate: vatRate,
+
+          tax_category: taxCategory
+        }
+      ],
+
+      tax: {
+        category: taxCategory,
+
+        rate: vatRate,
+
+        taxable_amount: depositHt,
+
+        tax_amount: depositVat,
+
+        exemption_code: taxExemptionCode,
+
+        exemption_reason: taxExemptionReason
+      },
+
+      totals: {
+        total_ht: depositHt,
+
+        vat_amount: depositVat,
+
+        total_ttc: finalDepositTtc,
+
+        prepaid_amount: finalDepositTtc,
+
+        payable_amount: 0
+      },
+
+      source: {
+        payment_intent_id:
+          paymentFields["Stripe Payment Intent ID"] || "",
+
+        checkout_session_id:
+          paymentFields["Checkout Session ID"] || "",
+
+        quote_id: quoteId,
+
+        payment_role: "deposit"
+      }
+    };
+
+    console.log(
+      "🧾 DEPOSIT INVOICE DATA BUILT |",
+      invoiceData.invoice_number,
+      "| quote:",
+      quoteId,
+      "| HT:",
+      depositHt,
+      "| TVA:",
+      depositVat,
+      "| TTC:",
+      finalDepositTtc
+    );
+
+    return invoiceData;
+
+  } catch (err) {
+    console.error(
+      "❌ buildDepositInvoiceData error:",
+      err.message
+    );
+
+    return null;
+  }
+}
 
 
 
