@@ -572,9 +572,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     )
 
                 else:
-                    invoice_number = (
-                        f"NP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-                    )
+                    invoice_number = get_next_invoice_number(seller_slug)
 
                     fields = {
                         "Client Key": client_key or "",
