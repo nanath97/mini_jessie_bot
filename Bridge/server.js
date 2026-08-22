@@ -515,7 +515,9 @@ async function buildNormalInvoiceData(paymentFields, sellerSlug) {
 
         total_ttc: finalTtc,
 
-        payable_amount: finalTtc
+        prepaid_amount: finalTtc,
+
+        payable_amount: 0
       },
 
       // =====================
