@@ -2786,7 +2786,48 @@ async function findPaidDepositForQuote(quoteId) {
         fields["Stripe Payment Intent ID"] || "",
 
       status:
-        fields["Status"] || ""
+        fields["Status"] || "",
+
+      // =====================
+      // ACHETEUR DE L'ACOMPTE
+      // =====================
+      buyer: {
+        type:
+          fields["Buyer Type"] || "",
+
+        name:
+          fields["Buyer Name"] || "",
+
+        company_name:
+          fields["Buyer Company Name"] || "",
+
+        email:
+          fields["Buyer Email"] || "",
+
+        phone:
+          fields["Buyer Phone"] || "",
+
+        address_1:
+          fields["Buyer Address Line 1"] || "",
+
+        address_2:
+          fields["Buyer Address Line 2"] || "",
+
+        postal_code:
+          fields["Buyer Postal Code"] || "",
+
+        city:
+          fields["Buyer City"] || "",
+
+        country:
+          fields["Buyer Country"] || "",
+
+        siret:
+          fields["Buyer SIRET"] || "",
+
+        vat_number:
+          fields["Buyer VAT"] || ""
+      }
     };
 
     console.log(
@@ -2837,6 +2878,484 @@ app.get("/test-paid-deposit", async (req, res) => {
 
   } catch (err) {
     console.error("❌ TEST PAID DEPOSIT ERROR:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+
+async function buildBalanceInvoiceData(paymentFields, sellerSlug) {
+  try {
+    // =========================
+    // 1. VÉRIFIER LE PAIEMENT
+    // =========================
+    const quoteId = String(
+      paymentFields["Quote ID"] || ""
+    ).trim();
+
+    const paymentRole = String(
+      paymentFields["Payment Role"] || ""
+    ).trim();
+
+    if (!quoteId || paymentRole !== "balance") {
+      throw new Error(
+        "buildBalanceInvoiceData appelé sur un paiement qui n'est pas un solde de devis"
+      );
+    }
+
+    // =========================
+    // 2. CHARGER LE VENDEUR
+    // =========================
+    const sellerConfig = await getSellerConfig(sellerSlug);
+
+    if (!sellerConfig?.company) {
+      throw new Error(
+        `Configuration vendeur introuvable : ${sellerSlug}`
+      );
+    }
+
+    const company = sellerConfig.company;
+
+    // =========================
+    // 3. CHARGER LE DEVIS
+    // =========================
+    const quoteRecords = await base("Quotes")
+      .select({
+        filterByFormula: `{quote_id}='${quoteId}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!quoteRecords.length) {
+      throw new Error(`Devis introuvable : ${quoteId}`);
+    }
+
+    const quoteFields = quoteRecords[0].fields;
+
+    // =========================
+    // 4. RETROUVER L'ACOMPTE PAYÉ
+    // =========================
+    const deposit = await findPaidDepositForQuote(quoteId);
+
+    if (!deposit) {
+      throw new Error(
+        `Aucun acompte payé trouvé pour ${quoteId}`
+      );
+    }
+
+    if (!deposit.invoice_number) {
+      throw new Error(
+        `Numéro de facture acompte manquant pour ${quoteId}`
+      );
+    }
+
+    // =========================
+    // 5. DONNÉES FIGÉES DU DEVIS
+    // =========================
+    const quoteTotalHt = Number(
+      String(quoteFields["total_ht"] || 0).replace(",", ".")
+    );
+
+    const vatRate = Number(
+      String(quoteFields["tva_percent"] || 0).replace(",", ".")
+    );
+
+    const quoteTotalTtc = Number(
+      String(quoteFields["total_ttc"] || 0).replace(",", ".")
+    );
+
+    const depositTtc = Number(
+      String(quoteFields["deposit_amount"] || 0).replace(",", ".")
+    );
+
+    const remainingTtc = Number(
+      String(quoteFields["remaining_amount"] || 0).replace(",", ".")
+    );
+
+    if (
+      !Number.isFinite(remainingTtc) ||
+      remainingTtc <= 0
+    ) {
+      throw new Error("Montant du solde invalide");
+    }
+
+    // =========================
+    // 6. CALCUL HT / TVA DU SOLDE
+    // =========================
+    let remainingHt = remainingTtc;
+    let remainingVat = 0;
+
+    let taxCategory;
+    let taxExemptionCode = "";
+    let taxExemptionReason = "";
+
+    if (vatRate > 0) {
+      remainingHt =
+        remainingTtc / (1 + vatRate / 100);
+
+      remainingVat =
+        remainingTtc - remainingHt;
+
+      taxCategory = "S";
+    } else {
+      remainingHt = remainingTtc;
+      remainingVat = 0;
+
+      if (
+        String(company.vat_status || "") ===
+        "franchise_base"
+      ) {
+        taxCategory = "E";
+
+        taxExemptionCode =
+          "VATEX-FR-FRANCHISE";
+
+        taxExemptionReason =
+          "TVA non applicable, art. 293 B du CGI";
+      } else {
+        taxCategory = "Z";
+      }
+    }
+
+    remainingHt = Number(
+      remainingHt.toFixed(2)
+    );
+
+    remainingVat = Number(
+      remainingVat.toFixed(2)
+    );
+
+    const finalRemainingTtc = Number(
+      remainingTtc.toFixed(2)
+    );
+
+    // =========================
+    // 7. VÉRIFIER LE MONTANT STRIPE
+    // =========================
+    const paidAmount = Number(
+      paymentFields["Amount Cents"] || 0
+    ) / 100;
+
+    if (
+      Number(paidAmount.toFixed(2)) !==
+      finalRemainingTtc
+    ) {
+      throw new Error(
+        `Montant Stripe (${paidAmount}) différent du solde du devis (${finalRemainingTtc})`
+      );
+    }
+
+    // =========================
+    // 8. DATE
+    // =========================
+    const paidAt =
+      paymentFields["Paid At"] || "";
+
+    const invoiceDate = paidAt
+      ? String(paidAt).slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    // =========================
+    // 9. OBJET NORMALISÉ
+    // =========================
+    const invoiceData = {
+      invoice_type: "balance",
+
+      invoice_number:
+        paymentFields["Invoice Number"] || "",
+
+      invoice_date: invoiceDate,
+
+      payment_date: paidAt,
+
+      currency: "EUR",
+
+      // =====================
+      // VENDEUR
+      // =====================
+      seller: {
+        seller_slug: sellerSlug,
+
+        name: company.name || "",
+        legal_name: company.legal_name || "",
+        legal_status: company.legal_status || "",
+
+        siren: company.siren || "",
+        siret: company.siret || "",
+
+        address: company.address || "",
+        postal_code: company.postal_code || "",
+        city: company.city || "",
+        country: company.country || "FR",
+
+        email: company.email || "",
+        phone: company.phone || "",
+
+        vat_status: company.vat_status || "",
+        vat_number: company.vat_number || "",
+        default_vat_rate:
+          company.default_vat_rate || 0
+      },
+
+      // =====================
+      // ACHETEUR
+      // =====================
+      buyer: {
+        type:
+          paymentFields["Buyer Type"] ||
+          deposit.buyer?.type ||
+          "",
+
+        name:
+          paymentFields["Buyer Name"] ||
+          deposit.buyer?.name ||
+          "",
+
+        company_name:
+          paymentFields["Buyer Company Name"] ||
+          deposit.buyer?.company_name ||
+          "",
+
+        email:
+          paymentFields["Buyer Email"] ||
+          deposit.buyer?.email ||
+          "",
+
+        phone:
+          paymentFields["Buyer Phone"] ||
+          deposit.buyer?.phone ||
+          "",
+
+        address_1:
+          paymentFields["Buyer Address Line 1"] ||
+          deposit.buyer?.address_1 ||
+          "",
+
+        address_2:
+          paymentFields["Buyer Address Line 2"] ||
+          deposit.buyer?.address_2 ||
+          "",
+
+        postal_code:
+          paymentFields["Buyer Postal Code"] ||
+          deposit.buyer?.postal_code ||
+          "",
+
+        city:
+          paymentFields["Buyer City"] ||
+          deposit.buyer?.city ||
+          "",
+
+        country:
+          paymentFields["Buyer Country"] ||
+          deposit.buyer?.country ||
+          "",
+
+        siret:
+          paymentFields["Buyer SIRET"] ||
+          deposit.buyer?.siret ||
+          "",
+
+        vat_number:
+          paymentFields["Buyer VAT"] ||
+          deposit.buyer?.vat_number ||
+          ""
+      },
+
+      // =====================
+      // DEVIS
+      // =====================
+      quote: {
+        quote_id: quoteId,
+
+        total_ht: quoteTotalHt,
+
+        vat_rate: vatRate,
+
+        total_ttc: quoteTotalTtc,
+
+        deposit_ttc: Number(
+          depositTtc.toFixed(2)
+        ),
+
+        remaining_ttc:
+          finalRemainingTtc
+      },
+
+      // =====================
+      // FACTURE D'ACOMPTE LIÉE
+      // =====================
+      deposit_reference: {
+        invoice_number:
+          deposit.invoice_number,
+
+        invoice_date:
+          deposit.paid_at
+            ? String(deposit.paid_at).slice(0, 10)
+            : "",
+
+        amount:
+          Number(deposit.amount.toFixed(2)),
+
+        payment_intent_id:
+          deposit.payment_intent_id || ""
+      },
+
+      // =====================
+      // LIGNE FACTURE
+      // =====================
+      lines: [
+        {
+          line_number: 1,
+
+          description:
+            `Solde devis ${quoteId}`,
+
+          quantity: 1,
+
+          unit: "C62",
+
+          unit_price_ht: remainingHt,
+
+          line_total_ht: remainingHt,
+
+          vat_rate: vatRate,
+
+          tax_category: taxCategory
+        }
+      ],
+
+      // =====================
+      // TVA
+      // =====================
+      tax: {
+        category: taxCategory,
+
+        rate: vatRate,
+
+        taxable_amount: remainingHt,
+
+        tax_amount: remainingVat,
+
+        exemption_code:
+          taxExemptionCode,
+
+        exemption_reason:
+          taxExemptionReason
+      },
+
+      // =====================
+      // TOTAUX DU SOLDE
+      // =====================
+      totals: {
+        total_ht: remainingHt,
+
+        vat_amount: remainingVat,
+
+        total_ttc: finalRemainingTtc,
+
+        prepaid_amount:
+          finalRemainingTtc,
+
+        payable_amount: 0
+      },
+
+      // =====================
+      // TRAÇABILITÉ
+      // =====================
+      source: {
+        payment_intent_id:
+          paymentFields["Stripe Payment Intent ID"] || "",
+
+        checkout_session_id:
+          paymentFields["Checkout Session ID"] || "",
+
+        quote_id: quoteId,
+
+        payment_role: "balance"
+      }
+    };
+
+    console.log(
+      "🧾 BALANCE INVOICE DATA BUILT |",
+      invoiceData.invoice_number,
+      "| quote:",
+      quoteId,
+      "| deposit invoice:",
+      deposit.invoice_number,
+      "| HT:",
+      remainingHt,
+      "| TVA:",
+      remainingVat,
+      "| TTC:",
+      finalRemainingTtc
+    );
+
+    return invoiceData;
+
+  } catch (err) {
+    console.error(
+      "❌ buildBalanceInvoiceData error:",
+      err.message
+    );
+
+    return null;
+  }
+}
+
+app.get("/test-balance-invoice", async (req, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || "").trim();
+    const sellerSlug = String(req.query.sellerSlug || "").trim();
+
+    if (!invoiceNumber || !sellerSlug) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing invoiceNumber or sellerSlug"
+      });
+    }
+
+    const records = await base("Payment Links")
+      .select({
+        filterByFormula: `{Invoice Number}='${invoiceNumber}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "Payment not found"
+      });
+    }
+
+    const paymentFields = records[0].fields;
+
+    const invoiceData = await buildBalanceInvoiceData(
+      paymentFields,
+      sellerSlug
+    );
+
+    if (!invoiceData) {
+      return res.status(500).json({
+        success: false,
+        error: "Balance invoice data build failed"
+      });
+    }
+
+    return res.json({
+      success: true,
+      invoice: invoiceData
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ TEST BALANCE INVOICE ERROR:",
+      err.message
+    );
 
     return res.status(500).json({
       success: false,
