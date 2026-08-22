@@ -3424,12 +3424,11 @@ function buildUblInvoiceXml(invoice) {
   const depositReferenceXml =
     invoice.deposit_reference?.invoice_number
       ? `
-  <cac:AdditionalDocumentReference>
-    <cbc:ID>${escapeXml(
-      invoice.deposit_reference.invoice_number
-    )}</cbc:ID>
-    <cbc:DocumentType>Facture d'acompte</cbc:DocumentType>
-  </cac:AdditionalDocumentReference>`
+    <cac:AdditionalDocumentReference>
+      <cbc:ID>${escapeXml(
+        invoice.deposit_reference.invoice_number
+      )}</cbc:ID>
+    </cac:AdditionalDocumentReference>`
       : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -3439,6 +3438,8 @@ function buildUblInvoiceXml(invoice) {
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
 
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017</cbc:CustomizationID>
 
   <cbc:ID>${escapeXml(invoice.invoice_number)}</cbc:ID>
 
@@ -3473,18 +3474,15 @@ function buildUblInvoiceXml(invoice) {
         </cac:Country>
       </cac:PostalAddress>
 
-      ${
-        sellerVatId
-          ? `
       <cac:PartyTaxScheme>
-        <cbc:CompanyID>${escapeXml(sellerVatId)}</cbc:CompanyID>
+        <cbc:CompanyID>${escapeXml(
+          sellerVatId || seller.siret || seller.siren
+        )}</cbc:CompanyID>
 
         <cac:TaxScheme>
           <cbc:ID>VAT</cbc:ID>
         </cac:TaxScheme>
-      </cac:PartyTaxScheme>`
-          : ""
-      }
+      </cac:PartyTaxScheme>
 
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(sellerName)}</cbc:RegistrationName>
@@ -3540,15 +3538,15 @@ function buildUblInvoiceXml(invoice) {
           : ""
       }
 
-      ${
-        buyer.siret
-          ? `
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(buyerName)}</cbc:RegistrationName>
-        <cbc:CompanyID>${escapeXml(buyer.siret)}</cbc:CompanyID>
-      </cac:PartyLegalEntity>`
-          : ""
-      }
+
+        ${
+          buyer.siret
+            ? `<cbc:CompanyID>${escapeXml(buyer.siret)}</cbc:CompanyID>`
+            : ""
+        }
+      </cac:PartyLegalEntity>
 
       <cac:Contact>
         <cbc:Telephone>${escapeXml(buyer.phone)}</cbc:Telephone>
