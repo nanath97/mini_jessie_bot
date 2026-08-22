@@ -2810,6 +2810,40 @@ async function findPaidDepositForQuote(quoteId) {
   }
 }
 
+app.get("/test-paid-deposit", async (req, res) => {
+  try {
+    const quoteId = String(req.query.quoteId || "").trim();
+
+    if (!quoteId) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing quoteId"
+      });
+    }
+
+    const deposit = await findPaidDepositForQuote(quoteId);
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        error: "Paid deposit not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      deposit
+    });
+
+  } catch (err) {
+    console.error("❌ TEST PAID DEPOSIT ERROR:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
 // =======================
 // NOTES (PWA Clients) API
 // =======================
