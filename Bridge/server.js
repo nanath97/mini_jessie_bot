@@ -260,12 +260,307 @@ async function getSellerConfig(sellerSlug) {
   }
 }
 
-getSellerConfig("coach-matthieu").then((testSellerConfig) => {
-  console.log(
-    "🧾 TEST SELLER CONFIG:",
-    testSellerConfig?.company || null
-  );
-});
+
+async function buildNormalInvoiceData(paymentFields, sellerSlug) {
+  try {
+    // =========================
+    // 1. VÉRIFIER LE PAIEMENT
+    // =========================
+    const quoteId = String(
+      paymentFields["Quote ID"] || ""
+    ).trim();
+
+    const paymentRole = String(
+      paymentFields["Payment Role"] || ""
+    ).trim();
+
+    // Cette fonction ne traite QUE les paiements normaux
+    if (quoteId || paymentRole) {
+      throw new Error(
+        "Paiement lié à un devis : buildNormalInvoiceData refusé"
+      );
+    }
+
+    // =========================
+    // 2. CHARGER LE VENDEUR
+    // =========================
+    const sellerConfig = await getSellerConfig(sellerSlug);
+
+    if (!sellerConfig?.company) {
+      throw new Error(
+        `Configuration vendeur introuvable : ${sellerSlug}`
+      );
+    }
+
+    const company = sellerConfig.company;
+
+    // =========================
+    // 3. MONTANT PAYÉ = TTC
+    // =========================
+    const amountCents = Number(
+      paymentFields["Amount Cents"] || 0
+    );
+
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      throw new Error("Amount Cents invalide");
+    }
+
+    const totalTtc = amountCents / 100;
+
+    // =========================
+    // 4. TVA
+    // =========================
+    const vatStatus = String(
+      company.vat_status || ""
+    ).trim();
+
+    const vatRate = Number(
+      company.default_vat_rate || 0
+    );
+
+    let totalHt;
+    let vatAmount;
+
+    let taxCategory;
+    let taxExemptionCode = "";
+    let taxExemptionReason = "";
+
+    // Franchise en base
+    if (vatStatus === "franchise_base") {
+      totalHt = totalTtc;
+      vatAmount = 0;
+
+      taxCategory = "E";
+
+      taxExemptionCode = "VATEX-FR-FRANCHISE";
+
+      taxExemptionReason =
+        "TVA non applicable, art. 293 B du CGI";
+    }
+
+    // Vendeur soumis à TVA
+    else {
+      if (vatRate < 0) {
+        throw new Error("Taux TVA vendeur invalide");
+      }
+
+      if (vatRate > 0) {
+        totalHt =
+          totalTtc / (1 + vatRate / 100);
+
+        vatAmount =
+          totalTtc - totalHt;
+
+        taxCategory = "S";
+      } else {
+        totalHt = totalTtc;
+        vatAmount = 0;
+
+        taxCategory = "Z";
+      }
+    }
+
+    totalHt = Number(totalHt.toFixed(2));
+    vatAmount = Number(vatAmount.toFixed(2));
+
+    const finalTtc = Number(
+      totalTtc.toFixed(2)
+    );
+
+    // =========================
+    // 5. DATE
+    // =========================
+    const paidAt =
+      paymentFields["Paid At"] || "";
+
+    const invoiceDate = paidAt
+      ? String(paidAt).slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    // =========================
+    // 6. OBJET NORMALISÉ NOVAPULSE
+    // =========================
+    const invoiceData = {
+      invoice_type: "normal",
+
+      invoice_number:
+        paymentFields["Invoice Number"] || "",
+
+      invoice_date: invoiceDate,
+
+      payment_date: paidAt,
+
+      currency: "EUR",
+
+      // =====================
+      // VENDEUR
+      // =====================
+      seller: {
+        seller_slug: sellerSlug,
+
+        name: company.name || "",
+        legal_name: company.legal_name || "",
+        legal_status: company.legal_status || "",
+
+        siren: company.siren || "",
+        siret: company.siret || "",
+
+        address: company.address || "",
+        postal_code: company.postal_code || "",
+        city: company.city || "",
+        country: company.country || "FR",
+
+        email: company.email || "",
+        phone: company.phone || "",
+
+        vat_status: vatStatus,
+        vat_number: company.vat_number || "",
+        default_vat_rate: vatRate,
+
+        logo: company.logo || ""
+      },
+
+      // =====================
+      // ACHETEUR
+      // =====================
+      buyer: {
+        type:
+          paymentFields["Buyer Type"] || "",
+
+        name:
+          paymentFields["Buyer Name"] || "",
+
+        company_name:
+          paymentFields["Buyer Company Name"] || "",
+
+        email:
+          paymentFields["Buyer Email"] || "",
+
+        phone:
+          paymentFields["Buyer Phone"] || "",
+
+        address_1:
+          paymentFields["Buyer Address Line 1"] || "",
+
+        address_2:
+          paymentFields["Buyer Address Line 2"] || "",
+
+        postal_code:
+          paymentFields["Buyer Postal Code"] || "",
+
+        city:
+          paymentFields["Buyer City"] || "",
+
+        country:
+          paymentFields["Buyer Country"] || "",
+
+        siret:
+          paymentFields["Buyer SIRET"] || "",
+
+        vat_number:
+          paymentFields["Buyer VAT"] || ""
+      },
+
+      // =====================
+      // LIGNE DE FACTURE
+      // =====================
+      lines: [
+        {
+          line_number: 1,
+
+          description:
+            paymentFields["Caption"] ||
+            "Prestation",
+
+          quantity: 1,
+
+          unit: "C62",
+
+          unit_price_ht: totalHt,
+
+          line_total_ht: totalHt,
+
+          vat_rate: vatRate,
+
+          tax_category: taxCategory
+        }
+      ],
+
+      // =====================
+      // TVA
+      // =====================
+      tax: {
+        status: vatStatus,
+
+        category: taxCategory,
+
+        rate: vatRate,
+
+        taxable_amount: totalHt,
+
+        tax_amount: vatAmount,
+
+        exemption_code: taxExemptionCode,
+
+        exemption_reason: taxExemptionReason
+      },
+
+      // =====================
+      // TOTAUX
+      // =====================
+      totals: {
+        total_ht: totalHt,
+
+        vat_amount: vatAmount,
+
+        total_ttc: finalTtc,
+
+        payable_amount: finalTtc
+      },
+
+      // =====================
+      // TRAÇABILITÉ NOVAPULSE
+      // =====================
+      source: {
+        payment_intent_id:
+          paymentFields["Stripe Payment Intent ID"] || "",
+
+        checkout_session_id:
+          paymentFields["Checkout Session ID"] || "",
+
+        quote_id: "",
+
+        payment_role: ""
+      }
+    };
+
+    console.log(
+      "🧾 NORMAL INVOICE DATA BUILT |",
+      invoiceData.invoice_number,
+      "| seller:",
+      sellerSlug,
+      "| HT:",
+      totalHt,
+      "| TVA:",
+      vatAmount,
+      "| TTC:",
+      finalTtc,
+      "| tax:",
+      taxCategory
+    );
+
+    return invoiceData;
+
+  } catch (err) {
+    console.error(
+      "❌ buildNormalInvoiceData error:",
+      err.message
+    );
+
+    return null;
+  }
+}
+
 function getSellerCalendlyUrl(sellerSlug) {
 
   try {
@@ -2019,6 +2314,68 @@ app.post("/pwa/register-client", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+
+
+
+
+app.get("/test-normal-invoice", async (req, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || "").trim();
+    const sellerSlug = String(req.query.sellerSlug || "").trim();
+
+    if (!invoiceNumber || !sellerSlug) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing invoiceNumber or sellerSlug"
+      });
+    }
+
+    const records = await base("Payment Links")
+      .select({
+        filterByFormula: `{Invoice Number}='${invoiceNumber}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "Payment not found"
+      });
+    }
+
+    const paymentFields = records[0].fields;
+
+    const invoiceData = await buildNormalInvoiceData(
+      paymentFields,
+      sellerSlug
+    );
+
+    if (!invoiceData) {
+      return res.status(500).json({
+        success: false,
+        error: "Invoice data build failed"
+      });
+    }
+
+    return res.json({
+      success: true,
+      invoice: invoiceData
+    });
+
+  } catch (err) {
+    console.error("❌ TEST NORMAL INVOICE ERROR:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+
+
+
 
 // =======================
 // NOTES (PWA Clients) API
