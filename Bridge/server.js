@@ -219,7 +219,7 @@ function normSlug(slug) {
 function pwaRoom(email, sellerSlug) {
   return `pwa:${normSlug(sellerSlug)}:${normEmail(email)}`;
 }
-function getSellerConfig(sellerSlug) {
+async function getSellerConfig(sellerSlug) {
   try {
     const s = normSlug(sellerSlug);
 
@@ -228,47 +228,44 @@ function getSellerConfig(sellerSlug) {
       return null;
     }
 
-console.log("📁 __dirname =", __dirname);
-console.log("📁 cwd =", process.cwd());
-console.log("📁 root files =", fs.readdirSync("/app"));
-console.log("📁 bridge files =", fs.readdirSync(__dirname));
-    const candidates = [
-      path.join(__dirname, "..", "public", "sellers", s, "config.json"),
-      path.join(__dirname, "public", "sellers", s, "config.json"),
-      path.join(__dirname, "sellers", s, "config.json"),
-      path.join(__dirname, "src", "sellers", s, "config.json"),
-    ];
+    const configUrl =
+      `https://app.nova-pulse.app/sellers/${encodeURIComponent(s)}/config.json`;
 
-    for (const filePath of candidates) {
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, "utf8");
-        const config = JSON.parse(raw);
+    console.log("🧾 Chargement seller config:", configUrl);
 
-        console.log("✅ Seller config loaded:", s, filePath);
+    const response = await axios.get(configUrl, {
+      timeout: 10000,
+    });
 
-        return config;
-      }
+    const config = response.data;
+
+    if (!config || !config.company) {
+      console.log("⚠️ Seller config invalide pour:", s);
+      return null;
     }
 
-    console.log("⚠️ Aucun config.json trouvé pour seller:", s);
-    return null;
+    console.log("✅ Seller config loaded:", s);
+
+    return config;
 
   } catch (err) {
     console.error(
       "❌ Erreur lecture seller config:",
       sellerSlug,
+      err.response?.status || "",
       err.message
     );
 
     return null;
   }
 }
-    const testSellerConfig = getSellerConfig("coach-matthieu");
 
-console.log(
-  "🧾 TEST SELLER CONFIG:",
-  testSellerConfig?.company || null
-);
+getSellerConfig("coach-matthieu").then((testSellerConfig) => {
+  console.log(
+    "🧾 TEST SELLER CONFIG:",
+    testSellerConfig?.company || null
+  );
+});
 function getSellerCalendlyUrl(sellerSlug) {
 
   try {
