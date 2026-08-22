@@ -230,6 +230,7 @@ function getSellerConfig(sellerSlug) {
 
 
     const candidates = [
+      path.join(__dirname, "..", "public", "sellers", s, "config.json"),
       path.join(__dirname, "public", "sellers", s, "config.json"),
       path.join(__dirname, "sellers", s, "config.json"),
       path.join(__dirname, "src", "sellers", s, "config.json"),
