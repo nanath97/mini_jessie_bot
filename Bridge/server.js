@@ -219,7 +219,57 @@ function normSlug(slug) {
 function pwaRoom(email, sellerSlug) {
   return `pwa:${normSlug(sellerSlug)}:${normEmail(email)}`;
 }
+function getSellerConfig(sellerSlug) {
+  try {
+    const s = normSlug(sellerSlug);
+
+    if (!s) {
+      console.log("⚠️ sellerSlug vide dans getSellerConfig");
+      return null;
+    }
+
+
+    const testSellerConfig = getSellerConfig("coach-matthieu");
+
+console.log(
+  "🧾 TEST SELLER CONFIG:",
+  testSellerConfig?.company || null
+);
+
+
+    const candidates = [
+      path.join(__dirname, "public", "sellers", s, "config.json"),
+      path.join(__dirname, "sellers", s, "config.json"),
+      path.join(__dirname, "src", "sellers", s, "config.json"),
+    ];
+
+    for (const filePath of candidates) {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf8");
+        const config = JSON.parse(raw);
+
+        console.log("✅ Seller config loaded:", s, filePath);
+
+        return config;
+      }
+    }
+
+    console.log("⚠️ Aucun config.json trouvé pour seller:", s);
+    return null;
+
+  } catch (err) {
+    console.error(
+      "❌ Erreur lecture seller config:",
+      sellerSlug,
+      err.message
+    );
+
+    return null;
+  }
+}
+
 function getSellerCalendlyUrl(sellerSlug) {
+
   try {
     const s = normSlug(sellerSlug);
 
