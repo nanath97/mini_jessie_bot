@@ -20,7 +20,161 @@ BASE_ID = os.getenv("BASE_ID")
 PAYMENT_LINKS_TABLE = "Payment Links"
 
 
-def mark_payment_link_as_paid_by_session(checkout_session_id: str, buyer_fields: dict = None):
+
+def get_next_invoice_number(seller_slug: str):
+    """
+    Génère le prochain numéro de facture du vendeur.
+    Exemple :
+    NP-2026-000001
+    NP-2026-000002
+    """
+
+    if not seller_slug:
+        raise ValueError("seller_slug manquant pour générer le numéro de facture")
+
+    year = int(datetime.utcnow().year)
+
+    table = "Invoice Counters"
+
+    url = (
+        f"https://api.airtable.com/v0/"
+        f"{BASE_ID}/{table.replace(' ', '%20')}"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # ================================
+    # 1. CHERCHER LE COMPTEUR
+    # ================================
+
+    formula = (
+        f"AND("
+        f"{{seller_slug}}='{seller_slug}',"
+        f"{{year}}={year}"
+        f")"
+    )
+
+    resp = requests.get(
+        url,
+        headers=headers,
+        params={
+            "filterByFormula": formula,
+            "maxRecords": 1
+        },
+        timeout=10
+    )
+
+    if resp.status_code != 200:
+        raise RuntimeError(
+            f"Erreur lecture Invoice Counters "
+            f"{resp.status_code}: {resp.text}"
+        )
+
+    records = resp.json().get("records", [])
+
+    # ================================
+    # 2. PREMIÈRE FACTURE DE L'ANNÉE
+    # ================================
+
+    if not records:
+
+        next_number = 1
+
+        create_resp = requests.post(
+            url,
+            headers=headers,
+            json={
+                "fields": {
+                    "seller_slug": str(seller_slug),
+                    "year": int(year),
+                    "last_number": int(next_number)
+                }
+            },
+            timeout=10
+        )
+
+        if create_resp.status_code not in (200, 201):
+            raise RuntimeError(
+                f"Erreur création Invoice Counter "
+                f"{create_resp.status_code}: {create_resp.text}"
+            )
+
+    # ================================
+    # 3. COMPTEUR EXISTANT
+    # ================================
+
+    else:
+
+        record = records[0]
+        record_id = record["id"]
+
+        fields = record.get("fields", {})
+
+        try:
+            last_number = int(
+                fields.get("last_number", 0) or 0
+            )
+        except Exception:
+            raise RuntimeError(
+                f"last_number invalide dans Airtable : "
+                f"{fields.get('last_number')}"
+            )
+
+        next_number = last_number + 1
+
+        patch_resp = requests.patch(
+            f"{url}/{record_id}",
+            headers=headers,
+            json={
+                "fields": {
+                    "last_number": int(next_number)
+                }
+            },
+            timeout=10
+        )
+
+        if patch_resp.status_code not in (200, 201):
+            raise RuntimeError(
+                f"Erreur mise à jour Invoice Counter "
+                f"{patch_resp.status_code}: {patch_resp.text}"
+            )
+
+    # ================================
+    # 4. NUMÉRO FINAL
+    # ================================
+
+    invoice_number = (
+        f"NP-{year}-{next_number:06d}"
+    )
+
+    print(
+        "🧾 INVOICE NUMBER GENERATED |",
+        f"seller={seller_slug}",
+        f"year={year}",
+        f"sequence={next_number}",
+        f"invoice={invoice_number}"
+    )
+
+    return invoice_number
+
+
+
+
+
+
+
+
+
+
+
+def mark_payment_link_as_paid_by_session(
+    checkout_session_id: str,
+    buyer_fields: dict = None,
+    seller_slug: str = ""
+):
     """
     Met à jour dans Airtable la ligne correspondant au Checkout Session ID.
     """
@@ -52,7 +206,7 @@ def mark_payment_link_as_paid_by_session(checkout_session_id: str, buyer_fields:
 
         record_id = records[0]["id"]
         patch_url = f"{url}/{record_id}"
-        invoice_number = f"NP-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        invoice_number = get_next_invoice_number(seller_slug)
 
         airtable_fields = {
             "Status": "Paid",
@@ -185,7 +339,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         )
 
         # 3) Update Airtable
-        mark_payment_link_as_paid_by_session(checkout_session_id, buyer_fields)
+        mark_payment_link_as_paid_by_session(
+        checkout_session_id,
+        buyer_fields,
+        seller_slug
+    )
 
         # ============================================================
         # 🔔 NOUVEAU : NOTIFICATIONS POST-PAIEMENT
