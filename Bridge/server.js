@@ -228,7 +228,10 @@ function getSellerConfig(sellerSlug) {
       return null;
     }
 
-
+console.log("📁 __dirname =", __dirname);
+console.log("📁 cwd =", process.cwd());
+console.log("📁 root files =", fs.readdirSync("/app"));
+console.log("📁 bridge files =", fs.readdirSync(__dirname));
     const candidates = [
       path.join(__dirname, "..", "public", "sellers", s, "config.json"),
       path.join(__dirname, "public", "sellers", s, "config.json"),
