@@ -2734,7 +2734,81 @@ async function buildDepositInvoiceData(paymentFields, sellerSlug) {
   }
 }
 
+async function findPaidDepositForQuote(quoteId) {
+  try {
+    const cleanQuoteId = String(quoteId || "").trim();
 
+    if (!cleanQuoteId) {
+      throw new Error("Quote ID manquant");
+    }
+
+    const records = await base("Payment Links")
+      .select({
+        filterByFormula: `AND(
+          {Quote ID}='${cleanQuoteId}',
+          {Payment Role}='deposit',
+          {Status}='Paid'
+        )`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records.length) {
+      console.log(
+        "⚠️ Aucun acompte payé trouvé pour:",
+        cleanQuoteId
+      );
+
+      return null;
+    }
+
+    const fields = records[0].fields;
+
+    const depositData = {
+      record_id: records[0].id,
+
+      quote_id:
+        fields["Quote ID"] || "",
+
+      invoice_number:
+        fields["Invoice Number"] || "",
+
+      paid_at:
+        fields["Paid At"] || "",
+
+      amount_cents:
+        Number(fields["Amount Cents"] || 0),
+
+      amount:
+        Number(fields["Amount Cents"] || 0) / 100,
+
+      payment_intent_id:
+        fields["Stripe Payment Intent ID"] || "",
+
+      status:
+        fields["Status"] || ""
+    };
+
+    console.log(
+      "🔎 PAID DEPOSIT FOUND |",
+      depositData.quote_id,
+      "| invoice:",
+      depositData.invoice_number,
+      "| amount:",
+      depositData.amount
+    );
+
+    return depositData;
+
+  } catch (err) {
+    console.error(
+      "❌ findPaidDepositForQuote error:",
+      err.message
+    );
+
+    return null;
+  }
+}
 
 // =======================
 // NOTES (PWA Clients) API
