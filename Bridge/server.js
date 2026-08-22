@@ -229,14 +229,6 @@ function getSellerConfig(sellerSlug) {
     }
 
 
-    const testSellerConfig = getSellerConfig("coach-matthieu");
-
-console.log(
-  "🧾 TEST SELLER CONFIG:",
-  testSellerConfig?.company || null
-);
-
-
     const candidates = [
       path.join(__dirname, "public", "sellers", s, "config.json"),
       path.join(__dirname, "sellers", s, "config.json"),
@@ -267,7 +259,12 @@ console.log(
     return null;
   }
 }
+    const testSellerConfig = getSellerConfig("coach-matthieu");
 
+console.log(
+  "🧾 TEST SELLER CONFIG:",
+  testSellerConfig?.company || null
+);
 function getSellerCalendlyUrl(sellerSlug) {
 
   try {
