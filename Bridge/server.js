@@ -3388,6 +3388,10 @@ function buildUblInvoiceXml(invoice) {
   const line = invoice.lines?.[0] || {};
 
   const currency = invoice.currency || "EUR";
+  const dueDate =
+  invoice.payment_date
+    ? String(invoice.payment_date).slice(0, 10)
+    : invoice.invoice_date;
 
   const invoiceTypeCode =
     invoice.invoice_type === "deposit"
@@ -3445,6 +3449,8 @@ function buildUblInvoiceXml(invoice) {
   <cbc:ID>${escapeXml(invoice.invoice_number)}</cbc:ID>
 
   <cbc:IssueDate>${escapeXml(invoice.invoice_date)}</cbc:IssueDate>
+
+  <cbc:DueDate>${escapeXml(dueDate)}</cbc:DueDate>
 
   <cbc:InvoiceTypeCode>${invoiceTypeCode}</cbc:InvoiceTypeCode>
 
