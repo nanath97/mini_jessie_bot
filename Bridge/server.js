@@ -3453,6 +3453,11 @@ function buildUblInvoiceXml(invoice) {
   <cbc:DueDate>${escapeXml(dueDate)}</cbc:DueDate>
 
   <cbc:InvoiceTypeCode>${invoiceTypeCode}</cbc:InvoiceTypeCode>
+  <cbc:Note>#PMT# Indemnité forfaitaire pour frais de recouvrement : 40 EUR en cas de retard de paiement.</cbc:Note>
+
+  <cbc:Note>#PMD# Pénalités de retard exigibles en cas de paiement tardif selon les conditions contractuelles applicables.</cbc:Note>
+
+  <cbc:Note>#AAB# Aucun escompte accordé pour paiement anticipé.</cbc:Note>
 
   <cbc:DocumentCurrencyCode>${escapeXml(currency)}</cbc:DocumentCurrencyCode>
 
