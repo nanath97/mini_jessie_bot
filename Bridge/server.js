@@ -3526,13 +3526,10 @@ function buildUblInvoiceXml(invoice) {
   <cac:AccountingSupplierParty>
     <cac:Party>
 
-      ${
-        String(buyer.type || "").toLowerCase() === "particulier"
-          ? `<cbc:EndpointID schemeID="EM">${escapeXml(buyer.email)}</cbc:EndpointID>`
-          : `<cbc:EndpointID schemeID="0225">${escapeXml(
-              String(buyer.siret || "").slice(0, 9)
-            )}</cbc:EndpointID>`
-      }
+      <cbc:EndpointID schemeID="0225">${escapeXml(
+        seller.siren
+      )}</cbc:EndpointID>
+    
 
       <cac:PartyIdentification>
       <cbc:ID schemeID="0009">${escapeXml(
@@ -3593,9 +3590,13 @@ function buildUblInvoiceXml(invoice) {
 
   <cac:AccountingCustomerParty>
     <cac:Party>
-    <cbc:EndpointID schemeID="0225">${escapeXml(
-      String(buyer.siret || "").slice(0, 9)
-    )}</cbc:EndpointID>
+    ${
+      String(buyer.type || "").toLowerCase() === "particulier"
+        ? `<cbc:EndpointID schemeID="EM">${escapeXml(buyer.email)}</cbc:EndpointID>`
+        : `<cbc:EndpointID schemeID="0225">${escapeXml(
+            String(buyer.siret || "").slice(0, 9)
+          )}</cbc:EndpointID>`
+    }
 
       <cac:PartyName>
         <cbc:Name>${escapeXml(buyerName)}</cbc:Name>
