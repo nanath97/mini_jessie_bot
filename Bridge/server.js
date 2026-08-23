@@ -2375,6 +2375,64 @@ app.get("/test-normal-invoice", async (req, res) => {
   }
 });
 
+app.get("/test-normal-xml", async (req, res) => {
+  try {
+    const invoiceNumber = String(req.query.invoiceNumber || "").trim();
+    const sellerSlug = String(req.query.sellerSlug || "").trim();
+
+    if (!invoiceNumber || !sellerSlug) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing invoiceNumber or sellerSlug"
+      });
+    }
+
+    const records = await base("Payment Links")
+      .select({
+        filterByFormula: `{Invoice Number}='${invoiceNumber}'`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "Payment not found"
+      });
+    }
+
+    const paymentFields = records[0].fields;
+
+    const invoiceData = await buildNormalInvoiceData(
+      paymentFields,
+      sellerSlug
+    );
+
+    if (!invoiceData) {
+      return res.status(500).json({
+        success: false,
+        error: "Normal invoice data build failed"
+      });
+    }
+
+    const xml = buildUblInvoiceXml(invoiceData);
+
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+
+    return res.status(200).send(xml);
+
+  } catch (err) {
+    console.error(
+      "❌ TEST NORMAL XML ERROR:",
+      err.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
 app.get("/test-deposit-invoice", async (req, res) => {
   try {
     const invoiceNumber = String(req.query.invoiceNumber || "").trim();
@@ -3388,6 +3446,8 @@ function buildUblInvoiceXml(invoice) {
   const line = invoice.lines?.[0] || {};
 
   const currency = invoice.currency || "EUR";
+
+ 
   const dueDate =
   invoice.payment_date
     ? String(invoice.payment_date).slice(0, 10)
