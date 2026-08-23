@@ -3526,9 +3526,13 @@ function buildUblInvoiceXml(invoice) {
   <cac:AccountingSupplierParty>
     <cac:Party>
 
-      <cbc:EndpointID schemeID="0225">${escapeXml(
-        seller.siren
-      )}</cbc:EndpointID>
+      ${
+        String(buyer.type || "").toLowerCase() === "particulier"
+          ? `<cbc:EndpointID schemeID="EM">${escapeXml(buyer.email)}</cbc:EndpointID>`
+          : `<cbc:EndpointID schemeID="0225">${escapeXml(
+              String(buyer.siret || "").slice(0, 9)
+            )}</cbc:EndpointID>`
+      }
 
       <cac:PartyIdentification>
       <cbc:ID schemeID="0009">${escapeXml(
