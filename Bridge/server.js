@@ -3502,9 +3502,11 @@ function buildUblInvoiceXml(invoice) {
       }
 
       <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${escapeXml(sellerName)}</cbc:RegistrationName>
-        <cbc:CompanyID>${escapeXml(seller.siret || seller.siren)}</cbc:CompanyID>
-      </cac:PartyLegalEntity>
+      <cbc:RegistrationName>${escapeXml(sellerName)}</cbc:RegistrationName>
+      <cbc:CompanyID schemeID="0002">${escapeXml(
+        seller.siren
+      )}</cbc:CompanyID>
+    </cac:PartyLegalEntity>
 
       <cac:Contact>
         <cbc:Telephone>${escapeXml(seller.phone)}</cbc:Telephone>
