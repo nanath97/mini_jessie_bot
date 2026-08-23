@@ -3440,6 +3440,7 @@ function buildUblInvoiceXml(invoice) {
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
 
   <cbc:CustomizationID>urn:cen.eu:en16931:2017</cbc:CustomizationID>
+  <cbc:ProfileID>S2</cbc:ProfileID>
 
   <cbc:ID>${escapeXml(invoice.invoice_number)}</cbc:ID>
 
