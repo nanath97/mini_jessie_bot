@@ -1,0 +1,97 @@
+{
+  "scenario": "b2b-normal",
+  "sellerSlug": "coach-matthieu",
+  "paymentFields": {
+    "Amount Cents": 51,
+    "URL Render": "https://mini-jessie-bot-1.onrender.com",
+    "Caption": "Prestation",
+    "Days Elapsed": 304,
+    "ADMIN ID": "7334072965",
+    "Stripe Customer ID": "cus_V7uihZQAEjo94z",
+    "Reminder Stage": 0,
+    "Paid At": "2026-08-23T17:08:45.013Z",
+    "Buyer Phone": "+33767303139",
+    "Stripe Payment Intent ID": "pi_3U7esdBej0E1yQFQ0AK1DBBA",
+    "Status": "Paid",
+    "Buyer Address Line 1": "2 Rue des Cévennes",
+    "Invoice Number": "NP-2026-000008",
+    "Reminders Enabled": true,
+    "Buyer Name": "nathan correa dos anjos",
+    "Client Key": "nathan@gmail.com",
+    "Buyer SIRET": "908582307",
+    "Buyer Postal Code": "75015",
+    "Buyer Email": "novapulse.online@gmail.com",
+    "Checkout Session ID": "cs_live_a1V9GgNoExaaUCjXzliB6JZ2foHvfYywURsW7CZYgejUy5ivQwJltslvJD",
+    "Buyer City": "Paris",
+    "Stripe Invoice ID": "in_1U7esuBej0E1yQFQEWS3Jb0E",
+    "Sent At": "2026-08-23T17:07:32.842Z",
+    "Stripe Payment Method ID": "pm_1U7escBej0E1yQFQQOrSiFOJ",
+    "Content ID": "coach-matthieu_1787504852",
+    "Buyer Country": "FR",
+    "Buyer Company Name": "vinteo",
+    "Payment Link URL": "https://checkout.stripe.com/g/pay/cs_live_a1V9GgNoExaaUCjXzliB6JZ2foHvfYywURsW7CZYgejUy5ivQwJltslvJD#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdicGRmZGhqaWBTZHdsZGtxJz8ncXdgZHFoYGtxWjQnKSdicGRmZGhqaWBMa2xxVXdgY2BxZm1TZHdsZGtxJz8nZmprcXdqaScpJ2JwZGZkaGppYElqZGFsa2JWZndgYGtTZHdsZGtxJz8nZmprcXdqaScpJ2R1bE5gfCc%2FJ3VuWmlsc2BaMDRXQjU9Q0dgbzVANHxUQ1RDVX03cDNGcn09XVE0QmpkX1VWV1ZvZ2Z3RFRSUk5fZm9UQHBqalwxQUhjZFJzVFd3ZjR3fXNCclNRR1U9Sn9uTVVPQlN%2FUWM1NVxdaVx3cGpdJyknY3dqaFZgd3Ngdyc%2FcXdwYCknZ2RmbmJ3anBrYUZqaWp3Jz8nJjA3MGMyYycpJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl",
+    "Buyer Type": "Entreprise"
+  },
+  "sellerConfig": {
+    "company": {
+      "name": "Coach Matthieu",
+      "legal_name": "NOM PRENOM LEGAL",
+      "legal_status": "micro_entrepreneur",
+      "siren": "123356789",
+      "siret": "12335678900001",
+      "address": "2 Rue des Voirons",
+      "postal_code": "XXXXX",
+      "city": "XXXXX",
+      "country": "FR",
+      "email": "correadosnajosn@gmail.com",
+      "phone": "+33767303139",
+      "vat_status": "franchise_base",
+      "default_vat_rate": 0,
+      "vat_number": "",
+      "logo": "/sellers/coach-matthieu/avatar.jpg"
+    },
+    "meta": {
+      "validated": true
+    },
+    "services": [
+      {
+        "name": "Conseil personnalisé",
+        "price": "80 €"
+      },
+      {
+        "name": "Accompagnement sur mesure",
+        "price": "150 €"
+      },
+      {
+        "name": "Programme transformation",
+        "price": "299 €"
+      },
+      {
+        "name": "Suivi premium",
+        "price": "99 € / mois"
+      }
+    ],
+    "digitalProducts": [
+      {
+        "title": "5 manières de manger sainement",
+        "description": "Un e-book de 5 pages avec des conseils pratiques pour adopter une alimentation saine au quotidien.",
+        "price": "20 €",
+        "image": "/sellers/coach-matthieu/products/ebook-sante.jpg",
+        "paymentLink": "https://buy.stripe.com/fZuaEW0GpfrF1010nb7AI2e"
+      },
+      {
+        "title": "Productivité au quotidien",
+        "description": "Optimisez votre temps avec des méthodes simples et faciles à appliquer.",
+        "price": "15 €",
+        "image": "/sellers/coach-matthieu/products/productivite.jpg",
+        "paymentLink": "https://buy.stripe.com/fZuaEW0GpfrF1010nb7AI2e"
+      }
+    ],
+    "buttonText": "📋 Voir les services et prestations",
+    "calendly": "https://calendly.com/novapulse-online/nouvelle-reunion",
+    "phone": "+33767303139"
+  },
+  "quoteRecords": [],
+  "paidDepositRecords": [],
+  "now": "2026-08-23T17:08:45.013Z"
+}

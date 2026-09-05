@@ -1,0 +1,73 @@
+{
+  "invoice_type": "normal",
+  "invoice_number": "NP-2026-000009",
+  "invoice_date": "2026-08-23",
+  "payment_date": "2026-08-23T17:24:12.168Z",
+  "currency": "EUR",
+  "seller": {
+    "seller_slug": "coach-matthieu",
+    "name": "Coach Matthieu",
+    "legal_name": "NOM PRENOM LEGAL",
+    "legal_status": "micro_entrepreneur",
+    "siren": "123356789",
+    "siret": "12335678900001",
+    "address": "2 Rue des Voirons",
+    "postal_code": "XXXXX",
+    "city": "XXXXX",
+    "country": "FR",
+    "email": "correadosnajosn@gmail.com",
+    "phone": "+33767303139",
+    "vat_status": "franchise_base",
+    "vat_number": "",
+    "default_vat_rate": 0,
+    "logo": "/sellers/coach-matthieu/avatar.jpg"
+  },
+  "buyer": {
+    "type": "Particulier",
+    "name": "nathan correa dos anjos",
+    "company_name": "",
+    "email": "novapulse.online@gmail.com",
+    "phone": "+33767303139",
+    "address_1": "2 Rue de Mazagran",
+    "address_2": "",
+    "postal_code": "75010",
+    "city": "Paris",
+    "country": "FR",
+    "siret": "",
+    "vat_number": ""
+  },
+  "lines": [
+    {
+      "line_number": 1,
+      "description": "Prestation",
+      "quantity": 1,
+      "unit": "C62",
+      "unit_price_ht": 0.5,
+      "line_total_ht": 0.5,
+      "vat_rate": 0,
+      "tax_category": "E"
+    }
+  ],
+  "tax": {
+    "status": "franchise_base",
+    "category": "E",
+    "rate": 0,
+    "taxable_amount": 0.5,
+    "tax_amount": 0,
+    "exemption_code": "VATEX-FR-FRANCHISE",
+    "exemption_reason": "TVA non applicable, art. 293 B du CGI"
+  },
+  "totals": {
+    "total_ht": 0.5,
+    "vat_amount": 0,
+    "total_ttc": 0.5,
+    "prepaid_amount": 0.5,
+    "payable_amount": 0
+  },
+  "source": {
+    "payment_intent_id": "pi_3U7f7dBej0E1yQFQ0AA4m5Pi",
+    "checkout_session_id": "cs_live_a1qwP6BWAoya2mU0mW0e4ifM0hSZGby0L0ERIKonSZcFvTMTCi7HJ5ENVl",
+    "quote_id": "",
+    "payment_role": ""
+  }
+}

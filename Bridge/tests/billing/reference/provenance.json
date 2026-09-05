@@ -1,0 +1,12 @@
+{
+  "source": "Bridge/server.js",
+  "originalSha256": "27895b20c218f0a0005e1900a38732941afacb1c6e2cc6bb120ec95a54998bcd",
+  "functions": {
+    "buildNormalInvoiceData": "746f1aa62ecceb64c72dcc288ca02e3f4c62f71cf054b8e08b5af651c064211f",
+    "buildDepositInvoiceData": "c9fd02b0ed59d934a82d551ab86127232b4b2e7db26c0737546752135a8ff297",
+    "findPaidDepositForQuote": "9100533c499980ae759d5a12eacc25cc471b9a1c1f51c9abe2d135c01ec323f9",
+    "buildBalanceInvoiceData": "def922dc34fd4e10dfa371a8d64664c9dacf1928c69c91596ec88a2aedc4b80d",
+    "escapeXml": "1cec5b45738ca8d4ec979596515a900853a06daa8ae2ae9ae41bc9bb5d617f1a",
+    "buildUblInvoiceXml": "a0fc9c98e84f324bc43b2b2f23a5046726af143cdf3ac11f1d5625a185e1f2db"
+  }
+}

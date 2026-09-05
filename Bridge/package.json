@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:billing": "node --require ./tests/billing/support/offline.cjs --test tests/billing/builders.test.cjs tests/billing/ubl.test.cjs tests/billing/dependencies.test.cjs",
+    "test:billing:historical": "node --require ./tests/billing/support/offline.cjs ./tests/billing/require-historical.cjs"
   },
   "repository": {
     "type": "git",

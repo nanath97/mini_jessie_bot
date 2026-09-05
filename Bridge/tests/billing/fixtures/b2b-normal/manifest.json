@@ -1,0 +1,34 @@
+{
+  "origin": "historical",
+  "source": "User-supplied XML and read-only Airtable/config exports in tests/billing/historical-import",
+  "invoiceNumber": "NP-2026-000008",
+  "scenario": "b2b-normal",
+  "sellerSlug": "coach-matthieu",
+  "paymentRecordId": "reckAOnt4DiOUevOO",
+  "quoteRecordIds": [],
+  "paidDepositRecordIds": [],
+  "inputSha256": "709fbc6f4411f3d1bc9959be1d2cdc4672b69159aeff3b8405e600a5634dfc62",
+  "ublSha256": "9db1c09093fe7c25b664125ee855deb3c9d7dcad256dce028b1996ce7c8ad58d",
+  "expectedInvoiceSha256": "be0c6bed98cbdf79f38aa1e0b2aaa9c001da3a271e107939463499e3aeec1920",
+  "rawExports": {
+    "payment-links.json": "081d949a4f27fac6a842d6f6f43560fae51b0bfa4a94bcacbd8eb2a82f637e39",
+    "quotes.json": "6f453e4c0636a1137fbecb280f1f864db1ee4e0c27568e90f0770612a2865777",
+    "seller-config.json": "74933fd3b26837b1f41f2fde620d68336be6e7fd7cf50321e246cd301de9620f"
+  },
+  "xmlReference": {
+    "file": "NP-2026-000008.xml",
+    "provenance": "fichier historique fourni, conservé octet pour octet",
+    "validationEvidence": "User statement; no validation report supplied; no validator executed"
+  },
+  "expectedInvoiceProvenance": "Replay of frozen pre-extraction code using raw exported data; identical to extracted builders",
+  "clockSource": "Exact Paid At value from exported payment; no inferred timestamp",
+  "sellerConfigProvenance": "Current configuration from supplied read-only export; not asserted to be the historical configuration",
+  "xmlByteMatch": false,
+  "expectedXmlProvenance": "Exact copy of supplied XML reference; strict test target, never overwritten by generated output",
+  "detectedDifference": {
+    "kind": "formatting-only",
+    "generatedExtraBytes": "four ASCII spaces followed by LF",
+    "location": "after supplier EndpointID, before PartyIdentification",
+    "allOtherBytesIdentical": true
+  }
+}

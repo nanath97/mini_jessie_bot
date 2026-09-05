@@ -1,0 +1,7 @@
+tests/billing/fixtures/**/input.json text eol=lf
+tests/billing/fixtures/**/historical.ubl.xml text eol=lf
+tests/billing/fixtures/**/expected.ubl.xml text eol=lf
+tests/billing/reference/*.cjs text eol=lf
+tests/billing/support/*.cjs text eol=lf
+tests/billing/*.cjs text eol=lf
+billing/*.js text eol=lf
