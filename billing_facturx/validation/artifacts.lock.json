@@ -1,0 +1,22 @@
+{
+  "release": "Factur-X 1.09.2 / ZUGFeRD 2.5.2",
+  "syntax": "CII D22B",
+  "profile": "EN16931",
+  "source": "Local user-supplied France_RFE-1.4.0.03 distribution; README explicitly states update to Factur-X 1.09.2",
+  "sha256": {
+    "1xsd/Factur-X_1.09.2_EN16931_urn_un_unece_uncefact_data_standard_QualifiedDataType_100.xsd": "4bd1753b1f078ecc50468ec90e505a63a72c6c1f2449a893f37c72a2e933fe04",
+    "1xsd/Factur-X_1.09.2_EN16931_urn_un_unece_uncefact_data_standard_ReusableAggregateBusinessInformationEntity_100.xsd": "d6bf8e38c3d5595c670655ccb7ee89655ae244943aaf09a31758160caabc7894",
+    "1xsd/Factur-X_1.09.2_EN16931_urn_un_unece_uncefact_data_standard_UnqualifiedDataType_100.xsd": "60ee4d11da40c7ec42a4da1fb77b5d7bbffcdce42afd863fcd9da9334765315c",
+    "1xsd/Factur-X_EN16931.xsd": "cb98b34e59398fcd8d48f29963a3fd6f4c49af9a8307569f4a1ced634f1aa885",
+    "2xslt/BR-FR-Flux2-Schematron-CII.xslt": "6dede5f39a4573cc0a30d3bd47ba1e1584de83c9096d70db91efbf5aa9e5a59e",
+    "2xslt/BR-FR-Flux2-Schematron-CII_WARNING.xslt": "6e171ae69a2e746e60281eba280039440d29b4dff26d247fd9e3f96eb2b41d59",
+    "2xslt/FACTUR-X_EN16931.xslt": "67f03050e3add4c83dc93de36e4501f6a11aae1ac790b3f9558feb0581019bcb",
+    "2xslt/FACTUR-X_EN16931_codedb.xml": "70339a41d71b02bb97683f8eea04acbd764e077a88a446b32860d89c3351b62f",
+    "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "schematron/BR-FR-Flux2-Schematron-CII.sch": "5aa5f09db121a190cf59ad4c990a40da357c1584bc81dda1ae95894191dc967a",
+    "schematron/BR-FR-Flux2-Schematron-CII_WARNING.sch": "d6562878711a855a592c2e776854f8ec833b5482fe8744739360c5081db70bea",
+    "schematron/FACTUR-X_EN16931.sch": "ef8c8380b499d1267b2dcf1fa709b45631a77d6d5f220c6cc2ade2fdade59473",
+    "schematron/FACTUR-X_EN16931_codedb.xml": "70339a41d71b02bb97683f8eea04acbd764e077a88a446b32860d89c3351b62f",
+    "UPSTREAM.md": "f380cb9ca0b268c19bc7fdf350255e0c7cf5fb2b64438febc3ae32b9c1afdd74"
+  }
+}

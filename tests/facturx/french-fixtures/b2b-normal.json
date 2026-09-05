@@ -1,0 +1,29 @@
+{
+  "invoice_number": "NP-2026-000008",
+  "source_sha256": "5c5c9a14d2efc40125e4da71386888608ffc0de7e37dae691d736f09851b933c",
+  "business_process_id": "S2",
+  "seller_endpoint": {
+    "value": "123356789",
+    "scheme_id": "0225"
+  },
+  "buyer_endpoint": {
+    "value": "908582307",
+    "scheme_id": "0225"
+  },
+  "notes": [
+    {
+      "subject_code": "PMT",
+      "content": "Indemnité forfaitaire pour frais de recouvrement : 40 EUR en cas de retard de paiement."
+    },
+    {
+      "subject_code": "PMD",
+      "content": "Pénalités de retard exigibles en cas de paiement tardif selon les conditions contractuelles applicables."
+    },
+    {
+      "subject_code": "AAB",
+      "content": "Aucun escompte accordé pour paiement anticipé."
+    }
+  ],
+  "payment_date_convention": "UTC calendar date of historical payment_date; BR-FR-CO-09 S2 only",
+  "provenance": "Explicit historical fixture values confirmed for these invoices only. PMD/AAB reproduce historical wording for tests, not a complete seller commercial policy."
+}

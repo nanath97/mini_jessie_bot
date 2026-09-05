@@ -1,0 +1,7 @@
+billing_facturx/validation/artifacts/**/*.xsd text eol=lf
+billing_facturx/validation/artifacts/**/*.xml text eol=lf
+billing_facturx/validation/artifacts/**/*.xslt text eol=lf
+billing_facturx/validation/artifacts/**/*.sch text eol=lf
+billing_facturx/validation/artifacts/LICENSE text eol=lf
+billing_facturx/**/*.py text eol=lf
+tests/facturx/**/*.py text eol=lf

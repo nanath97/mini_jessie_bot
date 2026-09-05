@@ -13,3 +13,5 @@ Bridge/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+Bridge/.venv-facturx/
+work/
