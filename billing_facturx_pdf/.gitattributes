@@ -1,0 +1,2 @@
+# Preserve the byte-for-byte official XMP, fonts and ICC asset hashes.
+assets/** -text

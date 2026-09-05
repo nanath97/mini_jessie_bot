@@ -1,0 +1,9 @@
+{
+  "archive": "Factur-X-1.09.2-Zugferd-2.5.2-2026-08-04-FINAL-FR.zip",
+  "archive_sha256": "7d2fe79580270c8babea3e40dbdae47bd68c0baa7022051be4f955921a1cd29a",
+  "xmp_member": "_Factur-X 1.09.2 Zugferd 2.5.2 - 2026 08 04 - FINAL FR/2. FACTUR-X_extension_schema_exemple.xmp.txt",
+  "guide_member": "_Factur-X 1.09.2 Zugferd 2.5.2 - 2026 08 04 - FINAL FR/1. FACTUR-X 1.09.2 FR.pdf",
+  "guide_sha256": "3789a55e283f6117c84d72ae2d7be81a0ad2891708019e66e4e1a55a12f26c0b",
+  "xmp_sha256": "4ff2e63b98a6968a971d9e2f878e87585b0b011a4b5bd2e95801b5df9bc876c9",
+  "evidence": "Guide section 6.3.1, printed pages 32-33, and XMP example agree on namespace including :invoice:. Hybrid appendix PDF page 161 omits :invoice: in BR-HYBRID-04. Inconsistency documented; no official erratum claimed."
+}

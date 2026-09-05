@@ -1,0 +1,29 @@
+{
+  "xsd": {
+    "status": "pass",
+    "errors": []
+  },
+  "mandatory_data": [],
+  "en16931": {
+    "status": "pass",
+    "findings": [
+      {
+        "id": "PEPPOL-EN16931-R008",
+        "flag": "warning",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:SupplyChainTradeTransaction[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ApplicableHeaderTradeDelivery[namespace-uri()='urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100'][1]",
+        "message": "[PEPPOL-EN16931-R008]-Document MUST not contain empty elements. (still status warning)"
+      }
+    ]
+  },
+  "br_fr": {
+    "status": "pass",
+    "findings": [],
+    "regulatory_scope": "B2B",
+    "required_for_acceptance": true
+  },
+  "accepted": true,
+  "source_sha256": "5c5c9a14d2efc40125e4da71386888608ffc0de7e37dae691d736f09851b933c",
+  "xml_sha256": "fab544d85209701cf25310273881c6cad04c206ba8bb120f68e000c6d5f354a5",
+  "document_status": "validated",
+  "scope": "B2B"
+}

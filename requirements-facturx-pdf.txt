@@ -1,0 +1,4 @@
+# Separate offline PDF prototype environment; includes the existing CII validators.
+-r requirements-facturx.txt
+reportlab==4.4.9
+pypdf==6.10.0

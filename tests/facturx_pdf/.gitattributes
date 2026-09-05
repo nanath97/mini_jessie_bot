@@ -1,0 +1,2 @@
+# Preserve the original validated CII and its validation evidence exactly.
+fixtures/** -text
