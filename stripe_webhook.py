@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Header
 import stripe
 import os
 import requests
+from facturx_postpersist import enqueue_persisted_response
 from datetime import datetime
 from bott_webhook import authorized_admin_ids  # adapte le nom exact du fichier
 from core import bot
@@ -228,6 +229,8 @@ def mark_payment_link_as_paid_by_session(
         if update_resp.status_code not in (200, 201):
             print(f"[AIRTABLE] Erreur update Paid : {update_resp.text}")
             return None
+
+        enqueue_persisted_response(update_resp, seller_slug)
 
         print(f"[AIRTABLE] session_id={checkout_session_id} marqué Paid")
         return record_id
@@ -612,6 +615,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                             "❌ Erreur création Payment Links off-session"
                         )
                     else:
+                        enqueue_persisted_response(create_resp, seller_slug)
                         montant_euros = round(amount_cents / 100, 2)
 
                         try:

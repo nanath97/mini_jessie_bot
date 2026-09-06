@@ -1,5 +1,8 @@
 const { createInvoiceBuilders } = require("./billing/invoice-builders");
 const { buildUblInvoiceXml } = require("./billing/ubl");
+const { createFacturxService, pythonRunner } = require("./billing/facturx-service.cjs");
+const { registerFacturxRoutes } = require("./billing/facturx-routes.cjs");
+const { persistedInvoiceBuilder } = require("./billing/facturx-build.cjs");
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
@@ -211,6 +214,23 @@ const tablePaymentLinks = base("Payment Links");
 
 const { buildNormalInvoiceData, buildDepositInvoiceData, buildBalanceInvoiceData, findPaidDepositForQuote } =
   createInvoiceBuilders({ base, getSellerConfig });
+
+// Isolated internal Factur-X service; disabled until explicitly configured.
+const facturxService = createFacturxService({
+  getSellerConfig,
+  buildInvoice: persistedInvoiceBuilder(base),
+  enabled: process.env.FACTURX_ENABLED === "true",
+  storage: process.env.FACTURX_STORAGE_DIR || require("os").tmpdir(),
+  run: pythonRunner({
+    python: process.env.FACTURX_PYTHON || "python",
+    root: path.resolve(__dirname, ".."),
+    verapdf: process.env.FACTURX_VERAPDF,
+  }),
+});
+registerFacturxRoutes(app, {
+  service: facturxService,
+  token: process.env.FACTURX_SERVICE_TOKEN,
+});
 
 // =======================
 // HELPERS
