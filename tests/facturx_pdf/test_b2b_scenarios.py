@@ -17,7 +17,7 @@ FIXTURES = ROOT/'tests/facturx_pdf/fixtures'
 
 
 class ThreeB2BTests(unittest.TestCase):
-    def test_b2c_rejected(self):
+    def test_b2c_with_b2b_xml_rejected(self):
         with self.assertRaises(ValueError):
             load_inputs(ROOT/'Bridge/tests/billing/fixtures/b2c-normal/expected.invoice.json',
                         FIXTURES/'factur-x.xml',FIXTURES/'validation.json')

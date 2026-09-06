@@ -120,3 +120,35 @@ In this Codex run: PDF tests 23 PASS / 0 FAIL / 1 BLOCKED-SKIP (SaxonC unavailab
 CII tests 15 PASS, historical tests 21 PASS. All three internal PDF structural
 checks and XSD pass. Java is not accessible here, so veraPDF cannot execute:
 PDF/A conformance remains BLOCKED / NOT ATTESTED for these newly generated PDFs.
+
+
+## B2C extension (base 6524b7d)
+
+The CLI also accepts --scenario b2c-normal, b2c-deposit and b2c-balance.
+Exact prior validated XML and reports are stored in tests/facturx_pdf/fixtures/
+under each B2C scenario. Original historical JSON and the CII module are unchanged.
+
+B2C requires XSD + EN16931, not French B2B Schematron PASS. BR-FR diagnostics
+remain visible without controlling B2C acceptance. PDF/A-3b still requires an
+actual veraPDF PASS, and the output report retains scope "diagnostic only".
+
+The renderer emits only explicit optional data: no routing endpoint, S2 process,
+due date, PMT/PMD/AAB or recovery fee is synthesized for a private buyer. Buyer
+name, tax exemption, amounts, quote and preceding deposit references are retained.
+B2B enrichment, acceptance gates and readable content remain unchanged.
+
+Run from jessie_bot with the configured Python environment:
+
+    python -B -m unittest discover -s tests/facturx_pdf -v
+    python -B -m billing_facturx_pdf.cli --scenario b2c-normal --out work/pdf-b2c-normal --verapdf C:\Users\epicn\verapdf\verapdf.bat
+    python -B -m billing_facturx_pdf.cli --scenario b2c-deposit --out work/pdf-b2c-deposit --verapdf C:\Users\epicn\verapdf\verapdf.bat
+    python -B -m billing_facturx_pdf.cli --scenario b2c-balance --out work/pdf-b2c-balance --verapdf C:\Users\epicn\verapdf\verapdf.bat
+
+Use new output directories. Each directory contains its PDF and validation.json.
+A missing validator never becomes a PASS. Installation/setup of the local Java
+and Python validator runtimes is separate from this patch.
+
+Codex results for this extension: PDF tests 28 PASS / 0 FAIL / 1 SKIP (fresh
+Schematron engine unavailable), CII tests 15 PASS, historical tests 21 PASS.
+All three generated B2C PDFs passed veraPDF 3b (real XML reports retained).
+XSD rerun PASS; prior EN16931 PASS evidence bound to the unchanged XML retained.

@@ -1,0 +1,66 @@
+{
+  "xsd": {
+    "status": "pass",
+    "errors": []
+  },
+  "mandatory_data": [],
+  "en16931": {
+    "status": "pass",
+    "findings": [
+      {
+        "id": "PEPPOL-EN16931-R008",
+        "flag": "warning",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:SupplyChainTradeTransaction[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ApplicableHeaderTradeDelivery[namespace-uri()='urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100'][1]",
+        "message": "[PEPPOL-EN16931-R008]-Document MUST not contain empty elements. (still status warning)"
+      }
+    ]
+  },
+  "br_fr": {
+    "status": "fail",
+    "findings": [
+      {
+        "id": "BR-FR-05_BT-22_PMT",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ExchangedDocument[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-05/BT-22 : La mention relative aux frais de recouvrement (code PMT) est absente. Elle est obligatoire dans les notes (BG-1)."
+      },
+      {
+        "id": "BR-FR-05_BT-22_PMD",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ExchangedDocument[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-05/BT-22 : La mention relative aux pénalités de retard (code PMD) est absente. Elle est obligatoire dans les notes (BG-1)."
+      },
+      {
+        "id": "BR-FR-05_BT-22_AAB",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ExchangedDocument[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-05/BT-22 : La mention relative à l’escompte ou à son absence (code AAB) est absente. Elle est obligatoire dans les notes (BG-1)."
+      },
+      {
+        "id": "BR-FR-08_BT-23",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]/*:ExchangedDocumentContext[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-08/BT-23 : La valeur du mode de facturation (ram:ID) est absente ou n’est pas autorisée. Valeurs acceptées : B1, S1, M1, B2, S2, M2, S3, B4, S4, M4, S5, S6, B7, S7, B8, S8, M8, B9, S9, M9.\n        Valeur actuelle : \"\".\n        Veuillez utiliser une valeur conforme à la liste des modes de facturation autorisés."
+      },
+      {
+        "id": "BR-FR-12_BT-49",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-12/BT-49 : Le BT-49  est obligatoire.\n        Valeur actuelle : BT-49=\"\"."
+      },
+      {
+        "id": "BR-FR-13_BT-34",
+        "flag": "fatal",
+        "location": "/*:CrossIndustryInvoice[namespace-uri()='urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100'][1]",
+        "message": "BR-FR-13/BT-34 : Le BT-34  est obligatoire.\n        Valeur actuelle : BT-34=\"\"."
+      }
+    ],
+    "regulatory_scope": "B2C diagnostic only; not a B2B regulatory flow",
+    "required_for_acceptance": false
+  },
+  "accepted": true,
+  "source_sha256": "b84c78a584ecfcaab056a2567cb16309a5e17b6fe6e377d84a8a5f2c99a4efbe",
+  "xml_sha256": "9b956f5131f3dcbe8e7b740e27a184e42d42a18d716c7df85030cccaec1dc6a2",
+  "document_status": "diagnostic only",
+  "scope": "diagnostic only"
+}

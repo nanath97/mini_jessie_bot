@@ -10,8 +10,8 @@ from .validate import inspect_pdf, verify_assets, run_verapdf
 
 def main():
     fixtures = ROOT/'tests/facturx_pdf/fixtures'
-    parser = argparse.ArgumentParser(description='B2B normal/deposit/balance; non-production prototype')
-    parser.add_argument('--scenario',choices=['b2b-normal','b2b-deposit','b2b-balance'],default='b2b-normal')
+    parser = argparse.ArgumentParser(description='B2B/B2C normal/deposit/balance; non-production prototype')
+    parser.add_argument('--scenario',choices=['b2b-normal','b2b-deposit','b2b-balance','b2c-normal','b2c-deposit','b2c-balance'],default='b2b-normal')
     parser.add_argument('--invoice',type=Path)
     parser.add_argument('--xml',type=Path)
     parser.add_argument('--prior-report',type=Path)
@@ -27,7 +27,8 @@ def main():
     args.xml = args.xml or scenario_fixtures/'factur-x.xml'
     args.prior_report = args.prior_report or scenario_fixtures/'validation.json'
     invoice, xml, prior = load_inputs(args.invoice,args.xml,args.prior_report)
-    if 'b2b-' + invoice['invoice_type'] != args.scenario:
+    segment = 'b2b' if invoice['buyer']['type'] == 'Entreprise' else 'b2c'
+    if segment + '-' + invoice['invoice_type'] != args.scenario:
         parser.error('Scenario does not match invoice type')
     pdf = assemble(invoice,xml,datetime.now(timezone.utc),args.conformance)
     structure = inspect_pdf(pdf,xml)
@@ -42,7 +43,7 @@ def main():
     svrl = pdfa.pop('report_xml',None)
     if svrl: (args.out/'verapdf.xml').write_text(svrl,encoding='utf-8')
     report = {'structure':structure,'historical_cii':prior,'current_cii':cii,'pdfa':pdfa,
-              'production':False,'accepted':cii['accepted'] and pdfa['status']=='pass'}
+              'production':False,'scope':'B2B' if segment == 'b2b' else 'diagnostic only','accepted':cii['accepted'] and pdfa['status']=='pass'}
     (args.out/'validation.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False))
     return 0 if report['accepted'] else 2

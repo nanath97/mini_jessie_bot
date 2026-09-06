@@ -36,13 +36,16 @@ def render(invoice):
     labels = {'normal': ('FACTURE', 'Facture normale', '380'),
               'deposit': ("FACTURE D'ACOMPTE", "Facture d'acompte", '386'),
               'balance': ('FACTURE DE SOLDE', 'Facture de solde', '380')}
-    if kind not in labels or invoice['buyer']['type'] != 'Entreprise':
-        raise ValueError('Only the three B2B scenarios are supported')
+    if kind not in labels or invoice['buyer']['type'] not in ('Entreprise', 'Particulier'):
+        raise ValueError('Only B2B/B2C normal, deposit and balance are supported')
     title, label, code = labels[kind]
     add(title, 'title')
     add(invoice['invoice_number'], 'h')
     add('Date : ' + invoice['invoice_date'] + '   |   Devise : ' + invoice['currency'])
-    add(label + ' (' + code + ') - Prestation de service déjà payée (' + invoice['business_process_id'] + ')', 'small')
+    if invoice.get('business_process_id'):
+        add(label + ' (' + code + ') - Prestation de service déjà payée (' + invoice['business_process_id'] + ')', 'small')
+    else:
+        add(label + ' (' + code + ')', 'small')
     if invoice.get('quote', {}).get('quote_id'):
         add('Devis : ' + invoice['quote']['quote_id'] + ' (référence 916)', 'small')
     if invoice.get('deposit_reference'):
@@ -51,7 +54,7 @@ def render(invoice):
     section('Vendeur / Acheteur')
     def party(role):
         p = invoice[role]
-        name = p.get('legal_name') or p.get('company_name') or p['name']
+        name = p['name'] if role == 'buyer' and invoice['buyer']['type'] == 'Particulier' else (p.get('legal_name') or p.get('company_name') or p['name'])
         rows = [name]
         # Include the legal/contact information actually serialized into CII.
         for key in ('address' if role == 'seller' else 'address_1', 'address_2'):
@@ -63,8 +66,9 @@ def render(invoice):
         if legal: rows.append('SIREN (0002) : ' + legal[:9])
         if p.get('siret') and len(p['siret']) == 14: rows.append('SIRET (0009) : ' + p['siret'])
         if role == 'seller': rows.append('Identifiant fiscal (FC) : ' + p['siren'])
-        endpoint = p['electronic_address']
-        rows.append('Adresse de facturation (' + endpoint['scheme_id'] + ') : ' + endpoint['value'])
+        if p.get('electronic_address'):
+            endpoint = p['electronic_address']
+            rows.append('Adresse de facturation (' + endpoint['scheme_id'] + ') : ' + endpoint['value'])
         return [para(line, 'small') for line in rows]
     t = Table([[party('seller'), party('buyer')]], colWidths=[251, 251])
     t.setStyle(TableStyle([('FONTNAME',(0,0),(-1,-1),'FXRegular'),('VALIGN',(0,0),(-1,-1),'TOP'),('BACKGROUND',(0,0),(-1,-1),PALE),
@@ -90,13 +94,18 @@ def render(invoice):
                           ('TVA',totals['vat_amount']),('Total TTC',totals['total_ttc']),
                           ('Montant déjà payé',totals['prepaid_amount']),('Net à payer',totals['payable_amount'])]:
         add(label + ' : ' + format(amount, '.2f') + ' ' + invoice['currency'])
-    add('Date de paiement / échéance : ' + invoice['payment_terms']['due_date'])
-    section('Conditions de paiement')
-    for note in invoice['notes']:
+    if invoice.get('payment_terms', {}).get('due_date'):
+        add('Date de paiement / échéance : ' + invoice['payment_terms']['due_date'])
+    if invoice.get('notes'):
+        section('Conditions de paiement')
+    for note in invoice.get('notes', []):
         add(note['subject_code'] + ' - ' + note['content'])
         story.append(Spacer(1, 3))
     section('Références de la facture électronique')
-    add('Profil EN 16931 - Cadre de facturation : ' + invoice['business_process_id'], 'small')
+    if invoice.get('business_process_id'):
+        add('Profil EN 16931 - Cadre de facturation : ' + invoice['business_process_id'], 'small')
+    else:
+        add('Profil EN 16931', 'small')
     add('Identifiant de profil : urn:cen.eu:en16931:2017', 'small')
     stream = BytesIO()
     doc = SimpleDocTemplate(stream, pagesize=A4, leftMargin=46, rightMargin=46,
