@@ -10,8 +10,9 @@ _slots = threading.BoundedSemaphore(4)
 _log = logging.getLogger('facturx')
 
 
-def _deliver(response, seller_slug):
+def _deliver(response, seller_slug, context=None):
     try:
+        context = context or {}
         payload = response.json()
         fields = payload.get('fields')
         if not isinstance(fields, dict) or fields.get('Status') != 'Paid' or not fields.get('Invoice Number'):
@@ -23,9 +24,23 @@ def _deliver(response, seller_slug):
             raise ValueError('Invalid Factur-X service configuration')
         if parsed.scheme != 'https' and not (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost', '::1')):
             raise ValueError('FACTURX_BRIDGE_URL requires HTTPS or loopback HTTP')
-        request = urllib.request.Request(url + '/internal/facturx/payment',
-            data=json.dumps({'paymentFields': fields, 'sellerSlug': seller_slug}).encode('utf-8'),
-            headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}, method='POST')
+        body = {
+            'paymentFields': fields,
+            'sellerSlug': seller_slug,
+        }
+
+        if context:
+            body['context'] = context
+
+        request = urllib.request.Request(
+            url + '/internal/facturx/payment',
+            data=json.dumps(body).encode('utf-8'),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            method='POST'
+        )
         # Never forward service credentials to redirect targets.
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
@@ -44,8 +59,9 @@ def _deliver(response, seller_slug):
         _slots.release()
 
 
-def enqueue_persisted_response(response, seller_slug):
+def enqueue_persisted_response(response, seller_slug, context=None):
     """Returns immediately. All failure paths preserve the caller's success."""
+    context = context or {}
     acquired = False
     try:
         if os.getenv('FACTURX_ENABLED') != 'true':
@@ -56,7 +72,7 @@ def enqueue_persisted_response(response, seller_slug):
         if not acquired:
             _log.error('Factur-X post-persist queue full')
             return
-        threading.Thread(target=_deliver, args=(response, seller_slug), daemon=True,
+        threading.Thread(target=_deliver, args=(response, seller_slug, context), daemon=True,
                          name='facturx-postpersist').start()
     except Exception:
         if acquired:

@@ -174,9 +174,8 @@ def get_next_invoice_number(seller_slug: str):
 def mark_payment_link_as_paid_by_session(
     checkout_session_id: str,
     buyer_fields: dict = None,
-    seller_slug: str = ""
-
-    
+    seller_slug: str = "",
+    facturx_context: dict = None
 ):
     """
     Met à jour dans Airtable la ligne correspondant au Checkout Session ID.
@@ -232,7 +231,11 @@ def mark_payment_link_as_paid_by_session(
             print(f"[AIRTABLE] Erreur update Paid : {update_resp.text}")
             return None
 
-        enqueue_persisted_response(update_resp, seller_slug)
+        enqueue_persisted_response(
+            update_resp,
+            seller_slug,
+            facturx_context or {}
+        )
 
         print(f"[AIRTABLE] session_id={checkout_session_id} marqué Paid")
         return record_id
@@ -354,10 +357,21 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         )
 
         # 3) Update Airtable
+
+        facturx_context = {}
+
+        if buyer_type == "Entreprise" and electronic_billing_address:
+            facturx_context = {
+                "buyer_electronic_address": {
+                    "value": electronic_billing_address,
+                    "scheme_id": "0225",
+                }
+            }
         mark_payment_link_as_paid_by_session(
             checkout_session_id,
             buyer_fields,
-            seller_slug
+            seller_slug,
+            facturx_context
         )
 
         # Sauvegarde de l'adresse électronique de facturation dans PWA Clients

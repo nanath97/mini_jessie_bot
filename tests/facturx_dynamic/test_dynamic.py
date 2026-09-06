@@ -11,7 +11,10 @@ from billing_facturx.cii import build_cii
 from billing_facturx.validation.validate import validate_xsd
 from billing_facturx_pdf.assemble import assemble
 from billing_facturx_pdf.validate import inspect_pdf
-from support import builders, inputs, reference
+if __package__:
+    from .support import builders, inputs, reference
+else:
+    from support import builders, inputs, reference
 
 
 class DynamicTests(unittest.TestCase):
