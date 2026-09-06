@@ -1,0 +1,19 @@
+{
+  "facturx": {
+    "seller_electronic_address": {
+      "value": "123356789",
+      "scheme_id": "0225"
+    },
+    "business_process_by_type": {
+      "normal": "S2",
+      "deposit": "S2",
+      "balance": "S2"
+    },
+    "b2b_notes": {
+      "PMT": "Indemnité forfaitaire pour frais de recouvrement : 40 EUR en cas de retard de paiement.",
+      "PMD": "Pénalités de retard exigibles en cas de paiement tardif selon les conditions contractuelles applicables.",
+      "AAB": "Aucun escompte accordé pour paiement anticipé."
+    },
+    "payment_date_convention": "paid_at_utc_date"
+  }
+}

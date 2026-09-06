@@ -4,6 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
+const { mapSellerConfig, FacturxConfigError } = require('./facturx-config.cjs');
 
 function pythonRunner({ python, root, verapdf, timeout = 180000 }) {
   return async (folder) => {
@@ -41,21 +42,15 @@ function createFacturxService({ getSellerConfig, buildInvoice, run, logger = con
   }
   async function generate(job, invoice, slug, context, paymentFields) {
     try {
-      const config = await getSellerConfig(slug);
-      if (!config?.company) throw new Error('Missing real seller configuration');
+      let config = await getSellerConfig(slug);
+      if (!config?.company || typeof config.company !== 'object' || Array.isArray(config.company)) throw new FacturxConfigError(['company']);
       if (paymentFields) {
         invoice = await buildInvoice(paymentFields, slug, config);
         if (!invoice) throw new Error('Persisted invoice builder failed');
-        if (invoice.buyer?.type === 'Entreprise') {
-          const buyer = invoice.buyer;
-          const key = buyer.siret ? 'siret:' + buyer.siret : 'email:' + String(buyer.email || '').trim().toLowerCase();
-          context.buyer_electronic_address = config.facturx?.buyer_electronic_addresses?.[key];
-        }
       }
-      // Process defaults must be explicit seller policy, never historical values.
-      if (invoice.buyer?.type === 'Entreprise' && !context.business_process_id) {
-        context.business_process_id = config.facturx?.business_process_by_type?.[invoice.invoice_type];
-      }
+      const mapped = mapSellerConfig(invoice, config, context);
+      config = mapped.sellerConfig;
+      context = mapped.context;
       if (!directory) {
         await fs.mkdir(storage, { recursive: true });
         directory = await fs.mkdtemp(path.join(path.resolve(storage), 'novapulse-facturx-'));
@@ -73,7 +68,9 @@ function createFacturxService({ getSellerConfig, buildInvoice, run, logger = con
       job.pdf = pdf;
       job.state = 'ready';
     } catch (error) {
-      job.state = 'failed'; log(error);
+      job.state = 'failed';
+      if (error.code === 'FACTURX_CONFIG_MISSING') job.error = {code:error.code, fields:error.fields};
+      log(error);
     } finally {
       job.expires = now() + ttlMs;
       if (job.folder) {
@@ -106,7 +103,7 @@ function createFacturxService({ getSellerConfig, buildInvoice, run, logger = con
     await cleanup();
     if (!/^[a-f0-9]{64}$/.test(String(id))) return null;
     const job = jobs.get(id);
-    return job ? { state: job.state, pdf: job.pdf } : null;
+    return job ? { state: job.state, pdf: job.pdf, ...(job.error ? {error:job.error} : {}) } : null;
   }
   // Tests / orderly shutdown only; payment callers never wait for rendering.
   async function close() {
@@ -114,7 +111,7 @@ function createFacturxService({ getSellerConfig, buildInvoice, run, logger = con
     if (directory) await fs.rm(directory, { recursive: true, force: true });
     jobs.clear();
   }
-  return { submit, submitPayment: (fields, slug) => fields && typeof fields === 'object' ? submit(null, slug, {}, fields) : { state: 'failed' }, lookup, drain: () => tail, close };
+  return { submit, submitPayment: (fields, slug, privateContext = {}) => fields && typeof fields === 'object' ? submit(null, slug, privateContext, fields) : { state: 'failed' }, lookup, drain: () => tail, close };
 }
 
 module.exports = { createFacturxService, pythonRunner };

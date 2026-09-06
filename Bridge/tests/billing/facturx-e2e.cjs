@@ -10,6 +10,7 @@ const { createFacturxService, pythonRunner } = require('../../billing/facturx-se
 const { registerFacturxRoutes } = require('../../billing/facturx-routes.cjs');
 const { persistedInvoiceBuilder } = require('../../billing/facturx-build.cjs');
 const { createFakeAirtable, invoiceExpectations } = require('./support/fake-airtable.cjs');
+const { configuredFixture } = require('./support/facturx-config-fixture.cjs');
 const root = path.resolve(__dirname, '../../..');
 
 (async () => {
@@ -19,17 +20,7 @@ const root = path.resolve(__dirname, '../../..');
   for (const scenario of scenarios) {
     const fixture=loadFixture(scenario), input=fixture.input;
     const invoice=await runFixture(builders,input);
-    const config=structuredClone(input.sellerConfig), context={};
-    if(scenario.startsWith('b2b')) {
-      // Confirmed test-only supplements, never production defaults.
-      const overlay=JSON.parse(await fs.readFile(path.join(root,'tests/facturx/french-fixtures',scenario+'.json'),'utf8'));
-      config.facturx={seller_electronic_address:overlay.seller_endpoint,
-        b2b_notes:Object.fromEntries(overlay.notes.map(n=>[n.subject_code,n.content])),
-        payment_date_convention:'paid_at_utc_date',business_process_by_type:{[invoice.invoice_type]:overlay.business_process_id}};
-      context.buyer_electronic_address=overlay.buyer_endpoint;
-      const key=invoice.buyer.siret ? 'siret:'+invoice.buyer.siret : 'email:'+invoice.buyer.email.trim().toLowerCase();
-      config.facturx.buyer_electronic_addresses={[key]:overlay.buyer_endpoint};
-    }
+    const {config,context}=configuredFixture(input);
     let report;
     const fake=createFakeAirtable(invoiceExpectations(input));
     const service=createFacturxService({enabled:true,buildInvoice:persistedInvoiceBuilder(fake.base),getSellerConfig:async slug=>{assert.equal(slug,input.sellerSlug);return config;},
@@ -43,7 +34,7 @@ const root = path.resolve(__dirname, '../../..');
       const routes={};const token='offline-test-service-token-never-use-live';
       registerFacturxRoutes({post:(p,...h)=>routes[p]=h,get:(p,...h)=>routes[p]=h},{service,token});
       const response=()=>({setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;},send(body){this.body=body;return this;}});
-      const req={headers:{authorization:'Bearer '+token},body:{paymentFields:input.paymentFields,sellerSlug:input.sellerSlug}};
+      const req={headers:{authorization:'Bearer '+token},body:{paymentFields:input.paymentFields,sellerSlug:input.sellerSlug,context}};
       const submitted=response();let authorized=false;
       routes['/internal/facturx/payment'][0](req,submitted,()=>authorized=true);assert.ok(authorized);
       routes['/internal/facturx/payment'][1](req,submitted);assert.equal(submitted.code,202);

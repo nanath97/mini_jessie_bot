@@ -10,20 +10,23 @@ const { registerFacturxRoutes } = require('../../billing/facturx-routes.cjs');
 const { scenarios, loadFixture } = require('./support/fixture-loader.cjs');
 const { runFixture } = require('./support/run-fixture.cjs');
 const builders = require('../../billing/invoice-builders.js');
+const { configuredFixture } = require('./support/facturx-config-fixture.cjs');
+const { mapSellerConfig } = require('../../billing/facturx-config.cjs');
 const { persistedInvoiceBuilder } = require('../../billing/facturx-build.cjs');
 const { createFakeAirtable, invoiceExpectations } = require('./support/fake-airtable.cjs');
 
 for (const scenario of scenarios) test('post-persist builder dispatch '+scenario, async () => {
   const {input,expectedInvoice}=loadFixture(scenario);
+  const {config, context}=configuredFixture(input);
   const fake=createFakeAirtable(invoiceExpectations(input));
   let captured;
-  const service=createFacturxService({enabled:true,getSellerConfig:async()=>input.sellerConfig,
+  const service=createFacturxService({enabled:true,getSellerConfig:async()=>config,
     buildInvoice:persistedInvoiceBuilder(fake.base),logger:{error(){}},run:async folder=>{
       captured=JSON.parse(await fs.readFile(path.join(folder,'invoice.json')));
       return {accepted:false};
     }});
   try {
-    const job=service.submitPayment(input.paymentFields,input.sellerSlug);
+    const job=service.submitPayment(input.paymentFields,input.sellerSlug,context);
     assert.equal(job.state,'pending');await service.drain();fake.assertDone();
     assert.deepEqual(captured,expectedInvoice);
     assert.equal((await service.lookup(job.id)).state,'failed');
@@ -34,18 +37,19 @@ for (const scenario of scenarios) test('post-persist builder dispatch '+scenario
 for (const scenario of scenarios) test('service preserves builder snapshot '+scenario, async () => {
   const { input, expectedInvoice } = loadFixture(scenario);
   const invoice = await runFixture(builders, input);
+  const {config,context}=configuredFixture(input);
   const logs = [];
   const service = createFacturxService({ enabled: true, logger: {error: (...args) => logs.push(args)},
-    getSellerConfig: async slug => { assert.equal(slug, input.sellerSlug); return input.sellerConfig; },
+    getSellerConfig: async slug => { assert.equal(slug, input.sellerSlug); return config; },
     run: async folder => {
       assert.deepEqual(JSON.parse(await fs.readFile(path.join(folder,'invoice.json'))), expectedInvoice);
-      assert.deepEqual(JSON.parse(await fs.readFile(path.join(folder,'seller.json'))), input.sellerConfig);
+      assert.deepEqual(JSON.parse(await fs.readFile(path.join(folder,'seller.json'))), mapSellerConfig(invoice,config,context).sellerConfig);
       await fs.mkdir(path.join(folder,'output'));
       await fs.writeFile(path.join(folder,'output/factur-x.pdf'), '%PDF-test-double');
       return {accepted:true,pdfa:{status:'pass'},cii:{accepted:true}};
     } });
   try {
-    const job = service.submit(invoice, input.sellerSlug);
+    const job = service.submit(invoice, input.sellerSlug, context);
     assert.equal(job.state, 'pending');
     await service.drain();
     const result = await service.lookup(job.id);
@@ -58,13 +62,14 @@ for (const scenario of scenarios) test('service preserves builder snapshot '+sce
 
 test('worker/config/validation errors never propagate to payment caller', async () => {
   const {input, expectedInvoice: invoice} = loadFixture('b2b-normal');
+  const {config,context}=configuredFixture(input);
   for (const stage of ['config', 'worker', 'validation']) {
     const logs = [];
     const service = createFacturxService({ enabled:true, logger:{error: (...args)=>logs.push(args)},
-      getSellerConfig: async () => { if(stage==='config') throw Error('config unavailable'); return input.sellerConfig; },
+      getSellerConfig: async () => { if(stage==='config') throw Error('config unavailable'); return config; },
       run: async () => { if(stage==='worker') throw Error('worker unavailable'); return {accepted:false,cii:{en16931:{status:'blocked'}},pdfa:{status:'pass'}}; } });
     try {
-      const job=service.submit(invoice,input.sellerSlug);
+      const job=service.submit(invoice,input.sellerSlug,context);
       assert.equal(job.state,'pending');
       await service.drain();
       assert.equal((await service.lookup(job.id)).state,'failed');

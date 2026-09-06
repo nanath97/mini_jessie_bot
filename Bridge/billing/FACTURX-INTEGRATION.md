@@ -39,18 +39,18 @@ The service calls the existing getSellerConfig(sellerSlug) for real seller polic
 
 B2B requires config.facturx.seller_electronic_address, b2b_notes.PMT/PMD/AAB and
 payment_date_convention=paid_at_utc_date, as specified by the existing adapter.
-context.buyer_electronic_address must be explicit. context.business_process_id
-may be supplied per transaction; otherwise it must be explicitly configured in
-config.facturx.business_process_by_type[normal|deposit|balance]. Only the existing
-adapter's paid S2 service scope is supported. No invoice SIREN/contact email is
-silently converted to a routing address. B2C receives no artificial B2B context.
+context.buyer_electronic_address must be explicit private transaction data.
+BT-23 comes only from config.facturx.business_process_by_type[invoice_type].
+A conflicting context process is rejected. Only the adapter's paid S2 service
+scope is supported. No SIREN/contact email is converted into a routing address.
+B2C receives no artificial B2B policy.
 
-For the post-persist endpoint, the seller config supplies
-facturx.buyer_electronic_addresses["siret:<exact buyer.siret>"] or, when no SIRET
-exists, ["email:<lowercase trimmed buyer.email>"], each {value, scheme_id}.
-These are explicit configuration mappings; a key is never itself converted into
-an endpoint. business_process_by_type supplies the confirmed S2 process.
-No live configuration or Airtable schema was changed by this patch.
+The internal post-persist endpoint accepts optional body.context and forwards it
+to service.submitPayment. The Python notifier currently does not populate BT-49;
+B2B requests without private context therefore fail explicitly. The former public
+facturx.buyer_electronic_addresses lookup is removed. Do not publish customer
+lists in seller config. See FACTURX-CONFIG.md for the precise schema and limits.
+No live configuration, notifier or Airtable schema is modified by this mapping.
 
 Returns 202 with an opaque random job id. GET /internal/facturx/:id requires the
 same backend credential: 202 pending, 422 failed, 404 unknown/expired, 200 PDF.

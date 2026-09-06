@@ -18,7 +18,7 @@ function registerFacturxRoutes(app, { service, token }) {
     res.status(job.id ? 202 : 503).json(job);
   });
   app.post('/internal/facturx/payment', authorize, (req, res) => {
-    const job = service.submitPayment(req.body?.paymentFields, req.body?.sellerSlug);
+    const job = service.submitPayment(req.body?.paymentFields, req.body?.sellerSlug, req.body?.context);
     res.status(job.id ? 202 : 503).json(job);
   });
   app.get('/internal/facturx/:id', authorize, async (req, res) => {
