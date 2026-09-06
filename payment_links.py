@@ -50,7 +50,15 @@ def create_dynamic_checkout(
         },
     ]
 
-    if str(buyer_type).strip().lower() == "entreprise":
+
+
+    is_enterprise = (
+        "entreprise" in [str(v).strip().lower() for v in buyer_type]
+        if isinstance(buyer_type, list)
+        else str(buyer_type).strip().lower() == "entreprise"
+    )
+
+    if is_enterprise:
         custom_fields.append({
             "key": "electronic_billing_address",
             "label": {

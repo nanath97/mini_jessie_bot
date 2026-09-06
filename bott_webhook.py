@@ -1820,6 +1820,7 @@ async def envoyer_contenu_payant(message: types.Message):
     client_data = get_pwa_client_by_email(email)
     client_data = get_pwa_client_by_email(email)
     buyer_type = client_data.get("type_client", "")
+    print("DEBUG buyer_type =", repr(buyer_type), type(buyer_type))
 
     checkout_url, session_id = create_dynamic_checkout(
         amount_cents=amount_cents,
