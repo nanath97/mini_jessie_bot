@@ -1933,6 +1933,8 @@ app.post("/pwa/register-client", async (req, res) => {
     const entreprise_nom = req.body.entreprise_nom || "";
     const siret = req.body.siret || "";
     const tva = req.body.tva || "";
+    const electronic_billing_address =
+      req.body.electronic_billing_address || "";
 
     if (!email || !sellerSlug) {
       return res
@@ -1979,6 +1981,7 @@ app.post("/pwa/register-client", async (req, res) => {
       entreprise_nom: entreprise_nom || "",
       siret: siret || "",
       tva: tva || "",
+      electronic_billing_address: electronic_billing_address || "",
     });
 
     console.log("💾 Airtable client created:", email);
