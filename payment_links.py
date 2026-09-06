@@ -11,7 +11,14 @@ BASE_ID = os.getenv("BASE_ID")
 stripe.api_key = STRIPE_SECRET_KEY
 liens_paiement = {}
 
-def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str, seller_slug: str, admin_id: str = ""):
+def create_dynamic_checkout(
+    amount_cents: int,
+    client_key: str,
+    content_id: str,
+    seller_slug: str,
+    admin_id: str = "",
+    buyer_type: str = "",
+):
     """
     Crée une session Stripe Checkout dynamique avec metadata (indispensable pour unlock).
     Retourne (session_url, session_id).
@@ -21,6 +28,38 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
 
     if not success_url or not cancel_url:
         raise RuntimeError("Missing PWA_SUCCESS_URL or PWA_CANCEL_URL in environment variables")
+
+    custom_fields = [
+        {
+            "key": "buyer_company_name",
+            "label": {
+                "type": "custom",
+                "custom": "Nom de l'entreprise acheteuse (optionnel)"
+            },
+            "type": "text",
+            "optional": True,
+        },
+        {
+            "key": "buyer_siret",
+            "label": {
+                "type": "custom",
+                "custom": "SIRET / SIREN acheteur (optionnel)"
+            },
+            "type": "text",
+            "optional": True,
+        },
+    ]
+
+    if str(buyer_type).strip().lower() == "entreprise":
+        custom_fields.append({
+            "key": "electronic_billing_address",
+            "label": {
+                "type": "custom",
+                "custom": "Adresse électronique de facturation"
+            },
+            "type": "text",
+            "optional": False,
+        })
 
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -37,37 +76,14 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
             "setup_future_usage": "off_session",
         },
 
-        # Collecte infos acheteur pour export facture / PDP
         customer_creation="always",
         billing_address_collection="required",
         phone_number_collection={"enabled": True},
         tax_id_collection={"enabled": True},
         invoice_creation={"enabled": True},
 
-        custom_fields=[
-            {
-                "key": "buyer_company_name",
-                "label": {
-                    "type": "custom",
-                    "custom": "Nom de l'entreprise acheteuse (optionnel)"
-                },
-                "type": "text",
-                "optional": True,
-            },
-            {
-                "key": "buyer_siret",
-                "label": {
-                    "type": "custom",
-                    "custom": "SIRET / SIREN acheteur (optionnel)"
-                },
-                "type": "text",
-                "optional": True,
-            },
-        ],
+        custom_fields=custom_fields,
 
-        
-
-        # IMPORTANT: redirection vers PWA
         success_url=f"{success_url}?paid=1&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=cancel_url,
 
@@ -78,12 +94,10 @@ def create_dynamic_checkout(amount_cents: int, client_key: str, content_id: str,
             "seller_slug": str(seller_slug),
             "admin_id": str(admin_id or ""),
             "amount_cents": str(int(amount_cents)),
-            
         },
     )
 
     return session.url, session.id
-
 
 
 def save_payment_link_to_airtable(*, client_key: str, content_id: str, payment_link: str,

@@ -1817,14 +1817,17 @@ async def envoyer_contenu_payant(message: types.Message):
     # ✅ Identifiants robustes pour l’après-paiement
     client_key = email  # PWA client key = email (stable)
     content_id = f"{seller_slug}_{int(datetime.utcnow().timestamp())}"
+    client_data = get_pwa_client_by_email(email)
+    client_data = get_pwa_client_by_email(email)
+    buyer_type = client_data.get("type_client", "")
 
-    # ✅ Stripe checkout avec metadata + session_id
     checkout_url, session_id = create_dynamic_checkout(
         amount_cents=amount_cents,
         client_key=client_key,
         content_id=content_id,
         seller_slug=seller_slug,
         admin_id=str(admin_id),
+        buyer_type=buyer_type,
     )
 
     # ✅ Airtable: on log la ligne Pending avec session_id (indispensable)

@@ -175,6 +175,8 @@ def mark_payment_link_as_paid_by_session(
     checkout_session_id: str,
     buyer_fields: dict = None,
     seller_slug: str = ""
+
+    
 ):
     """
     Met à jour dans Airtable la ligne correspondant au Checkout Session ID.
@@ -269,6 +271,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         buyer_company_name = ""
         buyer_siret = ""
+        electronic_billing_address = ""
 
         for field in custom_fields:
             key = field["key"] if "key" in field else ""
@@ -281,6 +284,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
             if key == "buyer_siret":
                 buyer_siret = value
+            if key == "electronic_billing_address":
+                electronic_billing_address = value
 
         tax_ids = customer_details["tax_ids"] if "tax_ids" in customer_details else []
         buyer_vat = ""
@@ -289,7 +294,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             first_tax_id = tax_ids[0]
             buyer_vat = first_tax_id["value"] if "value" in first_tax_id else ""
 
-        buyer_type = "Entreprise" if buyer_company_name or buyer_siret or buyer_vat else "Particulier"
+        buyer_type = (
+            "Entreprise"
+            if buyer_company_name
+            or buyer_siret
+            or buyer_vat
+            or electronic_billing_address
+            else "Particulier"
+        )
         payment_method_id = ""
 
         try:
@@ -343,10 +355,74 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         # 3) Update Airtable
         mark_payment_link_as_paid_by_session(
-        checkout_session_id,
-        buyer_fields,
-        seller_slug
-    )
+            checkout_session_id,
+            buyer_fields,
+            seller_slug
+        )
+
+        # Sauvegarde de l'adresse électronique de facturation dans PWA Clients
+        if electronic_billing_address and client_key and seller_slug:
+            try:
+                url_clients = (
+                    f"https://api.airtable.com/v0/"
+                    f"{BASE_ID}/PWA%20Clients"
+                )
+
+                headers_clients = {
+                    "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+
+                formula = (
+                    f"AND("
+                    f"{{email}}='{client_key}',"
+                    f"{{seller_slug}}='{seller_slug}'"
+                    f")"
+                )
+
+                client_resp = requests.get(
+                    url_clients,
+                    headers=headers_clients,
+                    params={
+                        "filterByFormula": formula,
+                        "maxRecords": 1,
+                    },
+                    timeout=10,
+                )
+
+                client_records = client_resp.json().get("records", [])
+
+                if client_records:
+                    client_record_id = client_records[0]["id"]
+
+                    update_client_resp = requests.patch(
+                        f"{url_clients}/{client_record_id}",
+                        headers=headers_clients,
+                        json={
+                            "fields": {
+                                "electronic_billing_address":
+                                    electronic_billing_address
+                            }
+                        },
+                        timeout=10,
+                    )
+
+                    print(
+                        "📨 ELECTRONIC BILLING ADDRESS SAVED :",
+                        update_client_resp.status_code,
+                        update_client_resp.text,
+                    )
+                else:
+                    print(
+                        "⚠️ PWA CLIENT INTROUVABLE POUR "
+                        "electronic_billing_address"
+                    )
+
+            except Exception as e:
+                print(
+                    "❌ ELECTRONIC BILLING ADDRESS SAVE ERROR :",
+                    e,
+                )
 
         # ============================================================
         # 🔔 NOUVEAU : NOTIFICATIONS POST-PAIEMENT
