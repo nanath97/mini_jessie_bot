@@ -9,6 +9,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from .xmp import ASSETS
+from billing_facturx.mapping import seller_tax_registration
 
 INK = colors.HexColor('#183344')
 TEAL = colors.HexColor('#0B6869')
@@ -65,7 +66,9 @@ def render(invoice):
         legal = p.get('siren') if role == 'seller' else p.get('siret')
         if legal: rows.append('SIREN (0002) : ' + legal[:9])
         if p.get('siret') and len(p['siret']) == 14: rows.append('SIRET (0009) : ' + p['siret'])
-        if role == 'seller': rows.append('Identifiant fiscal (FC) : ' + p['siren'])
+        if role == 'seller' and seller_tax_registration(invoice):
+            rows.append('Identifiant fiscal (FC) : ' + seller_tax_registration(invoice))
+        if p.get('vat_number'): rows.append('Identifiant TVA (VA) : ' + p['vat_number'])
         if p.get('electronic_address'):
             endpoint = p['electronic_address']
             rows.append('Adresse de facturation (' + endpoint['scheme_id'] + ') : ' + endpoint['value'])
