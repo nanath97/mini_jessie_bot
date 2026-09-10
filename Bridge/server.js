@@ -237,6 +237,13 @@ const facturxService = createFacturxService({
   }),
 });
 
+registerFacturxRoutes(app, {
+  service: facturxService,
+  token: process.env.FACTURX_SERVICE_TOKEN,
+});
+
+
+
 // =======================
 // HELPERS
 // =======================
