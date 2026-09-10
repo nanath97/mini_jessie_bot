@@ -240,6 +240,29 @@ const facturxService = createFacturxService({
   }
 },
 
+  onFailed: async ({ invoice, paymentFields, error }) => {
+  const adminId = paymentFields?.["ADMIN ID"];
+
+  if (adminId && TELEGRAM_BOT_TOKEN) {
+    await axios.post(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: Number(adminId),
+        text:
+          `⚠️ Facture ${invoice?.invoice_number || ""} non générée.\n` +
+          `Vérifie les informations de facturation.`
+      }
+    );
+  }
+
+  console.error(
+    "❌ FACTUR-X FAILED |",
+    invoice?.invoice_number || "unknown",
+    "|",
+    error?.message || error
+  );
+},
+
   enabled: process.env.FACTURX_ENABLED === "true",
   storage: process.env.FACTURX_STORAGE_DIR || require("os").tmpdir(),
   run: pythonRunner({

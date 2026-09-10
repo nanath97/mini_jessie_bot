@@ -32,6 +32,7 @@ function createFacturxService({
   buildInvoice,
   run,
   onReady = null,
+  onFailed = null,
   logger = console,
   storage = os.tmpdir(),
   enabled = false,
@@ -92,7 +93,31 @@ function createFacturxService({
       }
     } catch (error) {
       job.state = 'failed';
-      if (error.code === 'FACTURX_CONFIG_MISSING') job.error = {code:error.code, fields:error.fields};
+
+      if (typeof onFailed === 'function') {
+        try {
+          await onFailed({
+            invoice,
+            paymentFields,
+            error
+          });
+        } catch (notifyError) {
+          log(
+            new Error(
+              'Factur-X failure notification failed: ' +
+              notifyError.message
+            )
+          );
+        }
+      }
+
+      if (error.code === 'FACTURX_CONFIG_MISSING') {
+        job.error = {
+          code: error.code,
+          fields: error.fields
+        };
+      }
+
       log(error);
     } finally {
       job.expires = now() + ttlMs;
