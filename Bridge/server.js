@@ -1977,7 +1977,179 @@ app.get("/pwa/get-topic", async (req, res) => {
     return res.status(500).json({ topicId: null });
   }
 });
+    const pwaLoginCodes = new Map();
 
+    function getLoginCodeKey(email, sellerSlug) {
+      return `${normSlug(sellerSlug)}:${normEmail(email)}`;
+    }
+    app.post("/pwa/request-login-code", async (req, res) => {
+  try {
+    const email = normEmail(req.body.email);
+    const sellerSlug = normSlug(req.body.sellerSlug);
+
+    if (!email || !sellerSlug) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing email or sellerSlug",
+      });
+    }
+
+    // Vérifie que le client existe réellement
+    const records = await tablePWA
+      .select({
+        filterByFormula: `AND({email}='${email}', {seller_slug}='${sellerSlug}')`,
+        maxRecords: 1,
+      })
+      .firstPage();
+
+    // Réponse volontairement neutre
+    // pour éviter de confirmer qu'une adresse existe ou non
+    if (!records.length) {
+      return res.json({
+        success: true,
+        expiresIn: 600,
+      });
+    }
+
+    const code = String(
+      crypto.randomInt(100000, 1000000)
+    );
+
+    const codeHash = crypto
+      .createHash("sha256")
+      .update(code)
+      .digest("hex");
+
+    const key = getLoginCodeKey(email, sellerSlug);
+
+    pwaLoginCodes.set(key, {
+      codeHash,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      attempts: 0,
+    });
+
+    await mailTransporter.sendMail({
+      from: `"NovaPulse" <${SMTP_EMAIL}>`,
+      to: email,
+      subject: "Votre code de connexion NovaPulse",
+      text:
+        `Votre code de connexion NovaPulse est : ${code}\n\n` +
+        `Ce code est valable pendant 10 minutes.\n\n` +
+        `Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`,
+    });
+
+    console.log("🔐 PWA LOGIN CODE SENT:", email);
+
+    return res.json({
+      success: true,
+      expiresIn: 600,
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ /pwa/request-login-code error:",
+      err.message
+    );
+
+    return res.status(500).json({
+      success: false,
+    });
+  }
+});
+
+app.post("/pwa/verify-login-code", async (req, res) => {
+  try {
+    const email = normEmail(req.body.email);
+    const sellerSlug = normSlug(req.body.sellerSlug);
+    const code = String(req.body.code || "").trim();
+
+    if (!email || !sellerSlug || !code) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing email, sellerSlug or code",
+      });
+    }
+
+    const key = getLoginCodeKey(email, sellerSlug);
+    const entry = pwaLoginCodes.get(key);
+
+    if (!entry) {
+      return res.status(401).json({
+        success: false,
+        error: "invalid_or_expired_code",
+      });
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      pwaLoginCodes.delete(key);
+
+      return res.status(401).json({
+        success: false,
+        error: "invalid_or_expired_code",
+      });
+    }
+
+    if (entry.attempts >= 5) {
+      pwaLoginCodes.delete(key);
+
+      return res.status(429).json({
+        success: false,
+        error: "too_many_attempts",
+      });
+    }
+
+    const submittedHash = crypto
+      .createHash("sha256")
+      .update(code)
+      .digest("hex");
+
+    if (submittedHash !== entry.codeHash) {
+      entry.attempts += 1;
+
+      return res.status(401).json({
+        success: false,
+        error: "invalid_or_expired_code",
+      });
+    }
+
+    // Code valide = usage unique
+    pwaLoginCodes.delete(key);
+
+    const records = await tablePWA
+      .select({
+        filterByFormula: `AND({email}='${email}', {seller_slug}='${sellerSlug}')`,
+        maxRecords: 1,
+      })
+      .firstPage();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        error: "client_not_found",
+      });
+    }
+
+    const clientData = records[0].fields;
+
+    console.log("✅ PWA LOGIN VERIFIED:", email, sellerSlug);
+
+    return res.json({
+      success: true,
+      verified: true,
+      clientData,
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ /pwa/verify-login-code error:",
+      err.message
+    );
+
+    return res.status(500).json({
+      success: false,
+    });
+  }
+});
 // =======================
 // CHECK IF CLIENT EXISTS (LOGIN SMART)
 // =======================
@@ -2004,10 +2176,10 @@ app.post("/pwa/check-client", async (req, res) => {
     const client = records[0].fields;
 
     return res.json({
-      success: true,
-      exists: true,
-      clientData: client,
-    });
+    success: true,
+    exists: true,
+    requiresVerification: true,
+  });
 
   } catch (err) {
     console.error("❌ /pwa/check-client error:", err.message);
