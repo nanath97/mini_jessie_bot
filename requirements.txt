@@ -11,3 +11,4 @@ PyMuPDF
 lxml
 pypdf
 reportlab
+saxonche==12.9.0
