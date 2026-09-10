@@ -640,6 +640,72 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     "Content-Type": "application/json"
                 }
 
+
+
+                facturx_context = {}
+
+                # Récupération de l'adresse électronique acheteur
+                # depuis PWA Clients pour le paiement off-session
+                if client_key and seller_slug:
+                    try:
+                        url_clients = (
+                            f"https://api.airtable.com/v0/"
+                            f"{BASE_ID}/PWA%20Clients"
+                        )
+
+                        headers_clients = {
+                            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+                            "Content-Type": "application/json",
+                        }
+
+                        client_formula = (
+                            f"AND("
+                            f"{{email}}='{client_key}',"
+                            f"{{seller_slug}}='{seller_slug}'"
+                            f")"
+                        )
+
+                        client_resp = requests.get(
+                            url_clients,
+                            headers=headers_clients,
+                            params={
+                                "filterByFormula": client_formula,
+                                "maxRecords": 1,
+                            },
+                            timeout=10,
+                        )
+
+                        client_records = client_resp.json().get("records", [])
+
+                        if client_records:
+                            client_fields = client_records[0].get("fields", {})
+
+                            electronic_billing_address = (
+                                client_fields.get(
+                                    "electronic_billing_address",
+                                    ""
+                                )
+                                or ""
+                            )
+
+                            if electronic_billing_address:
+                                facturx_context = {
+                                    "buyer_electronic_address": {
+                                        "value": electronic_billing_address,
+                                        "scheme_id": "0225",
+                                    }
+                                }
+
+                                print(
+                                    "📨 OFF-SESSION FACTUR-X ADDRESS FOUND :",
+                                    electronic_billing_address,
+                                )
+
+                    except Exception as e:
+                        print(
+                            "❌ OFF-SESSION ELECTRONIC BILLING ADDRESS ERROR :",
+                            e,
+                        )
                 # Vérification anti-doublon
                 formula = (
                     f"{{Stripe Payment Intent ID}}="
@@ -705,7 +771,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                             "❌ Erreur création Payment Links off-session"
                         )
                     else:
-                        enqueue_persisted_response(create_resp, seller_slug)
+                        enqueue_persisted_response(
+                            create_resp,
+                            seller_slug,
+                            facturx_context
+                        )
                         montant_euros = round(amount_cents / 100, 2)
 
                         try:
