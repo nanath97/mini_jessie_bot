@@ -27,8 +27,19 @@ function pythonRunner({ python, root, verapdf, timeout = 180000 }) {
   };
 }
 
-function createFacturxService({ getSellerConfig, buildInvoice, run, logger = console, storage = os.tmpdir(),
-  enabled = false, ttlMs = 3600000, maxJobs = 100, maxPending = 4, now = Date.now }) {
+function createFacturxService({
+  getSellerConfig,
+  buildInvoice,
+  run,
+  onReady = null,
+  logger = console,
+  storage = os.tmpdir(),
+  enabled = false,
+  ttlMs = 3600000,
+  maxJobs = 100,
+  maxPending = 4,
+  now = Date.now
+}) {
   const jobs = new Map();
   let directory;
   let tail = Promise.resolve();
@@ -67,6 +78,17 @@ function createFacturxService({ getSellerConfig, buildInvoice, run, logger = con
       if (!pdf.subarray(0, 5).equals(Buffer.from('%PDF-'))) throw new Error('Invalid PDF output');
       job.pdf = pdf;
       job.state = 'ready';
+      if (typeof onReady === 'function') {
+        try {
+          await onReady({
+            invoice,
+            sellerConfig: config,
+            pdf
+          });
+        } catch (error) {
+          log(new Error('Factur-X post-ready action failed: ' + error.message));
+        }
+      }
     } catch (error) {
       job.state = 'failed';
       if (error.code === 'FACTURX_CONFIG_MISSING') job.error = {code:error.code, fields:error.fields};

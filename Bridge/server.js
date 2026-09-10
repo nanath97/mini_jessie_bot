@@ -219,6 +219,15 @@ const { buildNormalInvoiceData, buildDepositInvoiceData, buildBalanceInvoiceData
 const facturxService = createFacturxService({
   getSellerConfig,
   buildInvoice: persistedInvoiceBuilder(base),
+
+  onReady: async ({ invoice, sellerConfig, pdf }) => {
+    await sendFacturxInvoiceEmail(
+      sellerConfig?.company?.email,
+      invoice?.invoice_number,
+      pdf
+    );
+  },
+
   enabled: process.env.FACTURX_ENABLED === "true",
   storage: process.env.FACTURX_STORAGE_DIR || require("os").tmpdir(),
   run: pythonRunner({
@@ -226,10 +235,6 @@ const facturxService = createFacturxService({
     root: path.resolve(__dirname, ".."),
     verapdf: process.env.FACTURX_VERAPDF,
   }),
-});
-registerFacturxRoutes(app, {
-  service: facturxService,
-  token: process.env.FACTURX_SERVICE_TOKEN,
 });
 
 // =======================
@@ -413,6 +418,52 @@ async function sendEmailNotification(toEmail, messageText) {
     console.error("❌ Email error:", err.message);
   }
 }
+
+
+async function sendFacturxInvoiceEmail(toEmail, invoiceNumber, pdfBuffer) {
+  if (!SMTP_EMAIL || !SMTP_PASS) {
+    throw new Error("SMTP configuration missing");
+  }
+
+  if (!toEmail) {
+    throw new Error("Seller email missing");
+  }
+
+  if (!Buffer.isBuffer(pdfBuffer) || !pdfBuffer.length) {
+    throw new Error("Factur-X PDF missing");
+  }
+
+  const safeInvoiceNumber =
+    String(invoiceNumber || "facture").replace(/[^a-zA-Z0-9._-]/g, "_");
+
+  await mailTransporter.sendMail({
+    from: `"NovaPulse" <${SMTP_EMAIL}>`,
+    to: toEmail,
+    subject: `Facture ${invoiceNumber || ""} - NovaPulse`,
+    text:
+      `Bonjour,\n\n` +
+      `Votre facture ${invoiceNumber || ""} a été générée par NovaPulse.\n` +
+      `Vous la trouverez en pièce jointe au format Factur-X.\n\n` +
+      `NovaPulse`,
+    attachments: [
+      {
+        filename: `${safeInvoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+
+  console.log(
+    "📄 FACTUR-X EMAIL SENT |",
+    invoiceNumber,
+    "|",
+    toEmail
+  );
+
+  return true;
+}
+
 // =======================
 // ADMIN STATUS TRACKING
 // =======================
