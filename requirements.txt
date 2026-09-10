@@ -8,3 +8,4 @@ stripe
 openai>=1.0.0
 Pillow
 PyMuPDF
+lxml
