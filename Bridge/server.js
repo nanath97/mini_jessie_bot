@@ -220,13 +220,25 @@ const facturxService = createFacturxService({
   getSellerConfig,
   buildInvoice: persistedInvoiceBuilder(base),
 
-  onReady: async ({ invoice, sellerConfig, pdf }) => {
-    await sendFacturxInvoiceEmail(
-      sellerConfig?.company?.email,
-      invoice?.invoice_number,
-      pdf
+  onReady: async ({ invoice, sellerConfig, pdf, paymentFields }) => {
+  await sendFacturxInvoiceEmail(
+    sellerConfig?.company?.email,
+    invoice?.invoice_number,
+    pdf
+  );
+
+  const adminId = paymentFields?.["ADMIN ID"];
+
+  if (adminId && TELEGRAM_BOT_TOKEN) {
+    await axios.post(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: Number(adminId),
+        text: `📄 Facture ${invoice?.invoice_number || ""} envoyée par e-mail.`
+      }
     );
-  },
+  }
+},
 
   enabled: process.env.FACTURX_ENABLED === "true",
   storage: process.env.FACTURX_STORAGE_DIR || require("os").tmpdir(),

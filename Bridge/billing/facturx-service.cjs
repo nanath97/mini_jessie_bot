@@ -83,7 +83,8 @@ function createFacturxService({
           await onReady({
             invoice,
             sellerConfig: config,
-            pdf
+            pdf,
+            paymentFields
           });
         } catch (error) {
           log(new Error('Factur-X post-ready action failed: ' + error.message));
