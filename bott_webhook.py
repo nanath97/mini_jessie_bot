@@ -2078,7 +2078,7 @@ async def show_commandes_admin(message: types.Message):
 
         "💳 */encaisser* – Encaisser directement un client\n"
         "_Cette commande permet de prélever directement le montant restant demandé sur la carte du client, si il est en retard de paiement 24H après l'envoi du dernier paiement à solder."
-        "_Cette méthode ne fonctionne que si votre client a accepter le devis en amont."
+        "_Cette méthode ne fonctionne que si votre client a accepter le devis en amont._\n\n"
       
 
         "⚠️ *Attention* – Pour les montants avec des centimes, utilise une virgule et non un point. "
@@ -2086,7 +2086,7 @@ async def show_commandes_admin(message: types.Message):
 
         "⚠️ *Attention* – Un seul média à la fois pour le mode normal et le mode payant.\n\n"
 
-        "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
+        "📬 *Besoin d’aide ?* Écris-moi directement sur ta PWA ou par mail : novapulse.online@gmail.com"
     )
 
     # Création du bouton inline "Mise à jour"
