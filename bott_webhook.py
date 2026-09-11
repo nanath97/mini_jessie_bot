@@ -2062,17 +2062,30 @@ async def envoyer_contenu_payant(message: types.Message):
 
 
 
-
 @dp.message_handler(lambda message: message.text == "📖 Commandes" and is_admin(message.from_user.id))
 async def show_commandes_admin(message: types.Message):
     commandes = (
         "📖 *Liste des commandes disponibles :*\n\n"
+
         "🔒 */envxx* – Envoyer un contenu payant !\n"
-        "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
+        "_Tape cette commande avec le bon montant (ex. /env14) pour envoyer un contenu flouté avec lien de paiement de 14 €. "
+        "Ton client recevra directement une image floutée avec le lien de paiement._\n\n"
+
         "_ou_\n\n"
-        "_Tape cette commande avec le bon montant (ex. /env14) sans images, ni videos ou fichiers. Ton client recevra directement son lien de paiment. Idéal pour les demandes d'acomptes_\n\n"
-        "⚠️ ** – N'oublies pas que les prix à virgule doivent séparés par une virgule, et non par un point - exemple : /env10,78 et pas /env10.78\n\n"
-        "⚠️ ** – Un seul média à la fois pour le mode normal ! Un seul média à la fois pour le mode payant\n\n"
+
+        "_Tape cette commande avec le bon montant (ex. /env14) sans image, vidéo ou fichier. "
+        "Ton client recevra directement son lien de paiement. Idéal pour les demandes d'acompte._\n\n"
+
+        "💳 */encaisser* – Encaisser directement un client\n"
+        "_Cette commande permet de prélever directement le montant restant demandé sur la carte du client, si il est en retard de paiement 24H après l'envoi du dernier paiement à solder."
+        "_Cette méthode ne fonctionne que si votre client a accepter le devis en amont."
+      
+
+        "⚠️ *Attention* – Pour les montants avec des centimes, utilise une virgule et non un point. "
+        "Exemple : /env10,78 et non /env10.78\n\n"
+
+        "⚠️ *Attention* – Un seul média à la fois pour le mode normal et le mode payant.\n\n"
+
         "📬 *Besoin d’aide ?* Écris-moi par mail : novapulse.online@gmail.com"
     )
 
