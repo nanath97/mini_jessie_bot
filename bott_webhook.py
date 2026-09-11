@@ -2077,10 +2077,10 @@ async def show_commandes_admin(message: types.Message):
         "Ton client recevra directement son lien de paiement. Idéal pour les demandes d'acompte._\n\n"
 
         "💳 */encaisserxxx* – Encaisser directement un client\n"
-        "_Cette commande permet de prélever directement le montant restant demandé sur la carte du client, si il est en retard de paiement 24H après l'envoi du dernier paiement à solder."
+        "_Cette commande permet de prélever directement le montant restant demandé sur la carte du client, si il est en retard de paiement 24H après l'envoi du dernier paiement à solder._\n"
         "_Cette méthode ne fonctionne que si votre client a accepter le devis en amont._\n\n"
+
         "_Le montant doit être au centime près du reste à payer du devis._\n\n"
-      
 
         "⚠️ *Attention* – Pour les montants avec des centimes, utilise une virgule et non un point. "
         "Exemple : /env10,78 et non /env10.78\n\n"
