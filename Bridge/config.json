@@ -1,0 +1,57 @@
+{
+  "company": {
+    "name": "NovaPulse",
+    "legal_name": "Correa-Dos-Anjos Nathan",
+    "legal_status": "micro_entrepreneur",
+    "siren": "908582307",
+    "siret": "90858230700033",
+    "address": "12 avenue du Jura",
+    "postal_code": "01210",
+    "city": "Ferney-Voltaire",
+    "country": "FR",
+    "email": "correadosanjosn@gmail.com",
+    "phone": "+33767303139",
+    "vat_status": "franchise_base",
+    "default_vat_rate": 0,
+    "vat_number": "",
+    "logo": "/sellers/test/avatar.jpg"
+  },
+  "facturx": {
+    "seller_electronic_address": {
+      "value": "908582307",
+      "scheme_id": "0225"
+    },
+    "business_process_by_type": {
+      "normal": "S2",
+      "deposit": "S2",
+      "balance": "S2"
+    },
+    "payment_date_convention": "paid_at_utc_date",
+    "b2b_notes": {
+      "PMT": "Indemnité forfaitaire pour frais de recouvrement : 40 EUR en cas de retard de paiement.",
+      "PMD": "Pénalités de retard exigibles dès le jour suivant la date d'échéance, au taux de refinancement semestriel de la BCE en vigueur majoré de 10 points.",
+      "AAB": "Escompte pour paiement anticipé : néant."
+    }
+  },
+  "meta": {
+    "validated": true
+  },
+  "services": [
+    {
+      "name": "Service test",
+      "price": "50 €"
+    }
+  ],
+  "digitalProducts": [
+    {
+      "title": "Produit test",
+      "description": "Produit digital de test",
+      "price": "25 €",
+      "image": "",
+      "paymentLink": ""
+    }
+  ],
+  "buttonText": "📋 Voir les services et prestations",
+  "calendly": "https://calendly.com/novapulse-online/nouvelle-reunion",
+  "phone": "+33767303139"
+}

@@ -1,0 +1,61 @@
+{
+  "company": {
+    "name": "Entreprise fictive 0",
+    "legal_name": "",
+    "legal_status": "",
+    "siren": "123456789",
+    "siret": "",
+    "address": "",
+    "postal_code": "",
+    "city": "",
+    "country": "FR",
+    "email": "client@example.com",
+    "phone": "",
+    "vat_status": "",
+    "default_vat_rate": 20,
+    "vat_number": "",
+    "logo": "https://example.com/avatar-0.png"
+  },
+  "facturx": {
+    "seller_electronic_address": {
+      "value": "123456789",
+      "scheme_id": "0225"
+    },
+    "business_process_by_type": {
+      "normal": "S2",
+      "deposit": "S2",
+      "balance": "S2"
+    },
+    "payment_date_convention": "paid_at_utc_date",
+    "b2b_notes": {
+      "PMT": "Indemnité forfaitaire pour frais de recouvrement : 40 EUR en cas de retard de paiement.",
+      "PMD": "Pénalités de retard exigibles dès le jour suivant la date d'échéance, au taux de refinancement semestriel de la BCE en vigueur majoré de 10 points.",
+      "AAB": "Escompte pour paiement anticipé : néant."
+    }
+  },
+  "meta": {
+    "validated": true
+  },
+  "services": [
+    {
+      "name": "Diagnostic 0",
+      "price": "0"
+    },
+    {
+      "name": "Conseil 0",
+      "price": "90"
+    }
+  ],
+  "digitalProducts": [
+    {
+      "title": "Guide 0",
+      "description": "",
+      "price": "19",
+      "image": "https://example.com/guide.png",
+      "paymentLink": "https://example.com/guide"
+    }
+  ],
+  "buttonText": "📋 Voir les services et prestations",
+  "calendly": "",
+  "phone": ""
+}

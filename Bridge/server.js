@@ -115,6 +115,7 @@ assertEnv();
 // EXPRESS / SOCKET
 // =======================
 const app = express();
+require("./seller-config/routes.cjs").registerSellerConfigRoutes(app);
 const server = http.createServer(app);
 
 app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
@@ -208,6 +209,7 @@ res.sendFile(path.join(__dirname,"quote.html"))
 // Airtable
 // =======================
 const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
+require("./sellers/routes.cjs").registerSellersRoutes(app, { base });
 const tablePWA = base(AIRTABLE_TABLE_PWA);
 const tableMessages = base(AIRTABLE_TABLE_PWA_MESSAGES);
 const tablePaymentLinks = base("Payment Links");
