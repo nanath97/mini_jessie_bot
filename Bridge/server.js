@@ -118,7 +118,7 @@ const app = express();
 require("./seller-config/routes.cjs").registerSellerConfigRoutes(app);
 const server = http.createServer(app);
 
-app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
+app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "OPTIONS"] }));
 
 
 // =======================
