@@ -210,6 +210,7 @@ res.sendFile(path.join(__dirname,"quote.html"))
 // =======================
 const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
 require("./sellers/routes.cjs").registerSellersRoutes(app, { base });
+require("./sellers/activation-start-routes.cjs").registerActivationStartRoute(app, { base, clientTable: AIRTABLE_TABLE_PWA });
 const tablePWA = base(AIRTABLE_TABLE_PWA);
 const tableMessages = base(AIRTABLE_TABLE_PWA_MESSAGES);
 const tablePaymentLinks = base("Payment Links");
@@ -2120,7 +2121,7 @@ app.post("/pwa/verify-login-code", async (req, res) => {
     const records = await tablePWA
       .select({
         filterByFormula: `AND({email}='${email}', {seller_slug}='${sellerSlug}')`,
-        maxRecords: 1,
+        maxRecords: 2,
       })
       .firstPage();
 
@@ -2131,7 +2132,12 @@ app.post("/pwa/verify-login-code", async (req, res) => {
       });
     }
 
+    if (records.length !== 1 || records[0].fields.email !== email || records[0].fields.seller_slug !== sellerSlug) {
+      return res.status(409).json({ success: false, error: "client_identity_conflict" });
+    }
     const clientData = records[0].fields;
+    const client_session_token = require("./sellers/client-session-token.cjs").issueClientSessionToken(records[0].id);
+    res.set("Cache-Control", "no-store");
 
     console.log("✅ PWA LOGIN VERIFIED:", email, sellerSlug);
 
@@ -2139,6 +2145,7 @@ app.post("/pwa/verify-login-code", async (req, res) => {
       success: true,
       verified: true,
       clientData,
+      client_session_token,
     });
 
   } catch (err) {

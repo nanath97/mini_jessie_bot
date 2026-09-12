@@ -44,3 +44,27 @@ node --check server.js
 Tests HTTP sur Express éphémère et Airtable simulé : aucun accès à la base réelle et aucun démarrage du Bridge complet. Le faux Airtable n'offre pas de méthode create.
 
 Les prospects avec Seller_id vide sont ignorés lors de la recherche. Aucun fallback vers seller_label, seller_slug, email, topic_id ou l’ancien champ seller_id. Le token et le body admin gardent la clé seller_id en minuscules. Seller_id et les champs de liaison sont interdits dans le payload de mise à jour.
+
+## Session client PWA et démarrage autonome de l'activation
+
+Ajouter PWA_CLIENT_SESSION_SECRET dans process.env (en local, le .env chargé par server.js ; sur Render, les variables du service). Secret aléatoire dédié d'au moins 32 octets, distinct de SELLER_ACTIVATION_SECRET et des secrets admin/Factur-X. Aucun fichier .env n'est créé par cette fonctionnalité.
+
+Après validation du code email à usage unique, /pwa/verify-login-code conserve success, verified et clientData et ajoute client_session_token. L'identité provient exclusivement du record Airtable trouvé pour l'email et le slug vérifiés ; une correspondance ambiguë est refusée (409). L'inscription seule n'émet pas de session.
+
+Format client : v1.<JSON base64url>.<HMAC-SHA256 base64url>, signature sur v1.<JSON base64url>. Claims : pwa_client_record_id, scope="pwa_client_session", exp=secondes Unix + 86400. Signé mais non chiffré ; réutilisable 24 heures, sans révocation individuelle. La rotation du secret invalide les sessions. Ne jamais journaliser ces tokens.
+
+POST /seller-activation/start attend Authorization: Bearer <client_session_token>, sans body (ou {}). Tout body non vide, notamment seller_id, email, sellerSlug, topic_id ou pwa_client, est refusé (400). Signature/expiration invalides : 401 ; mauvais scope : 403 ; secret client absent/trop court : 503.
+
+Le client authentifié est chargé dans AIRTABLE_TABLE_PWA (la table PWA existante du Bridge). Son champ réciproque NovaPulse Sellers détermine le vendeur. Aucun lien : création dans NovaPulse Sellers avec seulement Seller_id et pwa_client:[ID client]. Un lien : réutilisation, avec vérification que pwa_client contient exactement le client authentifié et que Seller_id est valide et unique. Plusieurs liens : 409 sans écriture. Un profil existant avec Seller_id vide/invalide produit 409, sans doublon ni attribution silencieuse d'identité. Client introuvable : 404 ; échec Airtable : 502 sans détail interne.
+
+L'identifiant généré utilise sel_ suivi de 16 octets crypto.randomBytes encodés en hexadécimal (128 bits aléatoires). Vérification de collision avant écriture, au maximum cinq candidats. Relecture du lien avant et après création, puis vérification du vendeur et de l'unicité de son Seller_id. Le token vendeur est émis par activation-token.cjs, au format existant.
+
+Réponse : {"ok":true,"seller_id":"sel_...","activation_token":"v1....","created":true|false}. Aucun Record ID Airtable ajouté à cette réponse. Cache-Control: no-store.
+
+Un verrou mémoire par client sérialise les appels au sein du processus Node. Il ne garantit PAS l'unicité entre plusieurs instances/processus, après redémarrage, ou face aux modifications externes concurrentes : pour cette bêta, utiliser un seul processus de création. Airtable n'offre ici ni transaction ni contrainte d'unicité. Une écriture incertaine bloque les nouvelles créations pour ce client dans le processus jusqu'à constat d'un lien cohérent ; vérifier Airtable avant toute reprise/redémarrage. Aucune suppression compensatoire automatique.
+
+Vérification complète :
+
+node --test sellers/activation-start.test.cjs sellers/routes.test.cjs seller-config/env.test.cjs seller-config/generator.test.cjs seller-config/routes.test.cjs
+
+Les tests de démarrage utilisent un Airtable simulé autorisant uniquement la création minimale ; ceux de PUT restent sans méthode create. Le test email exécute le handler réel extrait de server.js sans démarrer les dépendances du Bridge. Aucun appel Airtable réel, frontend, média ou génération de config.
