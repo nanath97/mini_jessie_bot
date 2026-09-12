@@ -31,7 +31,14 @@ function createSellersService(base) {
     if (!validSellerId(sellerId)) throw new SellersError(400, 'INVALID_SELLER_ID');
     let records;
     try { records = await base('NovaPulse Sellers').select({ filterByFormula: `{Seller_id}="${sellerId}"`, maxRecords: 2 }).all(); }
-    catch { throw new SellersError(502, 'AIRTABLE_UNAVAILABLE'); }
+    catch (error) {
+  console.error("❌ AIRTABLE SELLER FIND ERROR:", {
+    message: error?.message,
+    statusCode: error?.statusCode,
+    error: error?.error,
+  });
+  throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
+}
     if (!records.length) throw new SellersError(404, 'SELLER_NOT_FOUND');
     if (records.length !== 1) throw new SellersError(409, 'DUPLICATE_SELLER');
     if (records[0].fields.Seller_id !== sellerId) throw new SellersError(409, 'SELLER_ID_CONFLICT');
@@ -40,7 +47,14 @@ function createSellersService(base) {
   return { findUnique, async update(sellerId, fields) {
     const record = await findUnique(sellerId);
     try { await base('NovaPulse Sellers').update(record.id, fields); }
-    catch { throw new SellersError(502, 'AIRTABLE_UNAVAILABLE'); }
+    catch (error) {
+  console.error("❌ AIRTABLE SELLER UPDATE ERROR:", {
+    message: error?.message,
+    statusCode: error?.statusCode,
+    error: error?.error,
+  });
+  throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
+}
     return { ok: true, seller_id: sellerId };
   } };
 }
