@@ -32,15 +32,21 @@ function createSellerConfigGenerator({ base, reverseLinks = {} } = {}) {
     const source = base || defaultBase();
     async function readRecord(table, id) {
       if (!validId(id)) throw new Error('Record ID lié invalide dans ' + table);
-      let record;
-      try { record = await source(table).find(id); }
+      let records;
+      try { records = await source(table).select({
+        filterByFormula: `OR(RECORD_ID()="${id}")`, maxRecords: 2,
+      }).all(); }
       catch (error) {
         const status = Number.isInteger(error?.statusCode) ? ' (HTTP ' + error.statusCode + ')' : '';
         throw new SellerConfigError(error?.statusCode === 404 ? 'RECORD_NOT_FOUND' : 'AIRTABLE_ERROR', error?.statusCode === 404
           ? 'Enregistrement introuvable dans ' + table
           : 'Échec de lecture Airtable dans ' + table + status);
       }
-      if (!record || record.id !== id || !record.fields) throw new Error('Réponse incohérente dans ' + table);
+      if (!Array.isArray(records)) throw new SellerConfigError('AIRTABLE_ERROR', 'Réponse incohérente dans ' + table);
+      if (!records.length) throw new SellerConfigError('RECORD_NOT_FOUND', 'Enregistrement introuvable dans ' + table);
+      if (records.length !== 1) throw new SellerConfigError('AIRTABLE_ERROR', 'Réponse incohérente dans ' + table);
+      const [record] = records;
+      if (!record || record.id !== id || !record.fields) throw new SellerConfigError('AIRTABLE_ERROR', 'Réponse incohérente dans ' + table);
       return record;
     }
     function linkedIds(record, field, { single = false, allowEmpty = false } = {}) {

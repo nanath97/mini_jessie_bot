@@ -17,6 +17,7 @@ for (const key of ['AIRTABLE_API_KEY', 'AIRTABLE_BASE_ID', 'SELLER_CONFIG_ADMIN_
 
 const app = express();
 registerSellerConfigRoutes(app);
+require('./pack-routes.cjs').registerSellerPackRoutes(app);
 const server = app.listen(10001, '127.0.0.1', () => {
   process.stdout.write('seller-config local : http://127.0.0.1:10001 (Ctrl+C pour arrêter)\n');
 });

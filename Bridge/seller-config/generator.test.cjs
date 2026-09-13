@@ -22,13 +22,17 @@ function fixture() {
 }
 function api(data = fixture(), options = {}) {
   const reads = [];
-  const base = table => ({ async find(id) {
+  const base = table => ({ select(query) {
+    const match = /^OR\(RECORD_ID\(\)="(rec[A-Za-z0-9]{14})"\)$/.exec(query.filterByFormula);
+    assert.ok(match);
+    const id = match[1];
+    assert.deepEqual(query, { filterByFormula: `OR(RECORD_ID()="${id}")`, maxRecords: 2 });
+    return { async all() {
     reads.push([table, id]);
     if (options.fail) throw Object.assign(new Error('SECRET request credentials'), { statusCode: options.fail });
     const row = data[table]?.[id];
-    if (!row) throw Object.assign(new Error('missing'), { statusCode: 404 });
-    return structuredClone(row);
-  } }); // No select/list/mutation API: table scans or writes fail the tests.
+    return row ? structuredClone(options.multiple ? [row, row] : [row]) : [];
+  } }; } }); // Only exact filtered reads; no find or mutation API.
   return { ...createSellerConfigGenerator({ base, reverseLinks: options.reverseLinks }), reads };
 }
 test('two clients: isolated record reads, mapping, sorting and identical legacy identifiers', async () => {
@@ -54,6 +58,12 @@ test('invalid input rejected before reading Airtable', async () => {
   const generator = api();
   for (const input of [null, '', 'novapulse-ceo', ' rec00000000000001', 'rec\"injection', rid(1) + '\n']) await assert.rejects(generator.generateConfigForPwaClient(input), /invalide/);
   assert.equal(generator.reads.length, 0);
+});
+test('readRecord uses exact OR(RECORD_ID()="rec00000000000001") and rejects multiple results', async () => {
+  const generator = api();
+  await generator.generatePwaClientResult(rid(1));
+  assert.deepEqual(generator.reads[0], ['PWA Clients', rid(1)]);
+  await assert.rejects(api(fixture(), { multiple: true }).generatePwaClientResult(rid(1)), { code: 'AIRTABLE_ERROR' });
 });
 test('missing client, seller or child is an explicit error', async () => {
   for (const [table, id] of [['PWA Clients', 1], ['NovaPulse Sellers', 2], ['Services', 3], ['Digital Products', 5], ['Seller Media', 6]]) {

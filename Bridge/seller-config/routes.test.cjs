@@ -19,13 +19,17 @@ function fixture() {
 }
 async function setup(t, { data = fixture(), configuredToken = token, fail, generate } = {}) {
   let reads = 0;
-  const generator = createSellerConfigGenerator({ base: table => ({ async find(recordId) {
+  const generator = createSellerConfigGenerator({ base: table => ({ select(query) {
+    const match = /^OR\(RECORD_ID\(\)="(rec[A-Za-z0-9]{14})"\)$/.exec(query.filterByFormula);
+    assert.ok(match);
+    const recordId = match[1];
+    assert.deepEqual(query, { filterByFormula: `OR(RECORD_ID()="${recordId}")`, maxRecords: 2 });
+    return { async all() {
     reads++;
     if (fail) throw Object.assign(new Error('AIRTABLE_API_KEY=SECRET BASE_ID=SECRET'), { statusCode: fail });
     const record = data[table]?.[recordId];
-    if (!record) throw Object.assign(new Error('secret URL'), { statusCode: 404 });
-    return record;
-  } }) });
+    return record ? [record] : [];
+  } }; } }) });
   const app = express();
   registerSellerConfigRoutes(app, { generate: generate || generator.generateConfigForPwaClient, getAdminToken: () => configuredToken });
   const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');

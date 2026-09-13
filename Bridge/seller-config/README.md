@@ -6,7 +6,11 @@ Entrée backend : `generateConfigForPwaClient(pwaClientRecordId)`. Aucun usage d
 
 Les valeurs des champs liés sont des tableaux de Record IDs. Airtable crée automatiquement le lien réciproque : https://support.airtable.com/articles/3370222027-linking-records-in-airtable . Ces liens suffisent ; aucun champ formule RECORD_ID() ou lookup supplémentaire n'est nécessaire.
 
-Le module lit exclusivement des enregistrements individuels avec `table.find(recordId)` :
+Le module lit exclusivement des enregistrements individuels avec
+`table.select({ filterByFormula: 'OR(RECORD_ID()="<recordId>")', maxRecords: 2 }).all()`.
+Il n'utilise pas `.find()`, incompatible avec les permissions constatées en production.
+Zéro résultat donne `RECORD_NOT_FOUND`; plusieurs résultats ou un ID de réponse
+différent donnent `AIRTABLE_ERROR`. Les étapes restent :
 
 1. `PWA Clients` par le Record ID d'entrée.
 2. Le seul Record ID contenu dans son champ réciproque `NovaPulse Sellers`.
@@ -74,7 +78,7 @@ L'option `base` permet aussi d'injecter une instance SDK backend ou une doublure
 node --test seller-config/generator.test.cjs
 ```
 
-24 tests vérifient deux clients et deux vendeurs, les lectures limitées aux liens, les anciens identifiants identiques ignorés, les liens multiples/étrangers/vides, les enregistrements absents, le mapping, le tri, les médias, les erreurs réseau et les noms réciproques personnalisés. Le faux client n'expose aucune méthode de lecture globale ou de mutation.
+25 tests vérifient deux clients et deux vendeurs, les lectures limitées aux liens, la formule RECORD_ID exacte et sa cardinalité, les anciens identifiants identiques ignorés, les liens multiples/étrangers/vides, les enregistrements absents, le mapping, le tri, les médias, les erreurs réseau et les noms réciproques personnalisés. Le faux client n'expose que select/all avec filtre exact, sans find ni mutation.
 
 `pwa-client.example.json` est l'exemple complet fictif contrôlé par les tests. Il remplace l'ancien exemple novapulse-ceo et ne représente aucun vendeur réel.
 
@@ -124,7 +128,7 @@ Suite complète :
 node --test seller-config/env.test.cjs seller-config/generator.test.cjs seller-config/routes.test.cjs
 ```
 
-45 tests : 7 tests de configuration environnement, 24 tests du générateur et 14 tests HTTP sur un serveur Express local éphémère avec Airtable simulé, sans exécution du Bridge complet, sans appel Airtable réel et sans écriture de configuration sur disque.
+46 tests : 7 tests de configuration environnement, 25 tests du générateur et 14 tests HTTP sur un serveur Express local éphémère avec Airtable simulé, sans exécution du Bridge complet, sans appel Airtable réel et sans écriture de configuration sur disque.
 
 ## Serveur de développement isolé
 
@@ -134,7 +138,7 @@ Depuis Bridge :
 node seller-config/dev-server.cjs
 ```
 
-Écoute uniquement sur `127.0.0.1:10001`. Ce point d'entrée de développement charge exclusivement `seller-config/.env`, par chemin relatif au module, et utilise ses trois variables à la place des éventuelles valeurs héritées du shell. Il refuse de démarrer si l'une manque. Il ne charge pas server.js ni le .env principal, et monte uniquement la route seller-config. Ctrl+C arrête le serveur. Le comportement de production reste inchangé.
+Écoute uniquement sur `127.0.0.1:10001`. Ce point d'entrée de développement charge exclusivement `seller-config/.env`, par chemin relatif au module, et utilise ses trois variables à la place des éventuelles valeurs héritées du shell. Il refuse de démarrer si l'une manque. Il ne charge pas server.js ni le .env principal, et monte les routes seller-config et seller-pack. Ctrl+C arrête le serveur. Le comportement de production reste inchangé.
 
 Dans un second terminal, la commande suivante suppose que le token est déjà disponible dans `$env:SELLER_CONFIG_ADMIN_TOKEN` :
 

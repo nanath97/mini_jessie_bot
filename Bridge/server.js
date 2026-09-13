@@ -116,6 +116,7 @@ assertEnv();
 // =======================
 const app = express();
 require("./seller-config/routes.cjs").registerSellerConfigRoutes(app);
+require("./seller-config/pack-routes.cjs").registerSellerPackRoutes(app);
 const server = http.createServer(app);
 
 app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"] }));

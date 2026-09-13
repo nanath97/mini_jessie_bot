@@ -5,6 +5,13 @@ const { generateConfigForPwaClient, SellerConfigError } = require('./index.cjs')
 function readAdminToken() {
   return require('./env.cjs').readSellerConfigEnv().SELLER_CONFIG_ADMIN_TOKEN;
 }
+function isAdminAuthorized(req, getAdminToken) {
+  const expected = getAdminToken();
+  const supplied = req.get('X-NovaPulse-Admin-Token');
+  const digest = value => createHash('sha256').update(value).digest();
+  return typeof expected === 'string' && Boolean(expected.trim()) && typeof supplied === 'string'
+    && timingSafeEqual(digest(expected), digest(supplied));
+}
 
 const ERRORS = Object.freeze({
   INVALID_CLIENT_ID: [400, 'Record ID PWA Client invalide.'],
@@ -21,11 +28,7 @@ function registerSellerConfigRoutes(app, {
     res.set('Cache-Control', 'no-store');
     res.set('X-Content-Type-Options', 'nosniff');
     try {
-      const expected = getAdminToken();
-      const supplied = req.get('X-NovaPulse-Admin-Token');
-      const digest = value => createHash('sha256').update(value).digest();
-      if (typeof expected !== 'string' || !expected.trim() || typeof supplied !== 'string' ||
-          !timingSafeEqual(digest(expected), digest(supplied))) {
+      if (!isAdminAuthorized(req, getAdminToken)) {
         return res.status(403).json({ error: 'FORBIDDEN', message: 'Forbidden' });
       }
       const config = await generate(req.params.pwaClientRecordId);
@@ -42,4 +45,4 @@ function registerSellerConfigRoutes(app, {
   });
 }
 
-module.exports = { registerSellerConfigRoutes };
+module.exports = { registerSellerConfigRoutes, isAdminAuthorized, readAdminToken, ERRORS };
