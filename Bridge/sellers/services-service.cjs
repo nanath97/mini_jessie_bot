@@ -43,10 +43,27 @@ function createSellerServicesService(base) {
   }
   async function findOwned(id, seller) {
     if (!validRecordId(id)) throw new SellersError(400, 'INVALID_SERVICE_ID');
-    const records = await airtable(() => base('Services').select({ filterByFormula: `RECORD_ID()="${id}"`, maxRecords: 1 }).all());
-    if (!records.length) throw new SellersError(404, 'SERVICE_NOT_FOUND');
-    if (records[0].id !== id || !owned(records[0], seller.id)) throw new SellersError(403, 'FORBIDDEN');
-    return records[0];
+
+    let record;
+    try {
+      record = await base('Services').find(id);
+    } catch (error) {
+      if (error?.statusCode === 404) {
+        throw new SellersError(404, 'SERVICE_NOT_FOUND');
+      }
+      console.error("? AIRTABLE SERVICES ERROR:", {
+        message: error?.message,
+        statusCode: error?.statusCode,
+        error: error?.error,
+      });
+      throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
+    }
+
+    if (record.id !== id || !owned(record, seller.id)) {
+      throw new SellersError(403, 'FORBIDDEN');
+    }
+
+    return record;
   }
   return {
     async list(sellerId) {
