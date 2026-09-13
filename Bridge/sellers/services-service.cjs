@@ -30,8 +30,16 @@ function createSellerServicesService(base) {
     price: record.fields.price ?? 0, active: record.fields.active ?? false,
     sort_order: record.fields.sort_order ?? 0 });
   async function airtable(fn) {
-    try { return await fn(); }
-    catch { throw new SellersError(502, 'AIRTABLE_UNAVAILABLE'); }
+    try {
+      return await fn();
+    } catch (error) {
+      console.error("? AIRTABLE SERVICES ERROR:", {
+        message: error?.message,
+        statusCode: error?.statusCode,
+        error: error?.error,
+      });
+      throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
+    }
   }
   async function findOwned(id, seller) {
     if (!validRecordId(id)) throw new SellersError(400, 'INVALID_SERVICE_ID');
