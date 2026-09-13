@@ -38,21 +38,11 @@ test('seller services CRUD security', async t => {
     } };
     assert.equal(table, 'Services');
     return {
-      async find(id) {
-        reads++;
-        fail('read');
-        const row = rows.find(row => row.id === id);
-        if (!row) {
-          const error = new Error('Record not found');
-          error.statusCode = 404;
-          throw error;
-        }
-        return row;
-      },
       select(options) {
         reads++; assert.ok(options.filterByFormula);
         const ids = [...options.filterByFormula.matchAll(/RECORD_ID\(\)="(rec[A-Za-z0-9]+)"/g)].map(match => match[1]);
         assert.ok(ids.length);
+        assert.equal(options.filterByFormula, `OR(${ids.map(id => `RECORD_ID()="${id}"`).join(',')})`);
         return { async all() { fail('read'); return rows.filter(row => ids.includes(row.id)); } };
       },
       async create(fields) { fail('create'); writes.push({ operation: 'create', fields }); return { id: 'recNew00000000000', fields }; },
