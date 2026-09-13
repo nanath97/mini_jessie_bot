@@ -4,19 +4,6 @@ const { createSellersService } = require('./service.cjs');
 const FIELDS = ['name', 'price', 'active', 'sort_order'];
 const validRecordId = id => typeof id === 'string' && /^rec[A-Za-z0-9]{14}$/.test(id);
 
-// TEMPORARY production diagnostics: identifiers only, never full Airtable records.
-const diagId = id => validRecordId(id) ? id : null;
-const diagLinks = links => Array.isArray(links) ? links.map(diagId) : null;
-const diagRecords = records => records.map(record => ({ id: diagId(record.id), Seller: diagLinks(record.fields?.Seller) }));
-function diagnostic(marker, details) {
-  try {
-    console.info(marker, JSON.stringify({
-      ...details,
-      ...(process.env.RENDER_GIT_COMMIT ? { version: process.env.RENDER_GIT_COMMIT } : {}),
-    }));
-  } catch { /* Diagnostics must not affect request handling. */ }
-}
-
 function validateServiceFields(body, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new SellersError(400, 'INVALID_PAYLOAD');
   const keys = Object.keys(body);
@@ -57,13 +44,10 @@ function createSellerServicesService(base) {
   async function findOwned(id, seller) {
     if (!validRecordId(id)) throw new SellersError(400, 'INVALID_SERVICE_ID');
 
-    const filterByFormula = `OR(RECORD_ID()="${id}")`;
-    const diag = { id, sellerRecordId: diagId(seller.id), filterByFormula };
-    diagnostic('SELLER_SERVICES_DIAG_FIND', { ...diag, phase: 'request' });
     let records;
     try {
       records = await base('Services').select({
-        filterByFormula,
+        filterByFormula: `OR(RECORD_ID()="${id}")`,
       }).all();
     } catch (error) {
       console.error("? AIRTABLE SERVICES ERROR:", {
@@ -74,10 +58,6 @@ function createSellerServicesService(base) {
       throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
     }
 
-    diagnostic('SELLER_SERVICES_DIAG_FIND', {
-      ...diag, phase: 'response', count: records.length,
-      ids: records.map(record => diagId(record.id)), records: diagRecords(records),
-    });
     if (!records.length) throw new SellersError(404, 'SERVICE_NOT_FOUND');
     const record = records[0];
     if (record.id !== id || !owned(record, seller.id)) {
@@ -90,21 +70,13 @@ function createSellerServicesService(base) {
     async list(sellerId) {
       const seller = await findUnique(sellerId);
       const links = seller.fields['Services 2'] ?? [];
-      const diag = { sellerId, sellerRecordId: diagId(seller.id), services2: diagLinks(links) };
-      diagnostic('SELLER_SERVICES_DIAG_LIST', { ...diag, phase: 'seller' });
       if (!Array.isArray(links) || links.some(id => !validRecordId(id)) || new Set(links).size !== links.length) throw new SellersError(502, 'AIRTABLE_UNAVAILABLE');
       const ids = links, services = [];
       for (let i = 0; i < ids.length; i += 50) {
         const batch = ids.slice(i, i + 50);
-        const filterByFormula = `OR(${batch.map(id => `RECORD_ID()="${id}"`).join(',')})`;
-        diagnostic('SELLER_SERVICES_DIAG_LIST', { ...diag, phase: 'request', batch: i / 50, filterByFormula });
         const records = await airtable(() => base('Services').select({
-          filterByFormula,
+          filterByFormula: `OR(${batch.map(id => `RECORD_ID()="${id}"`).join(',')})`,
         }).all());
-        diagnostic('SELLER_SERVICES_DIAG_LIST', {
-          ...diag, phase: 'response', batch: i / 50, filterByFormula, count: records.length,
-          ids: records.map(record => diagId(record.id)), records: diagRecords(records),
-        });
         for (const record of records) {
           if (batch.includes(record.id) && owned(record, seller.id)) services.push(project(record));
         }
