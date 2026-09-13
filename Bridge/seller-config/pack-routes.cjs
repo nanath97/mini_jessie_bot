@@ -29,4 +29,4 @@ function registerSellerPackRoutes(app, { build = createSellerPackBuilder(), getA
     }
   });
 }
-module.exports = { registerSellerPackRoutes };
+module.exports = { registerSellerPackRoutes, PACK_ERRORS };
