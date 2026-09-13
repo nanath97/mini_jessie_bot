@@ -21,6 +21,12 @@ function registerSellersRoutes(app, { base, getAdminToken = () => readSellerConf
     await service.findUnique(sellerId);
     res.json({ ok: true, seller_id: sellerId, activation_token: issueActivationToken(sellerId), expires_in: 86400 });
   }));
+  app.get('/sellers', handle(async (req, res) => {
+    const match = /^Bearer ([A-Za-z0-9_.-]+)$/i.exec(req.get('Authorization') || '');
+    if (!match) throw new SellersError(401, 'INVALID_TOKEN');
+    const { seller_id: sellerId } = verifyActivationToken(match[1]);
+    res.json({ ok: true, seller: await service.get(sellerId) });
+  }));
   app.put('/sellers', handle(async (req, res) => {
     const match = /^Bearer ([A-Za-z0-9_.-]+)$/i.exec(req.get('Authorization') || '');
     if (!match) throw new SellersError(401, 'INVALID_TOKEN');

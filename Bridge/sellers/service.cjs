@@ -44,7 +44,16 @@ function createSellersService(base) {
     if (records[0].fields.Seller_id !== sellerId) throw new SellersError(409, 'SELLER_ID_CONFLICT');
     return records[0];
   }
-  return { findUnique, async update(sellerId, fields) {
+  return { findUnique, async get(sellerId) {
+    const record = await findUnique(sellerId);
+    return Object.fromEntries(FIELDS.map(field => {
+      const value = record.fields[field];
+      if (field === 'default_vat_rate') {
+        return [field, value == null || value === '' ? '' : Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : ''];
+      }
+      return [field, typeof value === 'string' ? value : ''];
+    }));
+  }, async update(sellerId, fields) {
     const record = await findUnique(sellerId);
     try { await base('NovaPulse Sellers').update(record.id, fields); }
     catch (error) {

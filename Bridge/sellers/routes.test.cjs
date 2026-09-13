@@ -14,7 +14,9 @@ test('activation routes: authentication, validation and update-only isolation', 
   const base = table => { assert.equal(table, 'NovaPulse Sellers'); return {
     select(options) { reads++; assert.deepEqual(options, { filterByFormula: '{Seller_id}="seller-a"', maxRecords: 2 }); return { async all() {
       if (mode === 'error') throw new Error('SECRET');
-      const row = { id: 'recA', fields: { Seller_id: 'seller-a', activation_status: 'pending', config_generated: false } };
+      const row = { id: 'recA', fields: { Seller_id: 'seller-a', activation_status: 'pending', config_generated: false,
+        company_name: 'Existing seller', country: 'BE', email: 'existing@example.com', default_vat_rate: 0,
+        pwa_client: ['recClient'], 'Seller Media': ['recMedia'], Services: ['recService'], 'Services 2': ['recService'], 'Digital Products': ['recProduct'], private_field: 'PRIVATE' } };
       if (mode === 'label-only' || mode === 'empty-id') {
         const other = { id: 'recOther', fields: { Seller_id: mode === 'empty-id' ? '' : 'seller-b', seller_label: 'seller-a', seller_id: 'seller-a' } };
         return [other].filter(record => record.fields.Seller_id === 'seller-a');
@@ -31,6 +33,35 @@ test('activation routes: authentication, validation and update-only isolation', 
   const auth = () => ({ Authorization: 'Bearer ' + issueActivationToken('seller-a') });
   const payload = { company_name: 'A', email: 'a@example.com', country: 'FR', default_vat_rate: '20', calendly: 'https://calendly.com/seller-a/meeting' };
   const signed = claims => { const encoded = Buffer.from(JSON.stringify(claims)).toString('base64url'); return 'v1.' + encoded + '.' + createHmac('sha256', process.env.SELLER_ACTIVATION_SECRET).update('v1.' + encoded).digest('base64url'); };
+  for (const [label, headers, status] of [
+    ['missing', {}, 401], ['invalid', { Authorization: 'Bearer invalid' }, 401],
+    ['expired', { Authorization: 'Bearer ' + signed({ seller_id: 'seller-a', scope: 'seller_activation', exp: 1 }) }, 401],
+    ['scope', { Authorization: 'Bearer ' + signed({ seller_id: 'seller-a', scope: 'other', exp: Math.floor(Date.now() / 1000) + 100 }) }, 403],
+  ]) await t.test('GET token ' + label, async () => {
+    const before = reads;
+    assert.equal((await call('GET', '/sellers', undefined, headers)).status, status);
+    assert.equal(reads, before); assert.equal(writes.length, 0);
+  });
+  for (const [scenario, status, code] of [['missing', 404, 'SELLER_NOT_FOUND'], ['duplicate', 409, 'DUPLICATE_SELLER'], ['error', 502, 'AIRTABLE_UNAVAILABLE']]) await t.test('GET lookup ' + scenario, async () => {
+    mode = scenario;
+    const response = await call('GET', '/sellers', undefined, auth());
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), { ok: false, error: code });
+    assert.equal(writes.length, 0);
+  });
+  await t.test('GET exact professional projection from token only, without writes or internal links', async () => {
+    mode = 'ok';
+    const response = await call('GET', '/sellers?seller_id=seller-b&sellerSlug=other&email=other@example.com', undefined, auth());
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual(await response.json(), { ok: true, seller: {
+      company_name: 'Existing seller', legal_name: '', legal_status: '', siren: '', siret: '',
+      address: '', postal_code: '', city: '', country: 'BE', email: 'existing@example.com', phone: '',
+      vat_status: '', vat_number: '', default_vat_rate: 0, calendly: '',
+    } });
+    assert.equal(writes.length, 0);
+  });
   await t.test('wrong admin token: 403, no Airtable read', async () => { const before=reads; assert.equal((await call('POST','/admin/seller-activation-token',{seller_id:'seller-a'},{'X-NovaPulse-Admin-Token':'wrong'})).status,403); assert.equal(reads,before); });
   for (const [m,status] of [['missing',404],['label-only',404],['empty-id',404],['duplicate',409],['ok',200]]) await t.test('admin issue '+m,async()=>{mode=m;const res=await call('POST','/admin/seller-activation-token',{seller_id:'seller-a'},{'X-NovaPulse-Admin-Token':admin});assert.equal(res.status,status);if(status===200){const data=await res.json();assert.equal(data.expires_in,86400);assert.ok(data.activation_token.startsWith('v1.'));assert.equal(res.headers.get('cache-control'),'no-store');}assert.equal(writes.length,0);});
   for (const [label,headers,status] of [
