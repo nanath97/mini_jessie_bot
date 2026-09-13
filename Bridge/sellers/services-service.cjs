@@ -13,11 +13,11 @@ function validateServiceFields(body, partial = false) {
   for (const key of keys) {
     const value = body[key];
     const valid = key === 'name' ? typeof value === 'string' && value.trim().length > 0
-      : key === 'price' ? typeof value === 'number' && Number.isFinite(value) && value >= 0
+      : key === 'price' ? typeof value === 'string' && value.trim().length > 0
       : key === 'active' ? typeof value === 'boolean'
       : Number.isSafeInteger(value) && value >= 0;
     if (!valid) throw new SellersError(400, 'INVALID_FIELD');
-    fields[key] = key === 'name' ? value.trim() : value;
+    fields[key] = key === 'name' || key === 'price' ? value.trim() : value;
   }
   return fields;
 }

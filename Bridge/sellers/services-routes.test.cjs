@@ -11,7 +11,7 @@ test('seller services CRUD security', async t => {
   const prior = process.env.SELLER_ACTIVATION_SECRET;
   process.env.SELLER_ACTIVATION_SECRET = randomBytes(32).toString('hex');
   t.after(() => { if (prior === undefined) delete process.env.SELLER_ACTIVATION_SECRET; else process.env.SELLER_ACTIVATION_SECRET = prior; });
-  const payload = { name: 'Consultation', price: 20, active: true, sort_order: 0 };
+  const payload = { name: 'Consultation', price: '20 EUR', active: true, sort_order: 0 };
   let mode, rows, writes, reads;
   const reset = () => {
     mode = 'ok'; writes = []; reads = 0;
@@ -95,7 +95,7 @@ test('seller services CRUD security', async t => {
   for (const method of ['POST', 'PUT']) {
     await t.test(method + ' invalid payloads and forbidden fields', async () => {
       reset();
-      const invalid = [null, [], {}, { ...payload, name: ' ' }, { ...payload, price: -1 }, { ...payload, price: '2' }, { ...payload, active: 1 }, { ...payload, sort_order: -1 }, { ...payload, sort_order: 1.2 }];
+      const invalid = [null, [], {}, { ...payload, name: ' ' }, { ...payload, price: '' }, { ...payload, price: '   ' }, { ...payload, price: 2 }, { ...payload, active: 1 }, { ...payload, sort_order: -1 }, { ...payload, sort_order: 1.2 }];
       for (const key of ['Seller_id', 'seller_id', 'sellerRecordId', 'Seller', 'pwa_client', 'Services 2', 'unexpected']) invalid.push({ ...payload, [key]: 'recOther000000000' });
       for (const body of invalid) assert.equal((await call(method, body, method === 'PUT' ? 'recA0000000000000' : '')).status, 400);
       assert.equal(writes.length, 0);
