@@ -211,6 +211,7 @@ res.sendFile(path.join(__dirname,"quote.html"))
 const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
 require("./sellers/routes.cjs").registerSellersRoutes(app, { base });
 require("./sellers/services-routes.cjs").registerSellerServicesRoutes(app, { base });
+require("./sellers/media-routes.cjs").registerSellerMediaRoutes(app, { base, cloudinary, multer, streamifier });
 require("./sellers/activation-start-routes.cjs").registerActivationStartRoute(app, { base, clientTable: AIRTABLE_TABLE_PWA });
 const tablePWA = base(AIRTABLE_TABLE_PWA);
 const tableMessages = base(AIRTABLE_TABLE_PWA_MESSAGES);

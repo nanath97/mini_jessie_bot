@@ -47,7 +47,7 @@ test('seller services CRUD security', async t => {
       },
       async create(fields) { fail('create'); writes.push({ operation: 'create', fields }); return { id: 'recNew00000000000', fields }; },
       async update(id, fields) { fail('update'); writes.push({ operation: 'update', id, fields }); const row = rows.find(row => row.id === id); row.fields = { ...row.fields, ...fields }; return row; },
-      async destroy(id) { fail('destroy'); writes.push({ operation: 'destroy', id }); return { id, deleted: true }; },
+      async destroy(id) { fail('destroy'); writes.push({ operation: 'destroy', id }); rows = rows.filter(row => row.id !== id); return { id, deleted: true }; },
     };
   };
   const app = express(); app.use(express.json()); registerSellerServicesRoutes(app, { base });
@@ -84,6 +84,78 @@ test('seller services CRUD security', async t => {
   });
   await t.test('empty reciprocal links never queries Services', async () => {
     reset(); rows = []; assert.deepEqual((await call('GET')).data, { ok: true, services: [] }); assert.equal(reads, 1);
+  });
+  await t.test('production ID: HTTP GET -> DELETE returned ID -> GET empty', async () => {
+    reset();
+    const id = 'recyA3vKd9zkeEos0';
+    assert.equal(/^rec[A-Za-z0-9]{14}$/.test(id), true);
+    rows = [{ id, fields: { ...payload, name: 'Service test NovaPulse', price: '10 EUR', Seller: ['recSellerA0000000'] } }];
+    const before = await call('GET');
+    assert.equal(before.status, 200);
+    assert.deepEqual(before.data.services, [{ id, name: 'Service test NovaPulse', price: '10 EUR', active: true, sort_order: 0 }]);
+    assert.deepEqual(await call('DELETE', undefined, before.data.services[0].id), { status: 200, data: { ok: true } });
+    assert.deepEqual(writes, [{ operation: 'destroy', id }]);
+    assert.deepEqual(await call('GET'), { status: 200, data: { ok: true, services: [] } });
+  });
+  await t.test('installed Airtable SDK: compare GET and DELETE reads at transport boundary', async t => {
+    const Airtable = require('airtable');
+    const encode = require('airtable/lib/object_to_query_param_string');
+    const sdk = new Airtable({ apiKey: 'local-test-only' }).base('app00000000000000');
+    const id = 'recyA3vKd9zkeEos0', sellerId = 'recSellerA0000000';
+    let stored, scenario, requests;
+    // Keep the real SDK select/all/Record/destroy code; replace only network I/O.
+    sdk('Services')._base.runAction = (method, path, params, body, done) => {
+      requests.push({ method, path, params: { ...params }, body });
+      if (path === '/NovaPulse%20Sellers') {
+        return done(null, {}, { records: [{ id: sellerId, fields: { Seller_id: 'seller-a', 'Services 2': stored ? [id] : [] } }] });
+      }
+      if (method === 'get' && path === '/Services') {
+        if (scenario === 'error') return done(Object.assign(new Error('PRIVATE DETAIL'), { statusCode: 403, error: 'NOT_AUTHORIZED' }));
+        return done(null, {}, { records: stored ? [stored] : [] });
+      }
+      if (method === 'delete' && path === '/Services/' + id) {
+        stored = undefined;
+        return done(null, {}, { id, deleted: true });
+      }
+      return done(new Error('Unexpected SDK request'));
+    };
+    const sdkApp = express(); sdkApp.use(express.json()); registerSellerServicesRoutes(sdkApp, { base: sdk });
+    const sdkServer = sdkApp.listen(0, '127.0.0.1'); await once(sdkServer, 'listening');
+    t.after(() => new Promise(resolve => { sdkServer.close(resolve); sdkServer.closeAllConnections(); }));
+    const request = async (method, suffix = '') => {
+      const response = await fetch('http://127.0.0.1:' + sdkServer.address().port + '/seller-services' + suffix, { method, headers: { Authorization: 'Bearer ' + token } });
+      const data = await response.json();
+      assert.ok(!JSON.stringify(data).includes('PRIVATE DETAIL'));
+      return { status: response.status, data };
+    };
+    const restore = () => {
+      scenario = 'ok'; requests = [];
+      stored = { id, fields: { name: 'Service test NovaPulse', price: '10 EUR', active: true, sort_order: 0, Seller: [sellerId] } };
+    };
+    restore();
+    const before = await request('GET');
+    assert.equal(before.status, 200);
+    assert.equal(before.data.services[0].id, id);
+    assert.deepEqual(await request('DELETE', '/' + before.data.services[0].id), { status: 200, data: { ok: true } });
+    const reads = requests.filter(entry => entry.path === '/Services');
+    assert.equal(reads.length, 2);
+    assert.deepEqual(reads[0], reads[1]);
+    assert.deepEqual(reads[0], { method: 'get', path: '/Services', params: { filterByFormula: 'OR(RECORD_ID()="recyA3vKd9zkeEos0")' }, body: null });
+    assert.equal(new URLSearchParams(encode(reads[0].params)).get('filterByFormula'), reads[0].params.filterByFormula);
+    assert.deepEqual(await request('GET'), { status: 200, data: { ok: true, services: [] } });
+    for (const [label, expected] of [['foreign', 403], ['multiple', 403], ['missing', 404], ['unexpected', 403], ['error', 502]]) {
+      await t.test('production ID ' + label, async () => {
+        restore();
+        if (label === 'foreign') stored.fields.Seller = ['recSellerB0000000'];
+        if (label === 'multiple') stored.fields.Seller = [sellerId, sellerId];
+        if (label === 'missing') stored = undefined;
+        if (label === 'unexpected') stored.id = 'recOther000000000';
+        if (label === 'error') scenario = 'error';
+        const result = await request('DELETE', '/' + id);
+        assert.deepEqual(result, { status: expected, data: { ok: false, error: expected === 404 ? 'SERVICE_NOT_FOUND' : expected === 502 ? 'AIRTABLE_UNAVAILABLE' : 'FORBIDDEN' } });
+        assert.equal(requests.some(entry => entry.method === 'delete'), false);
+      });
+    }
   });
   await t.test('duplicate Services 2 links fail before querying Services', async () => {
     reset(); rows.push(rows[0]);
