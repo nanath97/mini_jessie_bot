@@ -75,7 +75,7 @@ test('multiple sellers return 409', async t => {
 test('new seller without children still downloads successfully', async t => {
   const data = fixture(); delete data['NovaPulse Sellers'][id(11)].fields['Services 2'];
   const api = await setup(t, { data }); const res = await api.request(); assert.equal(res.status, 200);
-  const c = await res.json(); assert.deepEqual(c.services, []); assert.deepEqual(c.digitalProducts, []); assert.equal(c.company.logo, '');
+  const c = await res.json(); assert.deepEqual(c.services, []); assert.equal(c.company.logo, '');
 });
 test('Airtable failure is a sanitized 502', async t => {
   const api = await setup(t, { fail: 403 }); const res = await api.request();

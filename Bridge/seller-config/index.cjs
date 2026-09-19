@@ -4,7 +4,7 @@ class SellerConfigError extends Error {
   constructor(code, message) { super(message); this.name = 'SellerConfigError'; this.code = code; }
 }
 
-const TABLES = Object.freeze({ seller: 'NovaPulse Sellers', services: 'Services', products: 'Digital Products', media: 'Seller Media' });
+const TABLES = Object.freeze({ seller: 'NovaPulse Sellers', services: 'Services', media: 'Seller Media' });
 const str = value => {
   if (Array.isArray(value)) {
     if (value.length > 1) throw new Error('Champ scalaire contenant plusieurs valeurs lookup.');
@@ -13,7 +13,7 @@ const str = value => {
   return value == null ? '' : String(value);
 };
 const validId = value => typeof value === 'string' && /^rec[A-Za-z0-9]{14}$/.test(value);
-const REVERSE_LINKS = Object.freeze({ seller: 'NovaPulse Sellers', services: 'Services 2', products: 'Digital Products', media: 'Seller Media' });
+const REVERSE_LINKS = Object.freeze({ seller: 'NovaPulse Sellers', services: 'Services 2', media: 'Seller Media' });
 // Airtable attachment fields and URL fields are both supported.
 const mediaUrl = value => Array.isArray(value) ? str(value[0]?.url) : str(value);
 
@@ -84,7 +84,6 @@ function createSellerConfigGenerator({ base, reverseLinks = {} } = {}) {
         .map(record => record.fields);
     }
     const services = await readChildren('services', true);
-    const products = await readChildren('products', true);
     const [media = {}] = await readChildren('media');
     const vat = seller.default_vat_rate == null || seller.default_vat_rate === '' ? 0 : Number(seller.default_vat_rate);
     if (!Number.isFinite(vat) || vat < 0) throw new Error('default_vat_rate invalide.');
@@ -108,7 +107,6 @@ function createSellerConfigGenerator({ base, reverseLinks = {} } = {}) {
       },
       meta: { validated: true },
       services: services.map(row => ({ name: str(row.name), price: str(row.price) })),
-      digitalProducts: products.map(row => ({ title: str(row.title), description: str(row.description), price: str(row.price), image: mediaUrl(row.image), paymentLink: str(row.payment_link) })),
       buttonText: '📋 Voir les services et prestations', calendly: str(seller.calendly), phone: company.phone,
     };
     return { pwaClientRecordId, sellerRecordId, config, media: { avatar: company.logo, intro_video: mediaUrl(media.intro_video), beta_video: mediaUrl(media.beta_video) } };

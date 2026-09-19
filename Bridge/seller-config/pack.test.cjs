@@ -11,7 +11,7 @@ const token = 'offline-admin-token';
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0xff, 0xd9]);
 const mp4 = Buffer.from([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
 function fixture() {
-  return { config: { company: { name: 'Seller', logo: 'https://res.cloudinary.com/demo/image/upload/v1/avatar.png' }, services: [], digitalProducts: [] }, media: {
+  return { config: { company: { name: 'Seller', logo: 'https://res.cloudinary.com/demo/image/upload/v1/avatar.png' }, services: [] }, media: {
     avatar: 'https://res.cloudinary.com/demo/image/upload/v1/avatar.png',
     intro_video: 'https://res.cloudinary.com/demo/video/upload/v1/intro.mp4',
     beta_video: 'https://res.cloudinary.com/demo/video/upload/v1/beta.mp4',

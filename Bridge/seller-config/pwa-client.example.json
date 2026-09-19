@@ -46,15 +46,6 @@
       "price": "90"
     }
   ],
-  "digitalProducts": [
-    {
-      "title": "Guide 0",
-      "description": "",
-      "price": "19",
-      "image": "https://example.com/guide.png",
-      "paymentLink": "https://example.com/guide"
-    }
-  ],
   "buttonText": "📋 Voir les services et prestations",
   "calendly": "",
   "phone": ""
