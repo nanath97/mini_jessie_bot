@@ -1717,7 +1717,10 @@ app.get("/pwa/history", async (req, res) => {
     // =======================
     // Médias persistés en mémoire
     // =======================
-    const memoryMedia = (pwaHistoryStore[room] || []).map((m) => ({
+    // Quotes is canonical, including status. Ignore legacy in-memory quote copies.
+    const memoryMedia = (pwaHistoryStore[room] || [])
+      .filter((m) => m.isQuote !== true && !m.quoteId)
+      .map((m) => ({
       text: m.text || "",
       from: m.from || "admin",
       type: "media",
@@ -3504,19 +3507,11 @@ io.to(room).emit("admin_media",{
   text:"📄 Nouveau devis",
   from:"admin",
   quoteId: quoteId,
-  isQuote: true
+  isQuote: true,
+  quoteStatus: "pending"
 })
 
-pushPwaHistory(room,{
-  from:"admin",
-  type:"media",
-  mediaType:"document",
-  url: quoteUrl,
-  fileName:"quote.pdf",
-  text:"📄 Nouveau devis",
-  quoteId: quoteId,
-  isQuote: true
-})
+// Persisted in Quotes above; only ordinary media belongs in pwaHistoryStore.
 
 console.log("📄 Quote sent to PWA:", room)
 
