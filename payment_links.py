@@ -142,6 +142,9 @@ def save_payment_link_to_airtable(*, client_key: str, content_id: str, payment_l
         }
     }
 
+    if payment_role == "balance":
+        # A failed upload/send must not start the 24-hour collection window.
+        del data["fields"]["Sent At"]
     resp = requests.post(url, json=data, headers=headers)
     print("[AIRTABLE SAVE]", resp.status_code, resp.text)
     return resp

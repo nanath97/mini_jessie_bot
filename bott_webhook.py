@@ -13,6 +13,10 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from vip_topics import _user_topics, save_pwa_note_to_airtable
 from payment_links import create_dynamic_checkout, save_payment_link_to_airtable
+from quote_payments import (
+    QuotePayments, PaymentRuleError, resolve_env_payment,
+    payment_lock, close_balance_checkout, prepare_balance_link,
+)
 import json
 import stripe
 
@@ -1018,88 +1022,10 @@ def find_matching_accepted_quote(email: str, seller_slug: str, amount_cents: int
         print(f"❌ QUOTE MATCH ERROR : {e}")
         return None
 def find_matching_balance_quote(email: str, seller_slug: str, amount_cents: int):
-    try:
-        url = f"https://api.airtable.com/v0/{BASE_ID}/Quotes"
+    return QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY).find_balance_quote(
+        email, seller_slug, amount_cents
+    )
 
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-        }
-
-        params = {
-            "filterByFormula": (
-                f"AND("
-                f"{{client_email}}='{email}',"
-                f"{{seller_slug}}='{seller_slug}',"
-                f"{{status}}='accepted'"
-                f")"
-            ),
-            "sort[0][field]": "created_at",
-            "sort[0][direction]": "desc",
-            "maxRecords": 10
-        }
-
-        resp = requests.get(
-            url,
-            headers=headers,
-            params=params,
-            timeout=10
-        )
-
-        records = resp.json().get("records", [])
-
-        for record in records:
-            fields = record.get("fields", {})
-
-            quote_id = fields.get("quote_id", "")
-            remaining_raw = fields.get("remaining_amount", "")
-
-            try:
-                remaining_cents = int(
-                    Decimal(str(remaining_raw).replace(",", ".")) * 100
-                )
-            except Exception:
-                continue
-
-            if remaining_cents != amount_cents:
-                continue
-
-            # Vérifie que l'acompte existe déjà
-            payment_url = f"https://api.airtable.com/v0/{BASE_ID}/Payment%20Links"
-
-            payment_params = {
-                "filterByFormula": (
-                    f"AND("
-                    f"{{Quote ID}}='{quote_id}',"
-                    f"{{Payment Role}}='deposit',"
-                    f"{{Status}}='Paid'"
-                    f")"
-                ),
-                "maxRecords": 1
-            }
-
-            payment_resp = requests.get(
-                payment_url,
-                headers=headers,
-                params=payment_params,
-                timeout=10
-            )
-
-            deposit_records = payment_resp.json().get("records", [])
-
-            if not deposit_records:
-                continue
-
-            return {
-                "quote_id": quote_id,
-                "remaining_amount": remaining_raw
-            }
-
-        return None
-
-    except Exception as e:
-        print(f"❌ BALANCE QUOTE MATCH ERROR : {e}")
-        return None
-    
 # ================================
 # UTILS
 # ================================
@@ -1186,23 +1112,10 @@ async def encaisser_off_session(message: types.Message):
 
         email = client["email"]
 
-        matched_balance_quote = find_matching_balance_quote(
-            email=email,
-            seller_slug=client["seller_slug"],
-            amount_cents=amount_cents
+        payment_store = QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY)
+        matched_balance = payment_store.find_pending_balance(
+            email, client["seller_slug"], amount_cents
         )
-
-        if matched_balance_quote:
-            print(
-                "📄 DEVIS MATCHÉ POUR /encaisser :",
-                matched_balance_quote["quote_id"],
-                "| solde =",
-                matched_balance_quote["remaining_amount"]
-            )
-        else:
-            print(
-                "ℹ️ /encaisser paiement normal : aucun solde de devis correspondant"
-            )
 
         print(
             f"💳 /encaisser détecté | "
@@ -1258,35 +1171,52 @@ async def encaisser_off_session(message: types.Message):
 
         # 5. Déclenchement du paiement off-session
         try:
-            payment_intent = stripe.PaymentIntent.create(
-            amount=amount_cents,
-            currency="eur",
-            customer=customer_id,
-            payment_method=payment_method_id,
-            off_session=True,
-            confirm=True,
+            with payment_lock:
+                if matched_balance:
+                    close_balance_checkout(stripe, matched_balance, email, client["seller_slug"], amount_cents)
+                    payment_store.validate_balance(
+                        payment_store.get(matched_balance["id"]),
+                        email, client["seller_slug"], amount_cents,
+                        quote_id=matched_balance["fields"]["Quote ID"],
+                    )
+                payment_intent = stripe.PaymentIntent.create(
+                    amount=amount_cents,
+                    currency="eur",
+                    customer=customer_id,
+                    payment_method=payment_method_id,
+                    off_session=True,
+                    confirm=True,
 
-            metadata={
-                "channel": "novapulse_off_session",
-                "client_key": email,
-                "seller_slug": client["seller_slug"],
-                "admin_id": str(admin_id),
-                "payment_type": "off_session",
-                "topic_id": str(thread_id),
+                    metadata={
+                        "channel": "novapulse_off_session",
+                        "client_key": email,
+                        "seller_slug": client["seller_slug"],
+                        "admin_id": str(admin_id),
+                        "payment_type": "off_session",
+                        "topic_id": str(thread_id),
 
-                # Liaison avec le devis si /encaisser correspond à un solde
-                "quote_id": (
-                    matched_balance_quote["quote_id"]
-                    if matched_balance_quote
-                    else ""
-                ),
-                "payment_role": (
-                    "balance"
-                    if matched_balance_quote
-                    else ""
-                ),
-            },
-)
+                        "payment_link_record_id": matched_balance["id"] if matched_balance else "",
+                        # Le record Pending envoyé par /env est la preuve du solde.
+                        "quote_id": (
+                            matched_balance["fields"]["Quote ID"]
+                            if matched_balance
+                            else ""
+                        ),
+                        "payment_role": (
+                            "balance"
+                            if matched_balance
+                            else ""
+                        ),
+                    },
+                    **({"idempotency_key": f"novapulse-balance-{matched_balance['id']}"}
+                       if matched_balance else {}),
+                )
+
+                if matched_balance:
+                    # Keep the intent reference even before the success webhook arrives.
+                    payment_store.patch(matched_balance["id"], {
+                        "Stripe Payment Intent ID": payment_intent.id,
+                    })
 
             print(
                 "💳 OFF-SESSION DIRECT OK :",
@@ -1796,23 +1726,15 @@ async def envoyer_contenu_payant(message: types.Message):
     # RECHERCHE DU DEVIS CORRESPONDANT
     # ================================
 
-    matched_quote = find_matching_accepted_quote(
-        email=email,
-        seller_slug=seller_slug,
-        amount_cents=amount_cents
-    )
-
-    if matched_quote:
-        print(
-            "📄 DEVIS MATCHÉ POUR /env :",
-            matched_quote["quote_id"],
-            "| acompte =",
-            matched_quote["deposit_amount"]
+    try:
+        quote_id, payment_role = resolve_env_payment(
+            find_matching_accepted_quote, find_matching_balance_quote,
+            email, seller_slug, amount_cents,
         )
-    else:
-        print(
-            "ℹ️ /env paiement normal : aucun acompte de devis correspondant"
-        )
+    except Exception as exc:
+        print(f"[ENV PAYMENT REFUSED] {exc}")
+        await message.reply(f"❌ Association du paiement impossible : {exc}")
+        return
 
     # ✅ Identifiants robustes pour l’après-paiement
     client_key = email  # PWA client key = email (stable)
@@ -1822,30 +1744,41 @@ async def envoyer_contenu_payant(message: types.Message):
     buyer_type = client_data.get("type_client", "")
     print("DEBUG buyer_type =", repr(buyer_type), type(buyer_type))
 
-    checkout_url, session_id = create_dynamic_checkout(
-        amount_cents=amount_cents,
-        client_key=client_key,
-        content_id=content_id,
-        seller_slug=seller_slug,
-        admin_id=str(admin_id),
-        buyer_type=buyer_type,
-    )
+    if payment_role == "balance":
+        try:
+            payment_store = QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY)
+            checkout_url, session_id, content_id, balance_record_id = prepare_balance_link(
+                payment_store, stripe, create_dynamic_checkout, save_payment_link_to_airtable,
+                quote_id=quote_id, email=email, seller_slug=seller_slug,
+                amount_cents=amount_cents, content_id=content_id, admin_id=str(admin_id),
+                buyer_type=buyer_type, caption=motif,
+            )
+        except Exception as exc:
+            print(f"[ENV BALANCE PREPARE ERROR] {exc}")
+            await message.reply(f"❌ Préparation ou reprise du solde impossible : {exc}")
+            return
+    else:
+        checkout_url, session_id = create_dynamic_checkout(
+            amount_cents=amount_cents,
+            client_key=client_key,
+            content_id=content_id,
+            seller_slug=seller_slug,
+            admin_id=str(admin_id),
+            buyer_type=buyer_type,
+        )
 
-    # ✅ Airtable: on log la ligne Pending avec session_id (indispensable)
-    save_payment_link_to_airtable(
-    client_key=client_key,
-    content_id=content_id,
-    payment_link=checkout_url,
-    admin_id=str(admin_id),
-    amount_cents=amount_cents,
-    checkout_session_id=session_id,
-    caption=motif,
-
-    quote_id=matched_quote["quote_id"] if matched_quote else "",
-    payment_role="deposit" if matched_quote else ""
-)
-
-
+        # ✅ Airtable: on log la ligne Pending avec session_id (indispensable)
+        saved_payment = save_payment_link_to_airtable(
+            client_key=client_key,
+            content_id=content_id,
+            payment_link=checkout_url,
+            admin_id=str(admin_id),
+            amount_cents=amount_cents,
+            checkout_session_id=session_id,
+            caption=motif,
+            quote_id=quote_id,
+            payment_role=payment_role,
+        )
 
     # ================================
     # NOUVEAU : UPLOAD MEDIA VERS BRIDGE
@@ -1970,33 +1903,51 @@ async def envoyer_contenu_payant(message: types.Message):
             "amount": amount_cents,
         }
 
-        if is_media:
-            # 🔥 Flow paywall classique (inchangé)
-            requests.post(
-                f"{BRIDGE_API_URL}/pwa/send-paid-content",
-                json=payload,
-                timeout=5,
-            )
-        else:
-            # 💳 Paiement simple sans média
-            simple_payload = {
-                "email": email,
-                "sellerSlug": seller_slug,
-                "text": "💳 Paiement requis.",
-                "checkout_url": checkout_url,
-                "amount": amount_cents,
-            }
+        with payment_lock:
+            if payment_role == "balance":
+                fresh_balance = payment_store.require_incomplete(
+                    payment_store.get(balance_record_id), quote_id, email, amount_cents,
+                )
+                if (fresh_balance["fields"]["Checkout Session ID"] != session_id
+                        or fresh_balance["fields"]["Content ID"] != content_id):
+                    raise PaymentRuleError("Une autre reprise a remplacé ce Checkout : envoi interrompu.")
+            if is_media:
+                # 🔥 Flow paywall classique (inchangé)
+                sent_response = requests.post(
+                    f"{BRIDGE_API_URL}/pwa/send-paid-content",
+                    json=payload,
+                    timeout=5,
+                )
+            else:
+                # 💳 Paiement simple sans média
+                simple_payload = {
+                    "email": email,
+                    "sellerSlug": seller_slug,
+                    "text": "💳 Paiement requis.",
+                    "checkout_url": checkout_url,
+                    "amount": amount_cents,
+                }
 
-            requests.post(
-                f"{BRIDGE_API_URL}/pwa/send-simple-payment",
-                json=simple_payload,
-                timeout=5,
-            )
+                sent_response = requests.post(
+                    f"{BRIDGE_API_URL}/pwa/send-simple-payment",
+                    json=simple_payload,
+                    timeout=5,
+                )
 
+            if payment_role == "balance":
+                sent_response.raise_for_status()
+                if sent_response.json().get("success") is not True:
+                    raise PaymentRuleError("Le Bridge n'a pas confirmé l'envoi du solde.")
+                QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY).patch(
+                    balance_record_id, {"Sent At": datetime.utcnow().isoformat()}
+                )
         print(f"[PWA SEND OK] {email}")
 
     except Exception as e:
         print(f"[PWA ERROR] {e}")
+        if payment_role == "balance":
+            await message.reply("❌ Envoi ou horodatage du solde non confirmé. Vérification nécessaire.")
+            return
 
     await bot.send_message(
         chat_id=admin_id,

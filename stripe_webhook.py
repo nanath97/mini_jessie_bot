@@ -1,10 +1,13 @@
 # stripe_webhook.py
 
-from fastapi import APIRouter, Request, Header
+from fastapi import APIRouter, Request, Header, HTTPException
 import stripe
 import os
 import requests
 from facturx_postpersist import enqueue_persisted_response
+from quote_payments import (
+    QuotePayments, persist_balance_payment, persist_checkout_balance, off_session_message,
+)
 from datetime import datetime
 from bott_webhook import authorized_admin_ids  # adapte le nom exact du fichier
 from core import bot
@@ -206,6 +209,13 @@ def mark_payment_link_as_paid_by_session(
             print(f"[AIRTABLE] Aucun record trouvé pour session_id={checkout_session_id}")
             return None
 
+        stored_fields = records[0].get("fields", {})
+        if stored_fields.get("Payment Role") == "balance":
+            return persist_checkout_balance(
+                QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY),
+                records[0]["id"], checkout_session_id, buyer_fields, seller_slug,
+                get_next_invoice_number, enqueue_persisted_response, facturx_context,
+            )
         record_id = records[0]["id"]
         patch_url = f"{url}/{record_id}"
         invoice_number = get_next_invoice_number(seller_slug)
@@ -706,6 +716,41 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                             "❌ OFF-SESSION ELECTRONIC BILLING ADDRESS ERROR :",
                             e,
                         )
+                if payment_role == "balance":
+                    try:
+                        updated = persist_balance_payment(
+                            QuotePayments(requests, BASE_ID, AIRTABLE_API_KEY),
+                            payment_intent, get_next_invoice_number,
+                            enqueue_persisted_response, facturx_context,
+                        )
+                    except Exception as exc:
+                        print(f"[OFF-SESSION BALANCE REFUSED] {exc}")
+                        raise HTTPException(status_code=503, detail="Balance persistence failed") from exc
+                    if updated is not None:
+                        balance_fields = updated.json()["fields"]
+                        bridge_url = os.getenv("BRIDGE_API_URL")
+                        if bridge_url:
+                            try:
+                                requests.post(
+                                    f"{bridge_url}/pwa/unlock",
+                                    json={"email": client_key, "sellerSlug": seller_slug,
+                                          "contentId": balance_fields.get("Content ID"),
+                                          "sessionId": balance_fields.get("Checkout Session ID")},
+                                    timeout=5,
+                                )
+                                requests.post(
+                                    f"{bridge_url}/pwa/send-admin-message",
+                                    json={"email": client_key, "sellerSlug": seller_slug,
+                                          "text": off_session_message(amount_cents, "balance")},
+                                    timeout=5,
+                                )
+                            except Exception as exc:
+                                print(f"[OFF-SESSION BALANCE NOTIFY ERROR] {exc}")
+                    return {"status": "ok"}
+
+                # Un encaissement indépendant ne porte aucun rôle de devis.
+                quote_id = ""
+                payment_role = ""
                 # Vérification anti-doublon
                 formula = (
                     f"{{Stripe Payment Intent ID}}="
@@ -788,10 +833,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                                         "email": client_key,
                                         "sellerSlug": seller_slug,
                                         "text": (
-                                            f"✅ Paiement du solde effectué ! \n\n"
-                                            f"Le solde restant de {montant_euros:.2f} € "
-                                            f"a été débité sur le moyen de paiement enregistré, "
-                                            f"conformément aux modalités de paiement acceptées lors de la validation du devis."
+                                            f"✅ Paiement de {montant_euros:.2f} € effectué "
+                                            f"sur le moyen de paiement enregistré."
                                         ),
                                     },
                                     timeout=5,
@@ -808,6 +851,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                                 "❌ OFF-SESSION CLIENT NOTIFY ERROR :",
                                 e
                             )
+            except HTTPException:
+                raise
             except Exception as e:
                 print(
                     "❌ OFF-SESSION WEBHOOK ERROR :",
