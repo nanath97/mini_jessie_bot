@@ -72,10 +72,14 @@ console.log("CLOUDINARY CONFIG CHECK:", {
   api_secret_present: !!cloudinary.config().api_secret,
 });
 
+const MAX_MEDIA_SIZE = 50 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 20 * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20 MB
+    // Busboy rejects at the limit: allow exactly 50 MiB, then validate below.
+    fileSize: MAX_MEDIA_SIZE + 1,
   },
 });
 
@@ -1403,36 +1407,44 @@ io.on("connection", (socket) => {
 // UPLOAD MEDIA → CLOUDINARY
 // =======================
 
-app.post("/upload-media", upload.single("file"), async (req, res) => {
+app.post("/upload-media", (req, res, next) => {
+  upload.single("file")(req, res, error => {
+    if (error?.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ success: false, error: "FILE_TOO_LARGE" });
+    }
+    next(error);
+  });
+}, async (req, res) => {
   console.log("🔥 /upload-media route HIT");
 
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: "No file uploaded" });
     }
-    const forcePdfExtension =
-      req.body.forcePdfExtension === "true";
+    if (req.file.size > MAX_MEDIA_SIZE) {
+      return res.status(413).json({ success: false, error: "FILE_TOO_LARGE" });
+    }
 
     const mimeType = req.file.mimetype || "";
-    const originalName = req.file.originalname || "file";
-    const ext = path.extname(originalName).replace(".", "").toLowerCase(); // ex: "pdf"
-    const baseName = path
-      .basename(originalName, path.extname(originalName))
-      .replace(/[^\w\-]+/g, "_")
-      .slice(0, 60);
+    const normalizedMime = mimeType.split(";", 1)[0].trim().toLowerCase();
+    const ext = path.extname(req.file.originalname || "").slice(1).toLowerCase();
+    const isVideo = ["mp4", "mov", "webm", "m4v"].includes(ext) || normalizedMime.startsWith("video/");
 
-    let resourceType = "image";
-
-    if (mimeType.startsWith("video")) {
-      resourceType = "video";
-    } else if (
-      mimeType.includes("pdf") ||
-      mimeType.includes("msword") ||
-      mimeType.includes("officedocument") ||
-      mimeType.includes("application")
-    ) {
-      resourceType = "raw";
+    if (isVideo && req.file.size > MAX_VIDEO_SIZE) {
+      return res.status(413).json({ success: false, error: "VIDEO_TOO_LARGE" });
     }
+
+    // Preserve design sources as raw documents, even with an image MIME type.
+    const isDocument = ["pdf", "svg", "ai", "eps", "psd", "zip"].includes(ext) ||
+      ["image/svg+xml", "image/vnd.adobe.photoshop", "image/x-photoshop", "image/psd",
+        "image/x-eps", "image/eps", "application/postscript", "application/pdf",
+        "application/illustrator", "application/vnd.adobe.illustrator", "application/eps",
+        "application/x-eps", "application/zip", "application/x-zip-compressed"].includes(normalizedMime);
+    const isImage = ["png", "jpg", "jpeg"].includes(ext) ||
+      ["image/png", "image/jpeg"].includes(normalizedMime);
+    // Keep existing handling of other application/* documents and image formats.
+    const resourceType = isVideo ? "video" : isDocument ? "raw" : isImage ? "image" :
+      normalizedMime.startsWith("application/") ? "raw" : "image";
 
     console.log("📦 Upload type detected:", mimeType, "→", resourceType);
     console.log("📎 originalname:", req.file.originalname);
