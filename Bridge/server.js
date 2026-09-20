@@ -828,6 +828,11 @@ app.get("/success", (req, res) => {
 app.get("/cancel", (req, res) => {
   res.status(200).send("❌ Paiement annulé. Tu peux fermer cette page et réessayer.");
 });
+const telegramMedia = require("./telegram-media.cjs").createTelegramMedia({
+  token: TELEGRAM_BOT_TOKEN, axios,
+});
+app.get("/pwa/telegram-media/:reference", telegramMedia.download);
+
 app.get("/pwa/download", async (req, res) => {
   try {
     const fileUrl = String(req.query.url || "").trim();
@@ -836,7 +841,10 @@ app.get("/pwa/download", async (req, res) => {
     if (!fileUrl) return res.status(400).send("Missing url");
 
     // sécurité minimale: n'autorise QUE Cloudinary
-    if (!fileUrl.includes("res.cloudinary.com/")) {
+    let parsedUrl;
+    try { parsedUrl = new URL(fileUrl); } catch { return res.status(403).send("Forbidden"); }
+    if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "res.cloudinary.com" ||
+        parsedUrl.username || parsedUrl.password || parsedUrl.port) {
       return res.status(403).send("Forbidden");
     }
 
@@ -850,6 +858,7 @@ app.get("/pwa/download", async (req, res) => {
       timeout: 30000,
       validateStatus: () => true,
       headers: { "User-Agent": "Mozilla/5.0" },
+      maxRedirects: 0,
     });
 
     if (resp.status !== 200) {
@@ -1155,115 +1164,22 @@ updateAdminActivity();
     console.log("📤 Admin TEXT → PWA:", room, text);
   }
 
-  // D) admin -> PWA media (photo, video, document)
-  // PHOTO
-  if (message.photo && message.photo.length > 0) {
-    if (isPaywallCommand) {
-      console.log("⛔ PHOTO ignorée (paywall géré par Python)");
-      return res.sendStatus(200);
-    }
-
-    const fileId = message.photo[message.photo.length - 1].file_id;
-
-    const fileResp = await axios.get(
-      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
-    );
-
-    const filePath = fileResp.data?.result?.file_path;
-    if (filePath) {
-      const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
-
-
-      // 🔥 2) ENVOI DE LA PHOTO
+  // D) Telegram media uses only opaque NovaPulse URLs (also in history).
+  if (!isPaywallCommand) {
+    const media = message.document || message.video || message.photo?.[message.photo.length - 1];
+    const type = message.document ? "document" : message.video ? "video" : "photo";
+    if (media) {
+      const fileName = media.file_name || type;
+      const fileUrl = telegramMedia.createUrl(media.file_id, fileName, type);
       io.to(room).emit("admin_media", {
-        type: "photo",
-        url: fileUrl,
-        fileName: "photo",
-        text: message.caption || "",
-        from: "admin",
+        type, url: fileUrl, fileName, text: message.caption || "", from: "admin",
       });
       pushPwaHistory(room, {
-        from: "admin",
-        type: "media",
-        mediaType: "photo",
-        url: fileUrl,
-        fileName: "photo",
-        text: message.caption || "",
+        from: "admin", type: "media", mediaType: type,
+        url: fileUrl, fileName, text: message.caption || "",
       });
-      console.log("🧠 HISTORY +1 admin PHOTO →", room);
-
-      console.log("📸 Admin PHOTO + caption → PWA:", room);
     }
   }
-
-    if (message.video) {
-  if (isPaywallCommand) return res.sendStatus(200);
-
-  const fileId = message.video.file_id;
-
-  const fileResp = await axios.get(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
-  );
-
-  const filePath = fileResp.data?.result?.file_path;
-  if (filePath) {
-    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
-
-    io.to(room).emit("admin_media", {
-      type: "video",
-      url: fileUrl,
-      fileName: message.video.file_name || "video",
-      text: message.caption || "",
-      from: "admin",
-    });
-    pushPwaHistory(room, {
-      from: "admin",
-      type: "media",
-      mediaType: "video",
-      url: fileUrl,
-      fileName: message.video.file_name || "video",
-      text: message.caption || "",
-    });
-    console.log("🧠 HISTORY +1 admin VIDEO →", room);
-
-    console.log("🎥 Admin VIDEO + caption → PWA:", room);
-  }
-}
-
-    if (message.document) {
-  if (isPaywallCommand) return res.sendStatus(200);
-
-  const fileId = message.document.file_id;
-  const fileName = message.document.file_name || "document";
-
-  const fileResp = await axios.get(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
-  );
-
-  const filePath = fileResp.data?.result?.file_path;
-  if (filePath) {
-    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
-
-    io.to(room).emit("admin_media", {
-      type: "document",
-      url: fileUrl,
-      fileName,
-      text: message.caption || "",
-      from: "admin",
-    });
-    pushPwaHistory(room, {
-      from: "admin",
-      type: "media",
-      mediaType: "document",
-      url: fileUrl,
-      fileName,
-      text: message.caption || "",
-    });
-    console.log("🧠 HISTORY +1 admin DOCUMENT →", room);
-
-    console.log("📄 Admin DOCUMENT + caption → PWA:", room);
-  }
-}
 } // ← ferme le if(supergroup topic)
 } catch (err) {
   console.error("❌ /webhook error:", err.response?.data || err.message);
