@@ -202,13 +202,18 @@ const safeTva = isNaN(tva) ? 0 : Math.max(0, tva)
 // calcul
 const tvaAmount = total * (safeTva / 100)
 const totalTTC = total + tvaAmount
+const deposit = Number(document.getElementById("depositInput").value || 0)
+const safeDeposit = isNaN(deposit) ? 0 : Math.min(100, Math.max(0, deposit))
+const depositAmount = totalTTC * (safeDeposit / 100)
+const remainingAmount = totalTTC - depositAmount
 
 // affichage propre
 document.getElementById("total").innerText =
-  `HT : ${total.toFixed(2)} € | TVA : ${tvaAmount.toFixed(2)} € | TTC : ${totalTTC.toFixed(2)} €`
+  `HT : ${total.toFixed(2)} € | TVA : ${tvaAmount.toFixed(2)} € | TTC : ${totalTTC.toFixed(2)} €\nAcompte ${safeDeposit} % : ${depositAmount.toFixed(2)} € | Reste à payer : ${remainingAmount.toFixed(2)} €`
 
 }
 document.getElementById("tvaInput").addEventListener("input", updateTotal)
+document.getElementById("depositInput").addEventListener("input", updateTotal)
 
 async function generate(){
 
