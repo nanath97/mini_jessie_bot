@@ -1923,7 +1923,7 @@ async def envoyer_contenu_payant(message: types.Message):
                 simple_payload = {
                     "email": email,
                     "sellerSlug": seller_slug,
-                    "text": "💳 Paiement requis.",
+                    "text": nouvelle_legende or "💳 Paiement requis.",
                     "checkout_url": checkout_url,
                     "amount": amount_cents,
                 }
