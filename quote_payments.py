@@ -13,6 +13,14 @@ class PaymentRuleError(ValueError):
     pass
 
 
+def stripe_response_dict(value):
+    """Normalize SDK responses explicitly; StripeObject does not support dict.get."""
+    result = value if isinstance(value, dict) else value.to_dict()
+    if not isinstance(result, dict):
+        raise TypeError("Stripe to_dict() did not return a dict")
+    return result
+
+
 def formula_value(value):
     return str(value).replace("\\", "\\\\").replace("'", "\\'")
 
@@ -196,8 +204,8 @@ def prepare_balance_link(store, stripe_api, create_checkout, save_payment, *, qu
             record = store.require_incomplete(store.get(balances[0]["id"]), quote_id, email, amount_cents)
             fields = record["fields"]
             content_id = fields["Content ID"]
-            session = stripe_api.checkout.Session.retrieve(fields["Checkout Session ID"])
-            metadata = session.get("metadata") or {}
+            session = stripe_response_dict(stripe_api.checkout.Session.retrieve(fields["Checkout Session ID"]))
+            metadata = stripe_response_dict(session.get("metadata") or {})
             if (session.get("amount_total") != amount_cents or session.get("payment_status") != "unpaid"
                     or metadata.get("client_key") != email or metadata.get("seller_slug") != seller_slug
                     or metadata.get("content_id") != content_id):
@@ -256,8 +264,8 @@ def persist_checkout_balance(store, record_id, session_id, buyer_fields, seller_
 def close_balance_checkout(stripe_api, record, email, seller_slug, amount_cents):
     """Do not charge a balance whose Checkout has already completed at Stripe."""
     fields = record["fields"]
-    session = stripe_api.checkout.Session.retrieve(fields["Checkout Session ID"])
-    metadata = session.get("metadata") or {}
+    session = stripe_response_dict(stripe_api.checkout.Session.retrieve(fields["Checkout Session ID"]))
+    metadata = stripe_response_dict(session.get("metadata") or {})
     if (session.get("amount_total") != amount_cents or metadata.get("client_key") != email
             or metadata.get("seller_slug") != seller_slug
             or metadata.get("content_id") != fields["Content ID"]):
@@ -265,14 +273,15 @@ def close_balance_checkout(stripe_api, record, email, seller_slug, amount_cents)
     if session.get("payment_status") != "unpaid" or session.get("status") == "complete":
         raise PaymentRuleError("Checkout déjà payé ou terminé : prélèvement du solde refusé.")
     if session.get("status") == "open":
-        session = stripe_api.checkout.Session.expire(fields["Checkout Session ID"])
+        session = stripe_response_dict(stripe_api.checkout.Session.expire(fields["Checkout Session ID"]))
     if session.get("status") != "expired":
         raise PaymentRuleError("Impossible de fermer le Checkout avant le prélèvement.")
 
 
 def persist_balance_payment(store, intent, next_invoice, enqueue, context=None):
     """Patch the designated row once. Never create a replacement balance row."""
-    metadata = intent.get("metadata") or {}
+    intent = stripe_response_dict(intent)
+    metadata = stripe_response_dict(intent.get("metadata") or {})
     record_id = metadata.get("payment_link_record_id")
     with payment_lock:
         record = store.get(record_id)
