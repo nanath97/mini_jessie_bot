@@ -172,13 +172,38 @@ class QuotePayments:
 
     def find_pending_balance(self, email, seller_slug, amount_cents, now=None):
         records = self.records("Payment Links", f"AND({{Client Key}}='{formula_value(email)}',"
-                               f"{{Payment Role}}='balance',{{Status}}='Pending',{{Amount Cents}}={int(amount_cents)})")
-        if len(records) > 1:
-            raise PaymentRuleError("Plusieurs soldes Pending pour ce client et ce montant : encaissement refusé.")
-        if not records:
-            return None
-        # Invalid, too young or foreign-seller candidates must never fall back to normal.
-        return self.validate_balance(records[0], email, seller_slug, amount_cents, now=now)
+                               "{Payment Role}='balance',{Status}='Pending')")
+        candidates = []
+        for record in records:
+            fields = record.get("fields", {})
+            qid = fields.get("Quote ID")
+            if (not qid or fields.get("Client Key") != email
+                    or fields.get("Payment Role") != "balance" or fields.get("Status") != "Pending"):
+                continue
+            quotes = self.records("Quotes", f"{{quote_id}}='{formula_value(qid)}'")
+            owned = [q for q in quotes if q.get("fields", {}).get("client_email") == email
+                     and q["fields"].get("seller_slug") == seller_slug]
+            if not owned:
+                continue
+            if len(quotes) != 1 or owned[0]["fields"].get("quote_id") != qid:
+                raise PaymentRuleError("Devis ambigu : encaissement refusé.")
+            if owned[0]["fields"].get("status") == "accepted":
+                candidates.append(record)
+        if len(candidates) > 1:
+            raise PaymentRuleError("Plusieurs soldes Pending pour ce client et ce vendeur : encaissement refusé.")
+        if not candidates:
+            raise PaymentRuleError("Aucun solde de devis accepté n’est actuellement éligible à l’encaissement pour ce client.")
+        record = candidates[0]
+        balance_cents = record["fields"].get("Amount Cents")
+        if not isinstance(balance_cents, int) or isinstance(balance_cents, bool) or balance_cents <= 0:
+            raise PaymentRuleError("Montant du solde incohérent : encaissement refusé.")
+        # Validate the actual debt before disclosing its amount or accepting a command.
+        self.validate_balance(record, email, seller_slug, balance_cents, now=now)
+        if amount_cents != balance_cents:
+            amount = f"{balance_cents / 100:.2f}".replace(".", ",")
+            raise PaymentRuleError(f"Le solde restant dû pour ce devis est de {amount} €.\n"
+                                   "La commande doit correspondre exactement au solde du devis.")
+        return record
 
 
 def resolve_env_payment(deposit_lookup, balance_lookup, email, seller_slug, amount_cents):

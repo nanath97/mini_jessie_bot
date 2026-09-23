@@ -1085,6 +1085,8 @@ async def encaisser_off_session(message: types.Message):
 
         # Réutilise ta fonction existante
         amount_cents = parse_amount_to_cents(raw_amount)
+        if amount_cents <= 0 or Decimal(raw_amount.replace(",", ".")) * 100 != amount_cents:
+            raise PaymentRuleError("Montant invalide : utilisez un montant exact en centimes.")
 
         display_amount = format(
             amount_cents / 100,
@@ -1116,6 +1118,9 @@ async def encaisser_off_session(message: types.Message):
         matched_balance = payment_store.find_pending_balance(
             email, client["seller_slug"], amount_cents
         )
+
+        if not matched_balance:
+            raise PaymentRuleError("Aucun solde de devis accepté n’est actuellement éligible à l’encaissement pour ce client.")
 
         print(
             f"💳 /encaisser détecté | "
@@ -1172,13 +1177,17 @@ async def encaisser_off_session(message: types.Message):
         # 5. Déclenchement du paiement off-session
         try:
             with payment_lock:
-                if matched_balance:
-                    close_balance_checkout(stripe, matched_balance, email, client["seller_slug"], amount_cents)
-                    payment_store.validate_balance(
-                        payment_store.get(matched_balance["id"]),
-                        email, client["seller_slug"], amount_cents,
-                        quote_id=matched_balance["fields"]["Quote ID"],
-                    )
+                current_balance = payment_store.find_pending_balance(
+                    email, client["seller_slug"], amount_cents
+                )
+                if not current_balance or current_balance["id"] != matched_balance["id"]:
+                    raise PaymentRuleError("Solde modifié : encaissement refusé.")
+                close_balance_checkout(stripe, current_balance, email, client["seller_slug"], amount_cents)
+                payment_store.validate_balance(
+                    payment_store.get(matched_balance["id"]),
+                    email, client["seller_slug"], amount_cents,
+                    quote_id=matched_balance["fields"]["Quote ID"],
+                )
                 payment_intent = stripe.PaymentIntent.create(
                     amount=amount_cents,
                     currency="eur",
@@ -1195,28 +1204,17 @@ async def encaisser_off_session(message: types.Message):
                         "payment_type": "off_session",
                         "topic_id": str(thread_id),
 
-                        "payment_link_record_id": matched_balance["id"] if matched_balance else "",
-                        # Le record Pending envoyé par /env est la preuve du solde.
-                        "quote_id": (
-                            matched_balance["fields"]["Quote ID"]
-                            if matched_balance
-                            else ""
-                        ),
-                        "payment_role": (
-                            "balance"
-                            if matched_balance
-                            else ""
-                        ),
+                        "payment_link_record_id": matched_balance["id"],
+                        "quote_id": matched_balance["fields"]["Quote ID"],
+                        "payment_role": "balance",
                     },
-                    **({"idempotency_key": f"novapulse-balance-{matched_balance['id']}"}
-                       if matched_balance else {}),
+                    idempotency_key=f"novapulse-balance-{matched_balance['id']}",
                 )
 
-                if matched_balance:
-                    # Keep the intent reference even before the success webhook arrives.
-                    payment_store.patch(matched_balance["id"], {
-                        "Stripe Payment Intent ID": payment_intent.id,
-                    })
+                # Keep the intent reference even before the success webhook arrives.
+                payment_store.patch(matched_balance["id"], {
+                    "Stripe Payment Intent ID": payment_intent.id,
+                })
 
             print(
                 "💳 OFF-SESSION DIRECT OK :",
@@ -1250,11 +1248,14 @@ async def encaisser_off_session(message: types.Message):
                 f"⚠️ Carte refusée ou authentification nécessaire."
             )
 
+        except PaymentRuleError as e:
+            await message.reply(f"❌ Encaissement refusé.\n{e}")
+
         except Exception as e:
             print("❌ OFF-SESSION DIRECT ERROR :", e)
 
             await message.reply(
-                f"❌ Erreur Stripe : {e}"
+                "❌ Encaissement non confirmé. Vérification nécessaire avant toute nouvelle tentative."
             )
 
         raise CancelHandler()
@@ -1265,9 +1266,12 @@ async def encaisser_off_session(message: types.Message):
     except CancelHandler:
         raise
 
+    except PaymentRuleError as e:
+        await message.reply(f"❌ Encaissement refusé.\n{e}")
+
     except Exception as e:
         print(f"❌ /encaisser ERROR : {e}")
-        await message.reply(f"❌ Erreur : {e}")
+        await message.reply("❌ Encaissement refusé. Impossible de vérifier le solde actuellement.")
 
     raise CancelHandler()
 # ================================

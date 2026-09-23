@@ -221,12 +221,12 @@ class CollectionTests(unittest.TestCase):
         with self.assertRaisesRegex(PaymentRuleError, 'Plusieurs soldes'):
             self.select()
 
-    def test_15_no_pending_is_normal(self):
+    def test_15_no_pending_is_refused(self):
         self.http.payments.remove(self.row)
-        self.assertIsNone(self.select())
+        with self.assertRaises(PaymentRuleError): self.select()
 
-    def test_17_other_amount_is_normal(self):
-        self.assertIsNone(self.select(15000))
+    def test_17_other_amount_is_refused(self):
+        with self.assertRaisesRegex(PaymentRuleError, "700,00"): self.select(15000)
 
     def test_timestamp_formats_and_invalid(self):
         for value in ('2026-09-19T12:00:00', '2026-09-19T12:00:00Z', '2026-09-19T14:00:00+02:00'):
@@ -292,12 +292,9 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(args['idempotency_key'], 'novapulse-balance-rec-balance')
         self.assertEqual(self.row['fields']['Stripe Payment Intent ID'], 'pi-test')
 
-    def test_handler_normal_metadata_empty(self):
+    def test_handler_independent_collection_refused(self):
         stripe, _ = self.handler(150)
-        args = stripe.PaymentIntent.create.call_args.kwargs
-        self.assertEqual(args['metadata']['payment_role'], '')
-        self.assertEqual(args['metadata']['quote_id'], '')
-        self.assertNotIn('idempotency_key', args)
+        stripe.PaymentIntent.create.assert_not_called()
 
     def test_checkout_already_paid_blocks_offsession(self):
         api = SimpleNamespace(checkout=SimpleNamespace(Session=SimpleNamespace(
