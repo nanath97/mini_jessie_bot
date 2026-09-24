@@ -468,6 +468,13 @@ async def voir_mes_vips(callback_query: types.CallbackQuery):
 
 
 
+def neutralize_csv_cell(value):
+    """Keep text formula prefixes inert in spreadsheets; preserve numeric values."""
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r", "\n")):
+        return "'" + value
+    return value
+
+
 @dp.callback_query_handler(lambda c: c.data == "export_factures")
 async def export_factures(callback_query: types.CallbackQuery):
     admin_id = str(callback_query.from_user.id)
@@ -570,7 +577,7 @@ async def export_factures(callback_query: types.CallbackQuery):
             motif = f.get("Caption", "")
             numero = f.get("Invoice Number", "")
 
-            writer.writerow([
+            writer.writerow([neutralize_csv_cell(value) for value in [
                 numero,
                 raw_date,
 
@@ -604,7 +611,7 @@ async def export_factures(callback_query: types.CallbackQuery):
                 "EUR",
                 motif,
                 "PRESTATION"
-            ])
+            ]])
 
 
         # 🔥 IMPORTANT : ENCODAGE APRÈS ÉCRITURE
